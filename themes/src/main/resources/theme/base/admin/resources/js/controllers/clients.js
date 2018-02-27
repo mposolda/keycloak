@@ -1047,6 +1047,14 @@ module.controller('ClientDetailCtrl', function($scope, realm, client, flows, $ro
                 $scope.excludeSessionStateFromAuthResponse = false;
             }
         }
+
+        if ($scope.client.attributes["display.on.consent.screen"]) {
+            if ($scope.client.attributes["display.on.consent.screen"] == "true") {
+                $scope.displayOnConsentScreen = true;
+            } else {
+                $scope.displayOnConsentScreen = false;
+            }
+        }
     }
 
     if (!$scope.create) {
@@ -1278,6 +1286,12 @@ module.controller('ClientDetailCtrl', function($scope, realm, client, flows, $ro
         } else {
             $scope.clientEdit.attributes["exclude.session.state.from.auth.response"] = "false";
 
+        }
+
+        if ($scope.displayOnConsentScreen == true) {
+            $scope.clientEdit.attributes["display.on.consent.screen"] = "true";
+        } else {
+            $scope.clientEdit.attributes["display.on.consent.screen"] = "false";
         }
 
         $scope.clientEdit.protocol = $scope.protocol;
@@ -2501,21 +2515,34 @@ module.controller('ClientScopeDetailCtrl', function($scope, realm, clientScope, 
     $scope.create = !clientScope.name;
 
     function updateProperties() {
+        if (!$scope.clientScope.attributes) {
+            $scope.clientScope.attributes = {};
+        }
+
         if ($scope.clientScope.protocol) {
             $scope.protocol = $scope.protocols[$scope.protocols.indexOf($scope.clientScope.protocol)];
         } else {
             $scope.protocol = $scope.protocols[0];
         }
+
+        if ($scope.clientScope.attributes["display.on.consent.screen"]) {
+            if ($scope.clientScope.attributes["display.on.consent.screen"] == "true") {
+                $scope.displayOnConsentScreen = true;
+            } else {
+                $scope.displayOnConsentScreen = false;
+            }
+        } else {
+            $scope.displayOnConsentScreen = true;
+        }
     }
 
     if (!$scope.create) {
         $scope.clientScope = angular.copy(clientScope);
-        updateProperties();
     } else {
-        $scope.clientScope = {
-        };
-        $scope.protocol = $scope.protocols[0];
+        $scope.clientScope = {};
     }
+
+    updateProperties();
 
 
     $scope.switchChange = function() {
@@ -2549,6 +2576,12 @@ module.controller('ClientScopeDetailCtrl', function($scope, realm, clientScope, 
 
     $scope.save = function() {
         $scope.clientScope.protocol = $scope.protocol;
+
+        if ($scope.displayOnConsentScreen == true) {
+            $scope.clientScope.attributes["display.on.consent.screen"] = "true";
+        } else {
+            $scope.clientScope.attributes["display.on.consent.screen"] = "false";
+        }
 
         if ($scope.create) {
             ClientScope.save({
