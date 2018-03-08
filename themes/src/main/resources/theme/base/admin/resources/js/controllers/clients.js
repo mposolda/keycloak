@@ -1960,9 +1960,14 @@ module.controller('ClientClientScopesSetupCtrl', function($scope, realm, Realm, 
 
     // Populate available client scopes. Available client scopes are neither already assigned to 'default' or 'optional'
     for (var i = 0; i < clientScopes.length; i++) {
+        var clientScope = clientScopes[i];
         var scopeName = clientScopes[i].name;
 
         var available = true;
+        if (clientScope.protocol != client.protocol) {
+            available = false;
+        }
+
         for (var j = 0; j < $scope.clientDefaultClientScopes.length; j++) {
             if (scopeName === $scope.clientDefaultClientScopes[j].name) {
                 available = false;
@@ -1975,19 +1980,16 @@ module.controller('ClientClientScopesSetupCtrl', function($scope, realm, Realm, 
         }
 
         if (available) {
-            $scope.availableClientScopes.push(clientScopes[i]);
+            $scope.availableClientScopes.push(clientScope);
         }
     }
 
     $scope.addDefaultClientScope = function () {
 
-        console.log('addDefaultClientScope');
-
         toAdd = $scope.selectedDefaultClientScopes.length;
 
         for (var i = 0; i < $scope.selectedDefaultClientScopes.length; i++) {
             var currentScope = $scope.selectedDefaultClientScopes[i];
-            console.log('adding default client scope: ' + currentScope.name);
 
             ClientDefaultClientScopes.update({
                 realm : realm.realm,
@@ -1995,7 +1997,6 @@ module.controller('ClientClientScopesSetupCtrl', function($scope, realm, Realm, 
                 clientScopeId : currentScope.id
             }, function () {
                 toAdd = toAdd - 1;
-                console.log('toAdd: ' + toAdd);
                 if (toAdd === 0) {
                     $route.reload();
                     Notifications.success("Default scopes updated.");
@@ -2006,13 +2007,10 @@ module.controller('ClientClientScopesSetupCtrl', function($scope, realm, Realm, 
 
     $scope.deleteDefaultClientScope = function () {
 
-        console.log('deleteDefaultClientScope');
-
         toRemove = $scope.selectedDefDefaultClientScopes.length;
 
         for (var i = 0; i < $scope.selectedDefDefaultClientScopes.length; i++) {
             var currentScope = $scope.selectedDefDefaultClientScopes[i];
-            console.log('removing default client scope: ' + currentScope.name);
 
             ClientDefaultClientScopes.remove({
                 realm : realm.realm,
@@ -2020,7 +2018,6 @@ module.controller('ClientClientScopesSetupCtrl', function($scope, realm, Realm, 
                 clientScopeId : currentScope.id
             }, function () {
                 toRemove = toRemove - 1;
-                console.log('toRemove: ' + toRemove);
                 if (toRemove === 0) {
                     $route.reload();
                     Notifications.success("Default scopes updated.");
@@ -2031,13 +2028,10 @@ module.controller('ClientClientScopesSetupCtrl', function($scope, realm, Realm, 
 
     $scope.addOptionalClientScope = function () {
 
-        console.log('addOptionalClientScope');
-
         toAdd = $scope.selectedOptionalClientScopes.length;
 
         for (var i = 0; i < $scope.selectedOptionalClientScopes.length; i++) {
             var currentScope = $scope.selectedOptionalClientScopes[i];
-            console.log('adding optional client scope: ' + currentScope.name);
 
             ClientOptionalClientScopes.update({
                 realm : realm.realm,
@@ -2045,7 +2039,6 @@ module.controller('ClientClientScopesSetupCtrl', function($scope, realm, Realm, 
                 clientScopeId : currentScope.id
             }, function () {
                 toAdd = toAdd - 1;
-                console.log('toAdd: ' + toAdd);
                 if (toAdd === 0) {
                     $route.reload();
                     Notifications.success("Optional scopes updated.");
@@ -2056,13 +2049,10 @@ module.controller('ClientClientScopesSetupCtrl', function($scope, realm, Realm, 
 
     $scope.deleteOptionalClientScope = function () {
 
-        console.log('deleteOptionalClientScope');
-
         toRemove = $scope.selectedDefOptionalClientScopes.length;
 
         for (var i = 0; i < $scope.selectedDefOptionalClientScopes.length; i++) {
             var currentScope = $scope.selectedDefOptionalClientScopes[i];
-            console.log('removing optional client scope: ' + currentScope.name);
 
             ClientOptionalClientScopes.remove({
                 realm : realm.realm,
@@ -2070,7 +2060,6 @@ module.controller('ClientClientScopesSetupCtrl', function($scope, realm, Realm, 
                 clientScopeId : currentScope.id
             }, function () {
                 toRemove = toRemove - 1;
-                console.log('toRemove: ' + toRemove);
                 if (toRemove === 0) {
                     $route.reload();
                     Notifications.success("Optional scopes updated.");
@@ -2153,7 +2142,6 @@ module.controller('ClientClientScopesEvaluateCtrl', function($scope, Realm, User
 
         for (var i = 0; i < $scope.selectedClientScopes.length; i++) {
             var currentScope = $scope.selectedClientScopes[i];
-            console.log('adding assigned client scope: ' + currentScope.name);
 
             $scope.assignedClientScopes.push(currentScope);
 
@@ -2170,12 +2158,8 @@ module.controller('ClientClientScopesEvaluateCtrl', function($scope, Realm, User
 
 
     $scope.deleteAppliedClientScope = function () {
-
-        console.log('deleteAppliedClientScope');
-
         for (var i = 0; i < $scope.selectedDefClientScopes.length; i++) {
             var currentScope = $scope.selectedDefClientScopes[i];
-            console.log('deleting assigned client scope: ' + currentScope.name);
 
             $scope.availableClientScopes.push(currentScope);
 
@@ -2228,8 +2212,6 @@ module.controller('ClientClientScopesEvaluateCtrl', function($scope, Realm, User
 
     $scope.sendEvaluationRequest = function () {
 
-        console.log('sendEvaluationRequest');
-
         // Send request for retrieve protocolMappers
         $scope.protocolMappers = ClientEvaluateProtocolMappers.query({
             realm: realm.realm,
@@ -2241,7 +2223,7 @@ module.controller('ClientClientScopesEvaluateCtrl', function($scope, Realm, User
         updateScopeRealmRoles();
 
         // Send request for retrieve accessToken (in case user was selected)
-        if ($scope.userId != null && $scope.userId !== '') {
+        if (client.protocol === 'openid-connect' && $scope.userId != null && $scope.userId !== '') {
             var url = ClientEvaluateGenerateExampleToken.url({
                 realm: realm.realm,
                 client: client.id,
@@ -2304,13 +2286,13 @@ module.controller('ClientClientScopesEvaluateCtrl', function($scope, Realm, User
         $scope.grantedRealmRoles = ClientEvaluateGrantedRoles.query({
             realm: realm.realm,
             client: client.id,
-            roleContainerId: realm.id,
+            roleContainer: realm.realm,
             scopeParam: $scope.scopeParam
         });
         $scope.notGrantedRealmRoles = ClientEvaluateNotGrantedRoles.query({
             realm: realm.realm,
             client: client.id,
-            roleContainerId: realm.id,
+            roleContainer: realm.realm,
             scopeParam: $scope.scopeParam
         });
     }
@@ -2320,13 +2302,13 @@ module.controller('ClientClientScopesEvaluateCtrl', function($scope, Realm, User
             $scope.grantedClientRoles = ClientEvaluateGrantedRoles.query({
                 realm: realm.realm,
                 client: client.id,
-                roleContainerId: $scope.targetClient.id,
+                roleContainer: $scope.targetClient.id,
                 scopeParam: $scope.scopeParam
             });
             $scope.notGrantedClientRoles = ClientEvaluateNotGrantedRoles.query({
                 realm: realm.realm,
                 client: client.id,
-                roleContainerId: $scope.targetClient.id,
+                roleContainer: $scope.targetClient.id,
                 scopeParam: $scope.scopeParam
             });
         } else {
@@ -2413,13 +2395,10 @@ module.controller('ClientScopesRealmDefaultCtrl', function($scope, realm, Realm,
 
     $scope.addDefaultClientScope = function () {
 
-        console.log('addDefaultClientScope');
-
         toAdd = $scope.selectedDefaultClientScopes.length;
 
         for (var i = 0; i < $scope.selectedDefaultClientScopes.length; i++) {
             var currentScope = $scope.selectedDefaultClientScopes[i];
-            console.log('adding default client scope: ' + currentScope.name);
 
             RealmDefaultClientScopes.update({
                 realm : realm.realm,
@@ -2437,20 +2416,16 @@ module.controller('ClientScopesRealmDefaultCtrl', function($scope, realm, Realm,
 
     $scope.deleteDefaultClientScope = function () {
 
-        console.log('deleteDefaultClientScope');
-
         toRemove = $scope.selectedDefDefaultClientScopes.length;
 
         for (var i = 0; i < $scope.selectedDefDefaultClientScopes.length; i++) {
             var currentScope = $scope.selectedDefDefaultClientScopes[i];
-            console.log('removing default client scope: ' + currentScope.name);
 
             RealmDefaultClientScopes.remove({
                 realm : realm.realm,
                 clientScopeId : currentScope.id
             }, function () {
                 toRemove = toRemove - 1;
-                console.log('toRemove: ' + toRemove);
                 if (toRemove === 0) {
                     $route.reload();
                     Notifications.success("Realm default scopes updated.");
@@ -2461,13 +2436,10 @@ module.controller('ClientScopesRealmDefaultCtrl', function($scope, realm, Realm,
 
     $scope.addOptionalClientScope = function () {
 
-        console.log('addOptionalClientScope');
-
         toAdd = $scope.selectedOptionalClientScopes.length;
 
         for (var i = 0; i < $scope.selectedOptionalClientScopes.length; i++) {
             var currentScope = $scope.selectedOptionalClientScopes[i];
-            console.log('adding optional client scope: ' + currentScope.name);
 
             RealmOptionalClientScopes.update({
                 realm : realm.realm,
@@ -2485,20 +2457,16 @@ module.controller('ClientScopesRealmDefaultCtrl', function($scope, realm, Realm,
 
     $scope.deleteOptionalClientScope = function () {
 
-        console.log('deleteOptionalClientScope');
-
         toRemove = $scope.selectedDefOptionalClientScopes.length;
 
         for (var i = 0; i < $scope.selectedDefOptionalClientScopes.length; i++) {
             var currentScope = $scope.selectedDefOptionalClientScopes[i];
-            console.log('removing optional client scope: ' + currentScope.name);
 
             RealmOptionalClientScopes.remove({
                 realm : realm.realm,
                 clientScopeId : currentScope.id
             }, function () {
                 toRemove = toRemove - 1;
-                console.log('toRemove: ' + toRemove);
                 if (toRemove === 0) {
                     $route.reload();
                     Notifications.success("Realm optional scopes updated.");

@@ -31,6 +31,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.jboss.logging.Logger;
+import org.keycloak.OAuth2Constants;
 import org.keycloak.authorization.AuthorizationProvider;
 import org.keycloak.authorization.AuthorizationProviderFactory;
 import org.keycloak.authorization.model.PermissionTicket;
@@ -91,6 +92,7 @@ import org.keycloak.representations.idm.AuthenticatorConfigRepresentation;
 import org.keycloak.representations.idm.ClaimRepresentation;
 import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.ClientScopeRepresentation;
+import org.keycloak.representations.idm.ClientTemplateRepresentation;
 import org.keycloak.representations.idm.ComponentExportRepresentation;
 import org.keycloak.representations.idm.ComponentRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
@@ -143,6 +145,7 @@ public class RepresentationToModel {
     public static void importRealm(KeycloakSession session, RealmRepresentation rep, RealmModel newRealm, boolean skipUserDependent) {
         convertDeprecatedSocialProviders(rep);
         convertDeprecatedApplications(session, rep);
+        convertDeprecatedClientTemplates(rep);
 
         newRealm.setName(rep.getRealm());
         if (rep.getDisplayName() != null) newRealm.setDisplayName(rep.getDisplayName());
@@ -258,9 +261,6 @@ public class RepresentationToModel {
         importIdentityProviderMappers(rep, newRealm);
 
         Map<String, ClientScopeModel> clientScopes = new HashMap<>();
-        if (rep.getClientTemplates() != null) {
-            clientScopes = createClientScopes(session, rep.getClientTemplates(), newRealm);
-        }
         if (rep.getClientScopes() != null) {
             clientScopes = createClientScopes(session, rep.getClientScopes(), newRealm);
         }
@@ -783,6 +783,28 @@ public class RepresentationToModel {
         }
     }
 
+    private static void convertDeprecatedClientTemplates(RealmRepresentation realm) {
+        if (realm.getClientTemplates() != null) {
+
+            logger.warnf("Using deprecated 'clientTemplates' configuration in JSON representation for realm '%s'. It will be removed in future versions", realm.getRealm());
+
+            List<ClientScopeRepresentation> clientScopes = new LinkedList<>();
+            for (ClientTemplateRepresentation template : realm.getClientTemplates()) {
+                ClientScopeRepresentation scopeRep = new ClientScopeRepresentation();
+                scopeRep.setId(template.getId());
+                scopeRep.setName(template.getName());
+                scopeRep.setProtocol(template.getProtocol());
+                scopeRep.setDescription(template.getDescription());
+                scopeRep.setAttributes(template.getAttributes());
+                scopeRep.setProtocolMappers(template.getProtocolMappers());
+
+                clientScopes.add(scopeRep);
+            }
+
+            realm.setClientScopes(clientScopes);
+        }
+    }
+
     public static void renameRealm(RealmModel realm, String name) {
         if (name.equals(realm.getName())) return;
 
@@ -1174,7 +1196,8 @@ public class RepresentationToModel {
         }
 
         if (resourceRep.getClientTemplate() != null) {
-            addClientScopeToClient(realm, client, resourceRep.getClientTemplate(), true);
+            String clientTemplateName = KeycloakModelUtils.convertClientScopeName(resourceRep.getClientTemplate());
+            addClientScopeToClient(realm, client, clientTemplateName, true);
         }
 
         if (resourceRep.getDefaultClientScopes() != null) {
@@ -1203,6 +1226,8 @@ public class RepresentationToModel {
         ClientScopeModel clientScope = KeycloakModelUtils.getClientScopeByName(realm, clientScopeName);
         if (clientScope != null) {
             client.addClientScope(clientScope, defaultScope);
+        } else {
+            logger.warnf("Referenced client scope '%s' doesn't exists. Ignoring", clientScopeName);
         }
     }
 
@@ -1422,9 +1447,10 @@ public class RepresentationToModel {
             }
             return clientScope;
         } else if (scope.getClientTemplate() != null) { // Backwards compatibility
-            ClientScopeModel clientTemplate = KeycloakModelUtils.getClientScopeByName(realm, scope.getClientTemplate());
+            String templateName = KeycloakModelUtils.convertClientScopeName(scope.getClientTemplate());
+            ClientScopeModel clientTemplate = KeycloakModelUtils.getClientScopeByName(realm, templateName);
             if (clientTemplate == null) {
-                throw new RuntimeException("Unknown clientScope specification in scope mappings: " + scope.getClientTemplate());
+                throw new RuntimeException("Unknown clientScope specification in scope mappings: " + templateName);
             }
             return clientTemplate;
         } else {
@@ -1699,8 +1725,6 @@ public class RepresentationToModel {
         ProtocolMapperModel model = new ProtocolMapperModel();
         model.setId(rep.getId());
         model.setName(rep.getName());
-        model.setConsentRequired(rep.isConsentRequired());
-        model.setConsentText(rep.getConsentText());
         model.setProtocol(rep.getProtocol());
         model.setProtocolMapper(rep.getProtocolMapper());
         model.setConfig(removeEmptyString(rep.getConfig()));
@@ -1734,6 +1758,17 @@ public class RepresentationToModel {
                     throw new RuntimeException("Unable to find client scope referenced in consent mappings of user. Client scope name: " + scopeName);
                 }
                 consentModel.addGrantedClientScope(clientScope);
+            }
+        }
+
+        // Backwards compatibility. If user had consent for "offline_access" role, we treat it as he has consent for "offline_access" client scope
+        if (consentRep.getGrantedRealmRoles() != null) {
+            if (consentRep.getGrantedRealmRoles().contains(OAuth2Constants.OFFLINE_ACCESS)) {
+                ClientScopeModel offlineScope = client.getClientScopes(false, true).get(OAuth2Constants.OFFLINE_ACCESS);
+                if (offlineScope == null) {
+                    logger.warn("Unable to find offline_access scope referenced in grantedRoles of user");
+                }
+                consentModel.addGrantedClientScope(offlineScope);
             }
         }
 

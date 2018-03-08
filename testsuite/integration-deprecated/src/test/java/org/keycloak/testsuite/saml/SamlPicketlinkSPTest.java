@@ -351,7 +351,7 @@ public class SamlPicketlinkSPTest {
                         app.addProtocolMapper(mapper);
                     }
                 }
-                app.addProtocolMapper(HardcodedAttributeMapper.create("hardcoded-attribute", "hardcoded-attribute", "Basic", null, "hard", false, null));
+                app.addProtocolMapper(HardcodedAttributeMapper.create("hardcoded-attribute", "hardcoded-attribute", "Basic", null, "hard"));
                 app.addProtocolMapper(HardcodedRole.create("hardcoded-role", "hardcoded-role"));
                 app.addProtocolMapper(RoleNameMapper.create("renamed-role", "manager", "el-jefe"));
                 app.addProtocolMapper(RoleNameMapper.create("renamed-employee-role", "http://localhost:8081/employee/.employee", "pee-on"));
