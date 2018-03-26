@@ -1317,7 +1317,7 @@ public class RepresentationToModel {
         resource.updateClient();
     }
 
-    // CLIENT TEMPLATES
+    // CLIENT SCOPES
 
     private static Map<String, ClientScopeModel> createClientScopes(KeycloakSession session, List<ClientScopeRepresentation> clientScopes, RealmModel realm) {
         Map<String, ClientScopeModel> appMap = new HashMap<>();
