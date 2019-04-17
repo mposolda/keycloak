@@ -27,7 +27,7 @@
         <version>29</version>
     </parent>
 
-    <name>Keycloak</name>
+    <name>Keycloak - Open House</name>
     <description>
         Keycloak SSO
     </description>
