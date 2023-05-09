@@ -34,6 +34,8 @@ public class KeycloakFipsSecurityProvider extends Provider {
         if ("SHA1PRNG".equals(algorithm) && "SecureRandom".equals(type)) {
             logger.debug("Returning DEFAULT algorithm of BCFIPS provider instead of SHA1PRNG");
             return this.bcFipsProvider.getService("SecureRandom", "DEFAULT");
+        } else if ("PBE".equals(algorithm) && "SecretKeyFactory".equals(type)) {
+            return this.bcFipsProvider.getService("SecretKeyFactory", "HMACSHA256");
         } else {
             return null;
         }
