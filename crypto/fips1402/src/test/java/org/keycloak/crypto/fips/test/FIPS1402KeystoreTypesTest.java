@@ -13,6 +13,7 @@ import org.junit.Test;
 import org.keycloak.common.crypto.CryptoIntegration;
 import org.keycloak.common.util.Environment;
 import org.keycloak.common.util.KeystoreUtil;
+import org.keycloak.crypto.fips.KeycloakFipsSecurityProvider;
 import org.keycloak.rule.CryptoInitRule;
 
 /**
@@ -38,12 +39,16 @@ public class FIPS1402KeystoreTypesTest {
                 KeystoreUtil.KeystoreFormat.BCFKS));
     }
 
-    // BCFIPS approved mode supports only BCFKS. No JKS nor PKCS12 support for keystores
+    // BCFIPS approved mode supports only BCFKS. PKCS12 is supported as well just in case we can rely on FIPS enabled system, which supports security providers to
+    // deal with PKCS12 keystore in FIPS compliant way
     @Test
     public void testKeystoreFormatsInApprovedMode() {
         Assume.assumeTrue(CryptoServicesRegistrar.isInApprovedOnlyMode());
+        Assert.assertEquals("Running this test with BCFIPS approved mode supported only on FIPS enabled system!", "enabled", KeycloakFipsSecurityProvider.getSystemFipsStatus());
+
         Set<KeystoreUtil.KeystoreFormat> supportedKeystoreFormats = CryptoIntegration.getProvider().getSupportedKeyStoreTypes().collect(Collectors.toSet());
         Assert.assertThat(supportedKeystoreFormats, Matchers.containsInAnyOrder(
+                KeystoreUtil.KeystoreFormat.PKCS12,
                 KeystoreUtil.KeystoreFormat.BCFKS));
     }
 }

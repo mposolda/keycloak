@@ -33,7 +33,7 @@ BouncyCastle FIPS can be downloaded from the https://www.bouncycastle.org/fips-j
 
 == Generating keystore
 
-You can create either `pkcs12` or `bcfks` keystore to be used for the Keycloak server SSL. The `pkcs12` works well in BCFIPS non-approved mode.
+You can create either `pkcs12` or `bcfks` keystore to be used for the Keycloak server SSL. Note that `jks` keystore is not supported in Keycloak FIPS mode.
 
 PKCS12 keystore can be generated with OpenJDK 17 Java on RHEL 9 in the standard way.
 
@@ -84,8 +84,11 @@ KC(BCFIPS version 1.000203 Approved Mode, FIPS-JVM: enabled) version 1.0 - class
 
 === Cryptography restrictions in strict mode
 
-* As mentioned in the previous section, strict mode may not work with `pkcs12` keystore. It is needed to use another keystore (like `bcfks`) as mentioned earlier. Also `jks` and `pkcs12` keystores are not
-supported in Keycloak when using strict mode. Some examples are importing or generating a keystore of an OIDC or SAML client in the Admin Console or for a `java-keystore` provider in the realm keys.
+* BCFIPS approved mode, which is used when Keycloak uses `strict` mode, does not support `pkcs12` keystore. However it is possible to use `pkcs12` keystore as long as your system
+is FIPS compliant as described above. Keycloak itself will detect if system is FIPS compliant and `KC` provider logging output mentioned above will log `FIPS-JVM: enabled` in such case.
+In this case, `pkcs12` keystore can be used as Keycloak can rely on FIPS compliant security providers from the Java itself (typically `SunPKCS11-NSS-FIPS` security provider) instead of relying
+only on BCFIPS security providers. However the `bcfks` keystore type is the default type when using strict mode. So if you prefer to use `pkcs12` with strict mode, you may need to add
+property `--https-key-store-type=pkcs12` (similarly for truststore) when using `pkcs12` keystore in the HTTP layer.
 
 * User passwords must be 14 characters or longer. Keycloak uses PBKDF2 based password encoding by default. BCFIPS approved mode requires passwords to be at least 112 bits
 (effectively 14 characters) with PBKDF2 algorithm. If you want to allow a shorter password, set the property `max-padding-length` of provider `pbkdf2-sha256` of SPI `password-hashing`

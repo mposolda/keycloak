@@ -23,7 +23,7 @@ public class KeycloakFipsSecurityProvider extends Provider {
         super("KC(" +
                 bcFipsProvider.toString() +
                 (isInApprovedOnlyMode() ? " Approved Mode" : "") +
-                ", FIPS-JVM: " + isSystemFipsEnabled() +
+                ", FIPS-JVM: " + getSystemFipsStatus() +
                 ")", 1, "Keycloak pseudo provider");
         this.bcFipsProvider = bcFipsProvider;
     }
@@ -39,7 +39,7 @@ public class KeycloakFipsSecurityProvider extends Provider {
         }
     }
 
-    public static String isSystemFipsEnabled() {
+    public static String getSystemFipsStatus() {
         Method isSystemFipsEnabled = null;
 
         try {
@@ -49,12 +49,17 @@ public class KeycloakFipsSecurityProvider extends Provider {
             boolean isEnabled = (boolean) isSystemFipsEnabled.invoke(null);
             return isEnabled ? "enabled" : "disabled";
         } catch (Throwable ignore) {
-            logger.debug("Could not detect if FIPS is enabled from the host", ignore);
+            // TODO:mposolda
+            logger.warn("Could not detect if FIPS is enabled from the host", ignore);
             return "unknown";
         } finally {
             if (isSystemFipsEnabled != null) {
                 isSystemFipsEnabled.setAccessible(false);
             }
         }
+    }
+
+    public static boolean isSystemFipsEnabled() {
+        return "enabled".equals(getSystemFipsStatus());
     }
 }

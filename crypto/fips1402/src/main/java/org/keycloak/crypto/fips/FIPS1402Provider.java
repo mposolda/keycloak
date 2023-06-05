@@ -199,7 +199,15 @@ public class FIPS1402Provider implements CryptoProvider {
     
     @Override
     public KeyStore getKeyStore(KeystoreFormat format) throws KeyStoreException, NoSuchProviderException {
-        return KeyStore.getInstance(format.toString(), BouncyIntegration.PROVIDER);
+        try {
+            return KeyStore.getInstance(format.toString(), BouncyIntegration.PROVIDER);
+        } catch (KeyStoreException ke) {
+            // For PKCS12, we can fallback to system (Sun-NSS-PKCS11 based) security providers but just in case when running on FIPS enabled system
+            if (format.equals(KeystoreFormat.PKCS12) && KeycloakFipsSecurityProvider.isSystemFipsEnabled()) {
+                return KeyStore.getInstance(format.toString());
+            }
+            throw ke;
+        }
     }
 
     @Override
