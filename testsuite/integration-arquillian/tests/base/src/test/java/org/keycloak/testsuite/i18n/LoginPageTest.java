@@ -43,6 +43,7 @@ import org.jboss.arquillian.graphene.page.Page;
 import org.keycloak.testsuite.pages.LoginPasswordUpdatePage;
 import org.keycloak.testsuite.pages.OAuthGrantPage;
 import org.keycloak.testsuite.util.IdentityProviderBuilder;
+import org.keycloak.testsuite.util.WaitUtils;
 import org.openqa.selenium.Cookie;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -89,6 +90,8 @@ public class LoginPageTest extends AbstractI18NTest {
 
     @Test
     public void languageDropdown() {
+        // TODO:mposolda
+        WaitUtils.pause(10000000);
         loginPage.open();
         assertEquals("English", loginPage.getLanguageDropdownText());
 

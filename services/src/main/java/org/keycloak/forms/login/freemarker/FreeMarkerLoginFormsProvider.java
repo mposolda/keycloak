@@ -490,6 +490,10 @@ public class FreeMarkerLoginFormsProvider implements LoginFormsProvider {
                         case LOGOUT_CONFIRM:
                             b = UriBuilder.fromUri(Urls.logoutConfirm(baseUri, realm.getName()));
                             break;
+                        case DETACHED_INFO:
+                            b = UriBuilder.fromUri(Urls.loginActionsDetachedInfo(baseUri, realm.getName()));
+                            b.queryParam(LoginActionsService.MESSAGE_KEY, getFirstMessageUnformatted()); // TODO:mposolda localization needed? Or is it always the 'key'?
+                            break;
                         default:
                             b = UriBuilder.fromUri(baseUri).path(uriInfo.getPath());
                             break;
@@ -608,6 +612,11 @@ public class FreeMarkerLoginFormsProvider implements LoginFormsProvider {
     @Override
     public Response createInfoPage() {
         return createResponse(LoginFormsPages.INFO);
+    }
+
+    @Override
+    public Response createDetachedInfoPage() {
+        return createResponse(LoginFormsPages.DETACHED_INFO);
     }
 
     @Override

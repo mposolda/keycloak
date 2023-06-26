@@ -19,6 +19,7 @@ package org.keycloak.services.resources;
 import org.jboss.logging.Logger;
 import org.keycloak.common.Profile;
 import org.keycloak.common.util.ResponseSessionTask;
+import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.http.HttpRequest;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.TokenVerifier;
@@ -122,10 +123,14 @@ public class LoginActionsService {
 
     public static final String RESTART_PATH = "restart";
 
+    public static final String DETACHED_INFO_PATH = "detached-info";
+
     public static final String FORWARDED_ERROR_MESSAGE_NOTE = "forwardedErrorMessage";
 
     public static final String SESSION_CODE = "session_code";
     public static final String AUTH_SESSION_ID = "auth_session_id";
+
+    public static final String MESSAGE_KEY = "message_key";
     
     public static final String CANCEL_AIA = "cancel-aia";
 
@@ -241,6 +246,37 @@ public class LoginActionsService {
         URI redirectUri = getLastExecutionUrl(flowPath, null, authSession.getClient().getClientId(), tabId);
         logger.debugf("Flow restart requested. Redirecting to %s", redirectUri);
         return Response.status(Response.Status.FOUND).location(redirectUri).build();
+    }
+
+    /**
+     * protocol independent "detached info" page
+     *
+     * @return
+     */
+    @Path(DETACHED_INFO_PATH)
+    @GET
+    public Response detachedInfo(@QueryParam(MESSAGE_KEY) String messageKey,
+                                 @QueryParam(Constants.CLIENT_ID) String clientId) {
+        // TODO:mposolda Some CSRF check?
+        processLocaleParam(null);
+
+        boolean skipLink = true;
+        if (clientId != null) {
+            ClientModel client = session.clients().getClientByClientId(realm, clientId);
+            if (client != null) {
+                session.getContext().setClient(client);
+                skipLink = client.equals(SystemClientUtil.getSystemClient(realm));
+            }
+        }
+
+        // TODO:mposolda message parameters?
+        // TODO:mposolda maybe support for errors as well?
+        LoginFormsProvider loginForm = session.getProvider(LoginFormsProvider.class).setSuccess(messageKey);
+
+        if (skipLink) {
+            loginForm.setAttribute(Constants.SKIP_LINK, true);
+        }
+        return loginForm.createDetachedInfoPage();
     }
 
 

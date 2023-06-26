@@ -51,7 +51,8 @@ public class LogoutUtil {
         if (usedSystemClient) {
             loginForm.setAttribute(Constants.SKIP_LINK, true);
         }
-        return loginForm.createInfoPage();
+        loginForm.setAuthenticationSession(null);
+        return loginForm.createDetachedInfoPage();
     }
 
 

@@ -76,6 +76,8 @@ public interface LoginFormsProvider extends Provider {
 
     Response createInfoPage();
 
+    Response createDetachedInfoPage();
+
     Response createUpdateProfilePage();
 
     Response createIdpLinkConfirmLinkPage();
