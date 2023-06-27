@@ -502,9 +502,14 @@ public class FreeMarkerLoginFormsProvider implements LoginFormsProvider {
                                 // TODO:mposolda trace?
                                 logger.infof("Detached authentication session. Message: %s, messageType: %s, clientId: %s",
                                         formMessage.getMessage(), messageType.toString(), client==null ? "null" : client.getClientId());
+
+
+                                String stateCheckerParam = new DetachedInfoStateChecker(session, realm).generateAndSetCookie();
+
                                 b = UriBuilder.fromUri(Urls.loginActionsDetachedInfo(baseUri, realm.getName()))
                                         .queryParam(LoginActionsService.MESSAGE_TYPE, messageType.toString())
-                                        .queryParam(LoginActionsService.MESSAGE_KEY, formMessage.getMessage());
+                                        .queryParam(LoginActionsService.MESSAGE_KEY, formMessage.getMessage())
+                                        .queryParam(DetachedInfoStateChecker.STATE_CHECKER_PARAM, stateCheckerParam);
                                 if (formMessage.getParameters() != null) {
                                     b.queryParam(LoginActionsService.MESSAGE_PARAMS, formMessage.getParameters());
                                 }

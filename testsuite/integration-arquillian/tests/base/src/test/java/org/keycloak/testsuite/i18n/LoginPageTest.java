@@ -17,6 +17,8 @@
 package org.keycloak.testsuite.i18n;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Locale;
 
@@ -29,6 +31,8 @@ import org.junit.Test;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.adapters.HttpClientBuilder;
 import org.keycloak.admin.client.resource.UserResource;
+import org.keycloak.common.util.KeycloakUriBuilder;
+import org.keycloak.forms.login.freemarker.DetachedInfoStateChecker;
 import org.keycloak.locale.LocaleSelectorProvider;
 import org.keycloak.models.UserModel;
 import org.keycloak.representations.idm.RealmRepresentation;
@@ -44,7 +48,6 @@ import org.jboss.arquillian.graphene.page.Page;
 import org.keycloak.testsuite.pages.LoginPasswordUpdatePage;
 import org.keycloak.testsuite.pages.OAuthGrantPage;
 import org.keycloak.testsuite.util.IdentityProviderBuilder;
-import org.keycloak.testsuite.util.WaitUtils;
 import org.openqa.selenium.Cookie;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -262,6 +265,7 @@ public class LoginPageTest extends AbstractI18NTest {
         Assert.assertNull(localeCookie);
     }
 
+
     // Test for user updating locale on the error page (when authenticationSession is not available)
     @Test
     public void languageUserUpdatesOnErrorPage() {
@@ -286,6 +290,28 @@ public class LoginPageTest extends AbstractI18NTest {
         errorPage.openLanguage("English");
         assertEquals("English", errorPage.getLanguageDropdownText());
         Assert.assertEquals("Invalid parameter: redirect_uri", errorPage.getError());
+    }
+
+    @Test
+    public void languageUserUpdatesOnErrorPageStateCheckerTest() throws URISyntaxException {
+        // Login page with invalid redirect_uri
+        oauth.redirectUri("http://invalid");
+        loginPage.open();
+
+        errorPage.assertCurrent();
+        Assert.assertEquals("Invalid parameter: redirect_uri", errorPage.getError());
+
+        errorPage.openLanguage("Deutsch");
+        Assert.assertEquals("Ungültiger Parameter: redirect_uri", errorPage.getError());
+
+        // Add incorrect state checker parameter. Error page should be shown about expired action. Language won't be changed
+        String currentUrl = driver.getCurrentUrl();
+        String newUrl = KeycloakUriBuilder.fromUri(new URI(currentUrl))
+                .replaceQueryParam(LocaleSelectorProvider.KC_LOCALE_PARAM, "en")
+                .replaceQueryParam(DetachedInfoStateChecker.STATE_CHECKER_PARAM, "invalid").buildAsString();
+        driver.navigate().to(newUrl);
+
+        Assert.assertEquals("Die Aktion ist nicht mehr gültig.", errorPage.getError()); // Action expired.
     }
 
     @Test

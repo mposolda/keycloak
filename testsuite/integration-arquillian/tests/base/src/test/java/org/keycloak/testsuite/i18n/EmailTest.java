@@ -146,6 +146,7 @@ public class EmailTest extends AbstractI18NTest {
     }
 
     //KEYCLOAK-7478
+    // Issue 13922
     @Test
     public void changeLocaleOnInfoPage() throws InterruptedException, IOException {
         UserResource testUser = ApiUtil.findUserByUsernameId(testRealm(), "login-test");

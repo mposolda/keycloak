@@ -21,6 +21,7 @@ import org.keycloak.common.Profile;
 import org.keycloak.common.util.ResponseSessionTask;
 import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.forms.login.MessageType;
+import org.keycloak.forms.login.freemarker.DetachedInfoStateChecker;
 import org.keycloak.http.HttpRequest;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.TokenVerifier;
@@ -263,9 +264,14 @@ public class LoginActionsService {
     public Response detachedInfo(@QueryParam(MESSAGE_KEY) String messageKey,
                                  @QueryParam(MESSAGE_TYPE) String messageType,
                                  @QueryParam(STATUS) String status,
-                                 @QueryParam(Constants.CLIENT_ID) String clientId) {
+                                 @QueryParam(Constants.CLIENT_ID) String clientId,
+                                 @QueryParam(DetachedInfoStateChecker.STATE_CHECKER_PARAM) String stateCheckerParam) {
         // TODO:mposolda trace or remove entirely
-        logger.infof("detached info: messageKey=%s, messageType=%s, status=%s, clientId=%s", messageKey, messageType, status, clientId);
+        logger.infof("Detached info endpoint invoked: messageKey=%s, messageType=%s, status=%s, clientId=%s, stateCheckerParam=%s", messageKey, messageType, status, clientId, stateCheckerParam);
+
+        if (!(new DetachedInfoStateChecker(session, realm).verifyStateCheckerParameter(stateCheckerParam))) {
+            return ErrorPage.error(session, null, Response.Status.BAD_REQUEST, Messages.EXPIRED_ACTION_TOKEN_NO_SESSION);
+        }
 
         // TODO:mposolda Some CSRF check?
         processLocaleParam(null);
