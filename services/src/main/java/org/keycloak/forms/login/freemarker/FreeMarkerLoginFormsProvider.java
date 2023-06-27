@@ -86,7 +86,7 @@ import org.keycloak.theme.beans.AdvancedMessageFormatterMethod;
 import org.keycloak.theme.beans.LocaleBean;
 import org.keycloak.theme.beans.MessageBean;
 import org.keycloak.theme.beans.MessageFormatterMethod;
-import org.keycloak.theme.beans.MessageType;
+import org.keycloak.forms.login.MessageType;
 import org.keycloak.theme.beans.MessagesPerFieldBean;
 import org.keycloak.theme.freemarker.FreeMarkerProvider;
 import org.keycloak.userprofile.UserProfileContext;
@@ -112,6 +112,7 @@ public class FreeMarkerLoginFormsProvider implements LoginFormsProvider {
     protected MessageType messageType = MessageType.ERROR;
 
     protected MultivaluedMap<String, String> formData;
+    protected boolean detachedAuthSession = false;
 
     protected KeycloakSession session;
     /** authenticationSession can be null for some renderings, mainly error pages */
@@ -490,10 +491,28 @@ public class FreeMarkerLoginFormsProvider implements LoginFormsProvider {
                         case LOGOUT_CONFIRM:
                             b = UriBuilder.fromUri(Urls.logoutConfirm(baseUri, realm.getName()));
                             break;
-                        case DETACHED_INFO:
-                            b = UriBuilder.fromUri(Urls.loginActionsDetachedInfo(baseUri, realm.getName()));
-                            b.queryParam(LoginActionsService.MESSAGE_KEY, getFirstMessageUnformatted()); // TODO:mposolda localization needed? Or is it always the 'key'?
-                            break;
+                        case INFO:
+                        case ERROR:
+                            if (isDetachedAuthenticationSession()) {
+                                FormMessage formMessage = getFirstMessage();
+                                if (formMessage == null) {
+                                    throw new IllegalStateException("Not able to create info/error page with detached authentication session as no info/error message available");
+                                }
+
+                                // TODO:mposolda trace?
+                                logger.infof("Detached authentication session. Message: %s, messageType: %s, clientId: %s",
+                                        formMessage.getMessage(), messageType.toString(), client==null ? "null" : client.getClientId());
+                                b = UriBuilder.fromUri(Urls.loginActionsDetachedInfo(baseUri, realm.getName()))
+                                        .queryParam(LoginActionsService.MESSAGE_TYPE, messageType.toString())
+                                        .queryParam(LoginActionsService.MESSAGE_KEY, formMessage.getMessage());
+                                if (formMessage.getParameters() != null) {
+                                    b.queryParam(LoginActionsService.MESSAGE_PARAMS, formMessage.getParameters());
+                                }
+                                if (status != null) {
+                                    b.queryParam(LoginActionsService.STATUS, status.getStatusCode());
+                                }
+                                break;
+                            }
                         default:
                             b = UriBuilder.fromUri(baseUri).path(uriInfo.getPath());
                             break;
@@ -615,11 +634,6 @@ public class FreeMarkerLoginFormsProvider implements LoginFormsProvider {
     }
 
     @Override
-    public Response createDetachedInfoPage() {
-        return createResponse(LoginFormsPages.DETACHED_INFO);
-    }
-
-    @Override
     public Response createUpdateProfilePage() {
         // Don't display initial message if we already have some errors
         if (messageType != MessageType.ERROR) {
@@ -712,17 +726,24 @@ public class FreeMarkerLoginFormsProvider implements LoginFormsProvider {
         return createResponse(LoginFormsPages.LOGOUT_CONFIRM);
     }
 
-    protected void setMessage(MessageType type, String message, Object... parameters) {
+    @Override
+    public LoginFormsProvider setMessage(MessageType type, String message, Object... parameters) {
         messageType = type;
         messages = new ArrayList<>();
         messages.add(new FormMessage(null, message, parameters));
+        return this;
+    }
+
+    private FormMessage getFirstMessage() {
+        if (messages != null && !messages.isEmpty()) {
+            return messages.get(0);
+        }
+        return null;
     }
 
     protected String getFirstMessageUnformatted() {
-        if (messages != null && !messages.isEmpty()) {
-            return messages.get(0).getMessage();
-        }
-        return null;
+        FormMessage formMessage = getFirstMessage();
+        return formMessage == null ? null : formMessage.getMessage();
     }
 
     protected String formatMessage(FormMessage message, Properties messagesBundle, Locale locale) {
@@ -790,6 +811,16 @@ public class FreeMarkerLoginFormsProvider implements LoginFormsProvider {
     public FreeMarkerLoginFormsProvider setInfo(String message, Object... parameters) {
         setMessage(MessageType.INFO, message, parameters);
         return this;
+    }
+
+    @Override
+    public LoginFormsProvider setDetachedAuthSession() {
+        detachedAuthSession = true;
+        return this;
+    }
+
+    private boolean isDetachedAuthenticationSession() {
+        return detachedAuthSession || authenticationSession == null;
     }
 
     @Override

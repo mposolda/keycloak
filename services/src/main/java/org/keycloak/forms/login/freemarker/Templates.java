@@ -66,8 +66,6 @@ public class Templates {
                 return "register-user-profile.ftl";
             case INFO:
                 return "info.ftl";
-            case DETACHED_INFO:
-                return "info.ftl";
             case ERROR:
                 return "error.ftl";
             case ERROR_WEBAUTHN:

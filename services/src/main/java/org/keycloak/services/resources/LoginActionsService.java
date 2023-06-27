@@ -20,6 +20,7 @@ import org.jboss.logging.Logger;
 import org.keycloak.common.Profile;
 import org.keycloak.common.util.ResponseSessionTask;
 import org.keycloak.forms.login.LoginFormsProvider;
+import org.keycloak.forms.login.MessageType;
 import org.keycloak.http.HttpRequest;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.TokenVerifier;
@@ -102,6 +103,7 @@ import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriBuilderException;
 import jakarta.ws.rs.core.UriInfo;
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 
 import static org.keycloak.authentication.actiontoken.DefaultActionToken.ACTION_TOKEN_BASIC_CHECKS;
@@ -131,6 +133,9 @@ public class LoginActionsService {
     public static final String AUTH_SESSION_ID = "auth_session_id";
 
     public static final String MESSAGE_KEY = "message_key";
+    public static final String MESSAGE_TYPE = "message_type";
+    public static final String MESSAGE_PARAMS = "message_params";
+    public static final String STATUS = "status";
     
     public static final String CANCEL_AIA = "cancel-aia";
 
@@ -256,7 +261,12 @@ public class LoginActionsService {
     @Path(DETACHED_INFO_PATH)
     @GET
     public Response detachedInfo(@QueryParam(MESSAGE_KEY) String messageKey,
+                                 @QueryParam(MESSAGE_TYPE) String messageType,
+                                 @QueryParam(STATUS) String status,
                                  @QueryParam(Constants.CLIENT_ID) String clientId) {
+        // TODO:mposolda trace or remove entirely
+        logger.infof("detached info: messageKey=%s, messageType=%s, status=%s, clientId=%s", messageKey, messageType, status, clientId);
+
         // TODO:mposolda Some CSRF check?
         processLocaleParam(null);
 
@@ -269,14 +279,28 @@ public class LoginActionsService {
             }
         }
 
+        if (messageKey == null) {
+            return ErrorPage.error(session, null, Response.Status.BAD_REQUEST, Messages.MISSING_PARAMETER, MESSAGE_KEY);
+        }
+
+        if (messageType == null) {
+            return ErrorPage.error(session, null, Response.Status.BAD_REQUEST, Messages.MISSING_PARAMETER, MESSAGE_TYPE);
+        }
+        MessageType type = Enum.valueOf(MessageType.class, messageType);
+        Response.Status statusObj = status == null ? Response.Status.BAD_REQUEST : Response.Status.fromStatusCode(Integer.parseInt(status));
+        List<String> params = request.getUri().getQueryParameters().get(MESSAGE_PARAMS);
+        Object[] paramsAsObject = params == null ? null : params.toArray();
+
         // TODO:mposolda message parameters?
-        // TODO:mposolda maybe support for errors as well?
-        LoginFormsProvider loginForm = session.getProvider(LoginFormsProvider.class).setSuccess(messageKey);
+        LoginFormsProvider loginForm = session.getProvider(LoginFormsProvider.class)
+                .setDetachedAuthSession()
+                .setMessage(type, messageKey, paramsAsObject);
 
         if (skipLink) {
             loginForm.setAttribute(Constants.SKIP_LINK, true);
         }
-        return loginForm.createDetachedInfoPage();
+
+        return type == MessageType.ERROR ? loginForm.createErrorPage(statusObj) : loginForm.createInfoPage();
     }
 
 

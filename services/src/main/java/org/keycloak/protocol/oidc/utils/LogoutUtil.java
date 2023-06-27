@@ -51,8 +51,10 @@ public class LogoutUtil {
         if (usedSystemClient) {
             loginForm.setAttribute(Constants.SKIP_LINK, true);
         }
-        loginForm.setAuthenticationSession(null);
-        return loginForm.createDetachedInfoPage();
+        return loginForm
+                .setAuthenticationSession(null)
+                .setDetachedAuthSession() // TODO:mposolda maybe set authenticationSession to null this way is sufficient? Maybe we don't need "setDetachedAuthSession" method at all?
+                .createInfoPage();
     }
 
 

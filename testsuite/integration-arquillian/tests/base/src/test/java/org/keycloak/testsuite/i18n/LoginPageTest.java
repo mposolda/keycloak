@@ -35,6 +35,7 @@ import org.keycloak.representations.idm.RealmRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.testsuite.admin.ApiUtil;
 import org.keycloak.testsuite.pages.AppPage;
+import org.keycloak.testsuite.pages.ErrorPage;
 import org.keycloak.testsuite.pages.LanguageComboboxAwarePage;
 import org.keycloak.testsuite.pages.LoginPage;
 
@@ -64,6 +65,9 @@ public class LoginPageTest extends AbstractI18NTest {
     protected LoginPage loginPage;
 
     @Page
+    protected ErrorPage errorPage;
+
+    @Page
     protected LoginPasswordUpdatePage changePasswordPage;
 
     @Page
@@ -91,7 +95,7 @@ public class LoginPageTest extends AbstractI18NTest {
     @Test
     public void languageDropdown() {
         // TODO:mposolda
-        WaitUtils.pause(10000000);
+        //WaitUtils.pause(10000000);
         loginPage.open();
         assertEquals("English", loginPage.getLanguageDropdownText());
 
@@ -256,6 +260,32 @@ public class LoginPageTest extends AbstractI18NTest {
         // Cookie should be removed as last user to login didn't have a locale
         localeCookie = driver.manage().getCookieNamed(LocaleSelectorProvider.LOCALE_COOKIE);
         Assert.assertNull(localeCookie);
+    }
+
+    // Test for user updating locale on the error page (when authenticationSession is not available)
+    @Test
+    public void languageUserUpdatesOnErrorPage() {
+        // Login page with invalid redirect_uri
+        oauth.redirectUri("http://invalid");
+        loginPage.open();
+
+        errorPage.assertCurrent();
+        Assert.assertEquals("Invalid parameter: redirect_uri", errorPage.getError());
+
+        // Change language should be OK
+        errorPage.openLanguage("Deutsch");
+        assertEquals("Deutsch", errorPage.getLanguageDropdownText());
+        Assert.assertEquals("Ungültiger Parameter: redirect_uri", errorPage.getError());
+
+        // Refresh browser button should keep german language
+        driver.navigate().refresh();
+        assertEquals("Deutsch", errorPage.getLanguageDropdownText());
+        Assert.assertEquals("Ungültiger Parameter: redirect_uri", errorPage.getError());
+
+        // Changing to english should work
+        errorPage.openLanguage("English");
+        assertEquals("English", errorPage.getLanguageDropdownText());
+        Assert.assertEquals("Invalid parameter: redirect_uri", errorPage.getError());
     }
 
     @Test
