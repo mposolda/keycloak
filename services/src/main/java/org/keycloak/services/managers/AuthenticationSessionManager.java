@@ -20,6 +20,7 @@ package org.keycloak.services.managers;
 import org.jboss.logging.Logger;
 import org.keycloak.common.ClientConnection;
 import org.keycloak.common.util.ServerCookie.SameSiteAttributeValue;
+import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
@@ -215,13 +216,17 @@ public class AuthenticationSessionManager {
     public void removeAuthenticationSession(RealmModel realm, AuthenticationSessionModel authSession, boolean expireRestartCookie) {
         RootAuthenticationSessionModel rootAuthSession = authSession.getParentSession();
 
-        log.debugf("Removing authSession '%s'. Expire restart cookie: %b", rootAuthSession.getId(), expireRestartCookie);
+        // TODO:mposolda change back to debug
+        log.infof("Removing authSession '%s'. Expire restart cookie: %b", rootAuthSession.getId(), expireRestartCookie);
         session.authenticationSessions().removeRootAuthenticationSession(realm, rootAuthSession);
 
         // expire restart cookie
         if (expireRestartCookie) {
             UriInfo uriInfo = session.getContext().getUri();
             RestartLoginCookie.expireRestartCookie(realm, uriInfo, session);
+
+            // With browser session, this makes sure that info/error pages will be rendered correctly when locale is changed on them
+            session.getProvider(LoginFormsProvider.class).setDetachedAuthSession();
         }
     }
 
