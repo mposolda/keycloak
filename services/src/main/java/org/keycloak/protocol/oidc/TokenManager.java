@@ -498,8 +498,8 @@ public class TokenManager {
             }
 
             if (Profile.isFeatureEnabled(Profile.Feature.DPOP)) {
-                if (OIDCAdvancedConfigWrapper.fromClientModel(client).isUseDPoP() && (client.isPublicClient() || client.isBearerOnly())) {
-                    DPoP dPoP = (DPoP) session.getAttribute("dpop");
+                if (OIDCAdvancedConfigWrapper.fromClientModel(client).isUseDPoP() && client.isPublicClient()) {
+                    DPoP dPoP = (DPoP) session.getAttribute(DPoPUtil.DPOP_SESSION_ATTRIBUTE);
                     try {
                         DPoPUtil.validateBinding(refreshToken, dPoP);
                     } catch (VerificationException ex) {
@@ -1016,6 +1016,7 @@ public class TokenManager {
         AccessToken accessToken;
         RefreshToken refreshToken;
         IDToken idToken;
+        String responseTokenType;
 
         boolean generateAccessTokenHash = false;
         String codeHash;
@@ -1030,6 +1031,7 @@ public class TokenManager {
             this.session = session;
             this.userSession = userSession;
             this.clientSessionCtx = clientSessionCtx;
+            this.responseTokenType = formatTokenType(client);
         }
 
         public AccessToken getAccessToken() {
@@ -1050,6 +1052,11 @@ public class TokenManager {
         }
         public AccessTokenResponseBuilder refreshToken(RefreshToken refreshToken) {
             this.refreshToken = refreshToken;
+            return this;
+        }
+
+        public AccessTokenResponseBuilder responseTokenType(String responseTokenType) {
+            this.responseTokenType = responseTokenType;
             return this;
         }
 
@@ -1174,7 +1181,7 @@ public class TokenManager {
             if (accessToken != null) {
                 String encodedToken = session.tokens().encode(accessToken);
                 res.setToken(encodedToken);
-                res.setTokenType(formatTokenType(client));
+                res.setTokenType(responseTokenType);
                 res.setSessionState(accessToken.getSessionState());
                 if (accessToken.getExpiration() != 0) {
                     res.setExpiresIn(accessToken.getExpiration() - Time.currentTime());
