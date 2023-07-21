@@ -94,7 +94,7 @@ public class DeployedScriptAuthenticatorTest extends AbstractFlowTest {
     protected LoginPage loginPage;
 
     @ArquillianResource
-    private Deployer deployer;
+    private static Deployer deployer;
 
     private AuthenticationFlowRepresentation flow;
 

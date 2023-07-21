@@ -79,14 +79,20 @@ public class DeployedScriptMapperTest extends AbstractTestRealmKeycloakTest {
 
     @Before
     public void configureFlows() throws Exception {
+        log.infof("CONFIGURE FLOWS: before deploy. Thread: %s", Thread.currentThread().getName());
         deployer.deploy(SCRIPT_DEPLOYMENT_NAME);
+        log.infof("CONFIGURE FLOWS: after deploy. Thread: %s", Thread.currentThread().getName());
         reconnectAdminClient();
+        log.infof("CONFIGURE FLOWS: reconnect admin client. Thread: %s", Thread.currentThread().getName());
     }
 
     @After
     public void onAfter() throws Exception {
+        log.infof("ON AFTER: before undeploy. Thread: %s", Thread.currentThread().getName());
         deployer.undeploy(SCRIPT_DEPLOYMENT_NAME);
+        log.infof("ON AFTER: after undeploy. Thread: %s", Thread.currentThread().getName());
         reconnectAdminClient();
+        log.infof("ON AFTER: after reconnect admin client. Thread: %s", Thread.currentThread().getName());
     }
 
     @Override
