@@ -122,8 +122,11 @@ public class DeployedScriptAuthenticatorTest extends AbstractFlowTest {
     }
 
     public void configureFlows() throws Exception {
+        log.infof("CONFIGURE FLOWS: before deploy. Thread: %s", Thread.currentThread().getName());
         deployer.deploy(SCRIPT_DEPLOYMENT_NAME);
+        log.infof("CONFIGURE FLOWS: after deploy. Thread: %s", Thread.currentThread().getName());
         reconnectAdminClient();
+        log.infof("CONFIGURE FLOWS: after reconnect admin client. Thread: %s", Thread.currentThread().getName());
         if (testContext.isInitialized()) {
             return;
         }
@@ -175,8 +178,11 @@ public class DeployedScriptAuthenticatorTest extends AbstractFlowTest {
 
     @After
     public void onAfter() throws Exception {
+        log.infof("ON AFTER: before undeploy. Thread: %s", Thread.currentThread().getName());
         deployer.undeploy(SCRIPT_DEPLOYMENT_NAME);
+        log.infof("ON AFTER: after undeploy. Thread: %s", Thread.currentThread().getName());
         reconnectAdminClient();
+        log.infof("ON AFTER: after reconnect admin client. Thread: %s", Thread.currentThread().getName());
     }
 
     /**
@@ -184,6 +190,7 @@ public class DeployedScriptAuthenticatorTest extends AbstractFlowTest {
      */
     @Test
     public void loginShouldWorkWithScriptAuthenticator() throws Exception {
+        log.infof("LOGIN SHOULD WORK WITH SCRIPT AUTHENTICATOR. Thread %s", Thread.currentThread().getName());
         configureFlows();
 
         loginPage.open();
@@ -202,6 +209,7 @@ public class DeployedScriptAuthenticatorTest extends AbstractFlowTest {
      */
     @Test
     public void loginShouldFailWithScriptAuthenticator() throws Exception {
+        log.infof("LOGIN SHOULD FAIL WITH SCRIPT AUTHENTICATOR. Thread %s", Thread.currentThread().getName());
         configureFlows();
 
         loginPage.open();
@@ -214,6 +222,7 @@ public class DeployedScriptAuthenticatorTest extends AbstractFlowTest {
     @Test
     @DisableFeature(value = SCRIPTS, executeAsLast = false, skipRestart = true)
     public void testScriptAuthenticatorNotAvailable() {
+        log.infof("TEST SCRIPT AUTHENTICATOR NOT AVAILABLE. Thread %s", Thread.currentThread().getName());
         assertFalse(testRealm().flows().getAuthenticatorProviders().stream().anyMatch(
                 provider -> ScriptBasedAuthenticatorFactory.PROVIDER_ID.equals(provider.get("id"))));
     }

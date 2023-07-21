@@ -162,6 +162,7 @@ public abstract class AbstractKeycloakTest {
 
     @Before
     public void beforeAbstractKeycloakTest() throws Exception {
+        log.infof("BEFORE ABSTRACT KEYCLOAK TEST. Thread %s", Thread.currentThread().getName());
         adminClient = testContext.getAdminClient();
         if (adminClient == null || adminClient.isClosed()) {
             reconnectAdminClient();
@@ -224,6 +225,7 @@ public abstract class AbstractKeycloakTest {
 
     @After
     public void afterAbstractKeycloakTest() throws Exception {
+        log.infof("AFTER ABSTRACT KEYCLOAK TEST. Thread %s", Thread.currentThread().getName());
         if (resetTimeOffset) {
             resetTimeOffset();
         }
