@@ -27,6 +27,7 @@ import org.apache.commons.exec.StreamPumper;
 import org.jboss.arquillian.container.spi.client.container.LifecycleException;
 import org.jboss.logging.Logger;
 import org.keycloak.testsuite.model.StoreProvider;
+import org.keycloak.testsuite.util.WaitUtils;
 
 /**
  * @author mhajas
@@ -193,6 +194,8 @@ public class KeycloakQuarkusServerDeployableContainer extends AbstractQuarkusDep
         if (!isWindows()) {
             return;
         }
+
+        WaitUtils.pause(2000);
 
         CompletableFuture allProcesses = CompletableFuture.completedFuture(null);
 
