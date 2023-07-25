@@ -195,6 +195,9 @@ public class KeycloakQuarkusServerDeployableContainer extends AbstractQuarkusDep
             return;
         }
 
+        // Wait some time before killing the windows processes. Otherwise there is a risk that some already commited H2 transactions
+        // won't be written to disk in time and hence those transactions may be lost, which could result in test failures.
+        // See http://repository.transtep.com/repository/thirdparty/H2/1.0.63/docs/html/advanced.html#durability_problems for the details
         WaitUtils.pause(2000);
 
         CompletableFuture allProcesses = CompletableFuture.completedFuture(null);
