@@ -37,13 +37,16 @@ import org.keycloak.representations.AccessToken;
  *
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
-public class AllowedWebOriginsProtocolMapper extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper {
+public class AllowedWebOriginsProtocolMapper extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, TokenIntrospectionTokenMapper {
 
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<ProviderConfigProperty>();
 
 
     public static final String PROVIDER_ID = "oidc-allowed-origins-mapper";
 
+    static {
+        OIDCAttributeMapperHelper.addIncludeInTokensConfig(configProperties, AllowedWebOriginsProtocolMapper.class);
+    }
 
     public List<ProviderConfigProperty> getConfigProperties() {
         return configProperties;
@@ -72,14 +75,31 @@ public class AllowedWebOriginsProtocolMapper extends AbstractOIDCProtocolMapper 
     @Override
     public AccessToken transformAccessToken(AccessToken token, ProtocolMapperModel mappingModel, KeycloakSession session,
                                             UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+
+        if (!OIDCAttributeMapperHelper.includeInAccessToken(mappingModel)){
+            return token;
+        }
+        setWebOrigin(token, session, clientSessionCtx);
+        return token;
+    }
+
+    @Override
+    public AccessToken transformIntrospectionToken(AccessToken token, ProtocolMapperModel mappingModel, KeycloakSession session,
+                                                   UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+        if (!OIDCAttributeMapperHelper.includeInIntrospection(mappingModel)) {
+            return token;
+        }
+        setWebOrigin(token, session, clientSessionCtx);
+        return token;
+    }
+
+    private void setWebOrigin(AccessToken token, KeycloakSession session, ClientSessionContext clientSessionCtx) {
         ClientModel client = clientSessionCtx.getClientSession().getClient();
 
         Set<String> allowedOrigins = client.getWebOrigins();
         if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
             token.setAllowedOrigins(WebOriginsUtils.resolveValidWebOrigins(session, client));
         }
-
-        return token;
     }
 
 

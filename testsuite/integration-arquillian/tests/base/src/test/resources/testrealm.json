@@ -28,6 +28,12 @@
       "email" : "test-user@localhost",
       "firstName": "Tom",
       "lastName": "Brady",
+      "attributes" : {
+        "street": ["1 My Street"],
+        "locality": ["Cardiff"],
+        "region": ["Cardiff"],
+        "postal_code": ["CF104RA"]
+      },
       "credentials" : [
         { "type" : "password",
           "value" : "password" }
@@ -36,7 +42,10 @@
       "clientRoles": {
         "test-app": [ "customer-user" ],
         "account": [ "view-profile", "manage-account" ]
-      }
+      },
+      "groups": [
+        "/topGroup/level2group"
+      ]
     },
     {
       "username" : "john-doh@localhost",

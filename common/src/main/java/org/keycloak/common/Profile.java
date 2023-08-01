@@ -92,7 +92,9 @@ public class Profile {
 
         DPOP("OAuth 2.0 Demonstrating Proof-of-Possession at the Application Layer", Type.PREVIEW),
 
-        LINKEDIN_OAUTH("LinkedIn Social Identity Provider based on OAuth", Type.DEPRECATED);
+        LINKEDIN_OAUTH("LinkedIn Social Identity Provider based on OAuth", Type.DEPRECATED),
+
+        LIGHT_WEIGHT_ACCESS_TOKEN("Light weight access token", Type.PREVIEW);
 
         private final Type type;
         private final String label;

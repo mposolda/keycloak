@@ -38,10 +38,12 @@ import org.keycloak.utils.RoleResolveUtil;
  *
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
-public class AudienceResolveProtocolMapper extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper {
+public class AudienceResolveProtocolMapper extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, TokenIntrospectionTokenMapper {
 
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<ProviderConfigProperty>();
-
+    static {
+        OIDCAttributeMapperHelper.addIncludeInTokensConfig(configProperties, AudienceResolveProtocolMapper.class);
+    }
 
     public static final String PROVIDER_ID = "oidc-audience-resolve-mapper";
 
@@ -79,6 +81,24 @@ public class AudienceResolveProtocolMapper extends AbstractOIDCProtocolMapper im
     @Override
     public AccessToken transformAccessToken(AccessToken token, ProtocolMapperModel mappingModel, KeycloakSession session,
                                             UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+        if (!OIDCAttributeMapperHelper.includeInAccessToken(mappingModel)){
+            return token;
+        }
+        setAudience(token, clientSessionCtx, session);
+        return token;
+    }
+
+    @Override
+    public AccessToken transformIntrospectionToken(AccessToken token, ProtocolMapperModel mappingModel, KeycloakSession session,
+                                                   UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+        if (!OIDCAttributeMapperHelper.includeInIntrospection(mappingModel)) {
+            return token;
+        }
+        setAudience(token, clientSessionCtx, session);
+        return token;
+    }
+
+    private void setAudience(AccessToken token, ClientSessionContext clientSessionCtx, KeycloakSession session) {
         String clientId = clientSessionCtx.getClientSession().getClient().getClientId();
 
         for (Map.Entry<String, AccessToken.Access> entry : RoleResolveUtil.getAllResolvedClientRoles(session, clientSessionCtx).entrySet()) {
@@ -92,8 +112,6 @@ public class AudienceResolveProtocolMapper extends AbstractOIDCProtocolMapper im
                 token.addAudience(entry.getKey());
             }
         }
-
-        return token;
     }
 
     public static ProtocolMapperModel createClaimMapper(String name) {

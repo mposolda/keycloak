@@ -14,6 +14,7 @@ import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.representations.IDToken;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -22,7 +23,7 @@ import java.util.List;
  *
  * @author <a href="mailto:martin.hardselius@gmail.com">Martin Hardselius</a>
  */
-public abstract class AbstractPairwiseSubMapper extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
+public abstract class AbstractPairwiseSubMapper extends AbstractOIDCProtocolMapper implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper, TokenIntrospectionTokenMapper {
     public static final String PROVIDER_ID_SUFFIX = "-pairwise-sub-mapper";
 
     public abstract String getIdPrefix();
@@ -65,18 +66,36 @@ public abstract class AbstractPairwiseSubMapper extends AbstractOIDCProtocolMapp
 
     @Override
     public IDToken transformIDToken(IDToken token, ProtocolMapperModel mappingModel, KeycloakSession session, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+        if (!OIDCAttributeMapperHelper.includeInIDToken(mappingModel)){
+            return token;
+        }
         setIDTokenSubject(token, generateSub(mappingModel, getSectorIdentifier(clientSessionCtx.getClientSession().getClient(), mappingModel), userSession.getUser().getId()));
         return token;
     }
 
     @Override
     public AccessToken transformAccessToken(AccessToken token, ProtocolMapperModel mappingModel, KeycloakSession session, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+        if (!OIDCAttributeMapperHelper.includeInAccessToken(mappingModel)){
+            return token;
+        }
+        setAccessTokenSubject(token, generateSub(mappingModel, getSectorIdentifier(clientSessionCtx.getClientSession().getClient(), mappingModel), userSession.getUser().getId()));
+        return token;
+    }
+
+    @Override
+    public AccessToken transformIntrospectionToken(AccessToken token, ProtocolMapperModel mappingModel, KeycloakSession session, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+        if (!OIDCAttributeMapperHelper.includeInIntrospection(mappingModel)){
+            return token;
+        }
         setAccessTokenSubject(token, generateSub(mappingModel, getSectorIdentifier(clientSessionCtx.getClientSession().getClient(), mappingModel), userSession.getUser().getId()));
         return token;
     }
 
     @Override
     public AccessToken transformUserInfoToken(AccessToken token, ProtocolMapperModel mappingModel, KeycloakSession session, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
+        if (!OIDCAttributeMapperHelper.includeInUserInfo(mappingModel)) {
+            return token;
+        }
         setUserInfoTokenSubject(token, generateSub(mappingModel, getSectorIdentifier(clientSessionCtx.getClientSession().getClient(), mappingModel), userSession.getUser().getId()));
         return token;
     }
@@ -96,6 +115,7 @@ public abstract class AbstractPairwiseSubMapper extends AbstractOIDCProtocolMapp
     @Override
     public final List<ProviderConfigProperty> getConfigProperties() {
         List<ProviderConfigProperty> configProperties = new LinkedList<>();
+        OIDCAttributeMapperHelper.addIncludeInTokensConfig(configProperties, AbstractPairwiseSubMapper.class);
         configProperties.add(PairwiseSubMapperHelper.createSectorIdentifierConfig());
         configProperties.addAll(getAdditionalConfigProperties());
         return configProperties;

@@ -24,17 +24,33 @@ import org.keycloak.TokenVerifier;
 import org.keycloak.common.VerificationException;
 import org.keycloak.crypto.SignatureProvider;
 import org.keycloak.crypto.SignatureVerifierContext;
+import org.keycloak.events.Details;
+import org.keycloak.events.EventBuilder;
+import org.keycloak.events.EventType;
+import org.keycloak.models.AuthenticatedClientSessionModel;
+import org.keycloak.models.ClientModel;
+import org.keycloak.models.ClientSessionContext;
 import org.keycloak.models.ImpersonationSessionNote;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.SingleUseObjectProvider;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.services.Urls;
+import org.keycloak.services.managers.AuthenticationManager;
+import org.keycloak.services.util.DefaultClientSessionContext;
+import org.keycloak.services.util.UserSessionUtil;
 import org.keycloak.util.JsonSerialization;
 
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+
+import java.util.Map;
+
+import static org.keycloak.representations.IDToken.SESSION_ID;
+import static org.keycloak.representations.JsonWebToken.AZP;
+import static org.keycloak.representations.JsonWebToken.SUBJECT;
 
 /**
  * @author <a href="mailto:psilva@redhat.com">Pedro Igor</a>
@@ -54,7 +70,8 @@ public class AccessTokenIntrospectionProvider implements TokenIntrospectionProvi
 
     public Response introspect(String token) {
         try {
-            AccessToken accessToken = verifyAccessToken(token);
+            AccessToken accessToken = getAccessToken(token);
+            accessToken = transformAccessToken(accessToken);
             ObjectNode tokenMetadata;
 
             if (accessToken != null) {
@@ -99,6 +116,69 @@ public class AccessTokenIntrospectionProvider implements TokenIntrospectionProvi
         } catch (Exception e) {
             throw new RuntimeException("Error creating token introspection response.", e);
         }
+    }
+
+    private AccessToken getAccessToken(String token) {
+        AccessToken accessToken;
+        TokenVerifier<AccessToken> verifier = TokenVerifier.create(token, AccessToken.class);
+        try {
+            SignatureVerifierContext verifierContext = session.getProvider(SignatureProvider.class, verifier.getHeader().getAlgorithm().name()).verifier(verifier.getHeader().getKeyId());
+            verifier.verifierContext(verifierContext);
+            accessToken = verifier.verify().getToken();
+        } catch (VerificationException e) {
+            logger.debugf("JWT check failed: %s", e.getMessage());
+            return null;
+        }
+        SingleUseObjectProvider singleUseStore = session.singleUseObjects();
+        Map<String, String> tokenData = singleUseStore.get(accessToken.getId());
+        if (tokenData != null) {
+            // enabled lightWeightAccessTokenMapper
+            accessToken.setSessionState(tokenData.get(SESSION_ID));
+            accessToken.issuedFor(tokenData.get(AZP));
+            accessToken.setSubject(tokenData.get(SUBJECT));
+            return accessToken;
+        } else {
+            verifier.realmUrl(Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName()));
+            RealmModel realm = this.session.getContext().getRealm();
+            return tokenManager.checkTokenValidForIntrospection(session, realm, accessToken, false) ? accessToken : null;
+        }
+    }
+
+
+    private AccessToken transformAccessToken(AccessToken token) {
+        if (token == null) {
+            return null;
+        }
+
+        ClientModel client = realm.getClientByClientId(token.getIssuedFor());
+        EventBuilder event = new EventBuilder(realm, session, session.getContext().getConnection())
+                .event(EventType.INTROSPECT_TOKEN)
+                .detail(Details.AUTH_METHOD, Details.VALIDATE_ACCESS_TOKEN);
+        UserSessionModel userSession;
+        try {
+            userSession = UserSessionUtil.findValidSession(session, realm, token, event, client);
+        } catch (Exception e) {
+            logger.debugf("Can not get user session: %s", e.getMessage());
+            return null;
+        }
+        if (userSession.getUser() == null) {
+            logger.debugf("User not found");
+            return null;
+        }
+        AuthenticatedClientSessionModel clientSession = userSession.getAuthenticatedClientSessionByClient(client.getId());
+        ClientSessionContext clientSessionCtx = DefaultClientSessionContext.fromClientSessionScopeParameter(clientSession, session);
+        return tokenManager.transformIntrospectionAccessToken(session, getAccessTokenFromStoredData(token, clientSessionCtx, userSession), userSession, clientSessionCtx);
+    }
+
+    private AccessToken getAccessTokenFromStoredData(AccessToken token, ClientSessionContext clientSessionCtx, UserSessionModel userSession) {
+        token.setScope(clientSessionCtx.getScopeString());
+        String authTime = userSession.getNote(AuthenticationManager.AUTH_TIME);
+        if (authTime != null) {
+            token.setAuth_time(Long.parseLong(authTime));
+        }
+        token.issuer(clientSessionCtx.getClientSession().getNote(OIDCLoginProtocol.ISSUER));
+        token.subject(userSession.getUser().getId());
+        return token;
     }
 
     protected AccessToken verifyAccessToken(String token) {
