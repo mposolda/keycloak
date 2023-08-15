@@ -137,6 +137,12 @@ public class LDAPUtils {
                 .collect(Collectors.toList());
         ldapQuery.addMappers(mapperModels);
 
+        String kerberosPrincipalAttr = ldapProvider.getKerberosConfig().getKerberosPrincipalAttribute();
+        if (kerberosPrincipalAttr != null) {
+            ldapQuery.addReturningLdapAttribute(kerberosPrincipalAttr);
+            ldapQuery.addReturningReadOnlyLdapAttribute(kerberosPrincipalAttr);
+        }
+
         return ldapQuery;
     }
 
