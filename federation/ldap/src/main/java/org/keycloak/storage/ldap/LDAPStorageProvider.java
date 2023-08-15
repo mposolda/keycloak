@@ -26,10 +26,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.naming.AuthenticationException;
 import javax.naming.NamingException;
+import javax.security.auth.kerberos.KerberosPrincipal;
 
 import org.jboss.logging.Logger;
 import org.keycloak.common.constants.KerberosConstants;
@@ -157,6 +159,10 @@ public class LDAPStorageProvider implements UserStorageProvider,
 
     public UserStorageProviderModel getModel() {
         return model;
+    }
+
+    public LDAPProviderKerberosConfig getKerberosConfig() {
+        return kerberosConfig;
     }
 
     public LDAPStorageMapperManager getMapperManager() {
@@ -564,6 +570,9 @@ public class LDAPStorageProvider implements UserStorageProvider,
         if(getLdapIdentityStore().getConfig().isTrustEmail()){
             imported.setEmailVerified(true);
         }
+        if (kerberosConfig.getKerberosPrincipalLDAPAttribute() != null) {
+            imported.setSingleAttribute(KerberosConstants.KERBEROS_PRINCIPAL, ldapUser.getAttributeAsString(kerberosConfig.getKerberosPrincipalLDAPAttribute()));
+        }
         logger.debugf("Imported new user from LDAP to Keycloak DB. Username: [%s], Email: [%s], LDAP_ID: [%s], LDAP Entry DN: [%s]", imported.getUsername(), imported.getEmail(),
                 ldapUser.getUuid(), userDN);
         UserModel proxy = proxy(realm, imported, ldapUser, false);
@@ -739,11 +748,11 @@ public class LDAPStorageProvider implements UserStorageProvider,
 
                     // TODO: This assumes that LDAP "uid" is equal to kerberos principal name. Like uid "hnelson" and kerberos principal "hnelson@KEYCLOAK.ORG".
                     // Check if it's correct or if LDAP attribute for mapping kerberos principal should be available (For ApacheDS it seems to be attribute "krb5PrincipalName" but on MSAD it's likely different)
-                    String username = spnegoAuthenticator.getAuthenticatedUsername();
-                    UserModel user = findOrCreateAuthenticatedUser(realm, username);
+                    KerberosPrincipal kerberosPrincipal = spnegoAuthenticator.getAuthenticatedKerberosPrincipal();
+                    UserModel user = findOrCreateAuthenticatedUser(realm, kerberosPrincipal);
 
                     if (user == null) {
-                        logger.warnf("Kerberos/SPNEGO authentication succeeded with username [%s], but couldn't find or create user with federation provider [%s]", username, model.getName());
+                        logger.warnf("Kerberos/SPNEGO authentication succeeded with kerberos principal [%s], but couldn't find or create user with federation provider [%s]", kerberosPrincipal.toString(), model.getName());
                         return CredentialValidationOutput.failed();
                     } else {
                         String delegationCredential = spnegoAuthenticator.getSerializedDelegationCredential();
@@ -774,25 +783,43 @@ public class LDAPStorageProvider implements UserStorageProvider,
 
     /**
      * Called after successful kerberos authentication
+     * TODO:mposolda javadoc...
      *
      * @param realm realm
      * @param username username without realm prefix
      * @return finded or newly created user
      */
-    protected UserModel findOrCreateAuthenticatedUser(RealmModel realm, String username) {
-        UserModel user = UserStoragePrivateUtil.userLocalStorage(session).getUserByUsername(realm, username);
+    protected UserModel findOrCreateAuthenticatedUser(RealmModel realm, KerberosPrincipal kerberosPrincipal) {
+        String kerberosPrincipalAttrName = kerberosConfig.getKerberosPrincipalLDAPAttribute();
+        UserModel user;
+        if (kerberosPrincipalAttrName != null) {
+            // TODO:mposolda trace?
+            logger.infof("Finding user with kerberos principal [%s] in local storage.", kerberosPrincipal.toString());
+            user = UserStoragePrivateUtil.userLocalStorage(session).searchForUserByUserAttributeStream(realm, KerberosConstants.KERBEROS_PRINCIPAL, kerberosPrincipal.toString())
+                    .findFirst().orElse(null);
+        } else {
+            logger.infof("Finding user in local storage based on username [%s]. Full kerberos principal [%s]", kerberosPrincipal.getName(), kerberosPrincipal.toString());
+            user = UserStoragePrivateUtil.userLocalStorage(session).getUserByUsername(realm, kerberosPrincipal.getName());
+        }
+
         if (user != null) {
-            logger.debugf("Kerberos authenticated user [%s] found in Keycloak storage", username);
+            logger.debugf("Kerberos authenticated user [%s] found in Keycloak storage", user.getUsername());
             if (!model.getId().equals(user.getFederationLink())) {
-                logger.warnf("User with username [%s] already exists, but is not linked to provider [%s]", username, model.getName());
+                logger.warnf("User with username [%s] already exists, but is not linked to provider [%s]. Kerberos principal is [%s]", user.getUsername(), model.getName(), kerberosPrincipal.toString());
                 return null;
             } else {
                 LDAPObject ldapObject = loadAndValidateUser(realm, user);
+                if (kerberosPrincipalAttrName != null && !kerberosPrincipal.toString().equals(ldapObject.getAttributeAsString(kerberosPrincipalAttrName))) {
+                    logger.warnf("User with username [%s] aready exists and is linked to provider [%s] but is not valid. Authenticated kerberos principal is [%s], but LDAP user has different kerberos principal [%s]",
+                            user.getUsername(),  model.getName(), kerberosPrincipal.toString(), ldapObject.getAttributeAsString(kerberosPrincipalAttrName));
+                    ldapObject = null;
+                }
+
                 if (ldapObject != null) {
                     return proxy(realm, user, ldapObject, false);
                 } else {
                     logger.warnf("User with username [%s] aready exists and is linked to provider [%s] but is not valid. Stale LDAP_ID on local user is: %s",
-                            username,  model.getName(), user.getFirstAttribute(LDAPConstants.LDAP_ID));
+                            user.getUsername(),  model.getName(), user.getFirstAttribute(LDAPConstants.LDAP_ID));
                     logger.warn("Will re-create user");
                     UserCache userCache = UserStorageUtil.userCache(session);
                     if (userCache != null) {
@@ -803,9 +830,28 @@ public class LDAPStorageProvider implements UserStorageProvider,
             }
         }
 
-        // Creating user to local storage
-        logger.debugf("Kerberos authenticated user [%s] not in Keycloak storage. Creating him", username);
-        return getUserByUsername(realm, username);
+        if (kerberosPrincipalAttrName != null) {
+            // TODO:mposolda
+            logger.infof("Trying to find kerberos authenticated user [%s] in LDAP. Kerberos principal attribute is [%s]", kerberosPrincipal.toString(), kerberosPrincipalAttrName);
+            try (LDAPQuery ldapQuery = LDAPUtils.createQueryForUserSearch(this, realm)) {
+                LDAPQueryConditionsBuilder conditionsBuilder = new LDAPQueryConditionsBuilder();
+                Condition krbPrincipalCondition = conditionsBuilder.equal(kerberosPrincipalAttrName, kerberosPrincipal.toString(), EscapeStrategy.DEFAULT);
+                ldapQuery.addWhereCondition(krbPrincipalCondition);
+                LDAPObject ldapUser = ldapQuery.getFirstResult();
+
+                if (ldapUser == null) {
+                    logger.warnf("Not found LDAP user with kerberos principal [%s]. Kerberos principal attribute is [%s].", kerberosPrincipal.toString(), kerberosPrincipalAttrName);
+                    return null;
+                }
+
+                return importUserFromLDAP(session, realm, ldapUser);
+            }
+        } else {
+            // Creating user to local storage
+            // TODO:mposolda back to debug
+            logger.infof("Kerberos authenticated user [%s] not in Keycloak storage. Creating him", kerberosPrincipal.toString());
+            return getUserByUsername(realm, kerberosPrincipal.getName());
+        }
     }
 
     public LDAPObject loadLDAPUserByUsername(RealmModel realm, String username) {

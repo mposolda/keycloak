@@ -76,8 +76,28 @@ public class KerberosLdapCrossRealmTrustTest extends AbstractKerberosTest {
     }
 
 
+    // Issue 20045
     @Test
-    public void test02DisableTrust() throws Exception {
+    public void test02SpnegoLogin_testCorrectKerberosRealm() throws Exception {
+        // Login as kerberos user myduke@KC2.COM. Ensure I am logged as user "myduke2" from realm KC2.COM (not as user myduke@KEYCLOAK.ORG)
+        OAuthClient.AccessTokenResponse tokenResponse = assertSuccessfulSpnegoLogin("myduke@KC2.COM", "myduke2", "secret");
+        AccessToken token = oauth.verifyToken(tokenResponse.getAccessToken());
+
+        Assert.assertEquals(token.getEmail(), "myduke2@kc2.com");
+        assertUser("myduke2", "myduke2@kc2.com", "My", "Duke2", false);
+
+        // Logout
+        oauth.openLogout();
+        events.poll();
+
+        // Another login to check the scenario when user is in local storage
+        tokenResponse = assertSuccessfulSpnegoLogin("myduke@KC2.COM", "myduke2", "secret");
+        token = oauth.verifyToken(tokenResponse.getAccessToken());
+        Assert.assertEquals(token.getEmail(), "myduke2@kc2.com");
+    }
+
+    @Test
+    public void test03DisableTrust() throws Exception {
         // Remove the LDAP entry corresponding to the Kerberos principal krbtgt/KEYCLOAK.ORG@KC2.COM
         // This will effectively disable kerberos cross-realm trust
         testingClient.testing().ldap("test").removeLDAPUser("krbtgt2");

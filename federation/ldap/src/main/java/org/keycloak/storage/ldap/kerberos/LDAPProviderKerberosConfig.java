@@ -41,4 +41,9 @@ public class LDAPProviderKerberosConfig extends CommonKerberosConfig {
     public boolean isUseKerberosForPasswordAuthentication() {
         return Boolean.valueOf(getConfig().getFirst(KerberosConstants.USE_KERBEROS_FOR_PASSWORD_AUTHENTICATION));
     }
+
+    public String getKerberosPrincipalLDAPAttribute() {
+        // TODO:mposolda implement properly...
+        return "krb5PrincipalName";
+    }
 }

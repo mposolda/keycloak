@@ -47,6 +47,7 @@ import org.keycloak.storage.ldap.idm.query.Condition;
 import org.keycloak.storage.ldap.idm.query.internal.LDAPQuery;
 import org.keycloak.storage.ldap.idm.query.internal.LDAPQueryConditionsBuilder;
 import org.keycloak.storage.ldap.idm.store.ldap.LDAPIdentityStore;
+import org.keycloak.storage.ldap.kerberos.LDAPProviderKerberosConfig;
 import org.keycloak.storage.ldap.mappers.LDAPMappersComparator;
 import org.keycloak.storage.ldap.mappers.LDAPStorageMapper;
 import org.keycloak.storage.ldap.mappers.membership.MembershipType;
@@ -136,6 +137,12 @@ public class LDAPUtils {
                 .getComponentsStream(ldapProvider.getModel().getId(), LDAPStorageMapper.class.getName())
                 .collect(Collectors.toList());
         ldapQuery.addMappers(mapperModels);
+
+        String kerberosPrincipalAttr = ldapProvider.getKerberosConfig().getKerberosPrincipalLDAPAttribute();
+        if (kerberosPrincipalAttr != null) {
+            ldapQuery.addReturningLdapAttribute(kerberosPrincipalAttr);
+            ldapQuery.addReturningReadOnlyLdapAttribute(kerberosPrincipalAttr);
+        }
 
         return ldapQuery;
     }

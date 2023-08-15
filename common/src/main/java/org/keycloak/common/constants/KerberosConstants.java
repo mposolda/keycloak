@@ -92,4 +92,9 @@ public class KerberosConstants {
      */
     public static final String GSS_DELEGATION_CREDENTIAL_DISPLAY_NAME = "gss delegation credential";
 
+    /**
+     * User attribute for kerberos principal used for users from Kerberos/LDAP providers
+     */
+    public static final String KERBEROS_PRINCIPAL = "KERBEROS_PRINCIPAL";
+
 }

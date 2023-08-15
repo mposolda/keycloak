@@ -47,6 +47,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import javax.security.auth.kerberos.KerberosPrincipal;
+
 /**
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
@@ -58,7 +60,7 @@ public class KerberosFederationProvider implements UserStorageProvider,
         ImportedUserValidation {
 
     private static final Logger logger = Logger.getLogger(KerberosFederationProvider.class);
-    public static final String KERBEROS_PRINCIPAL = "KERBEROS_PRINCIPAL";
+    public static final String KERBEROS_PRINCIPAL = KerberosConstants.KERBEROS_PRINCIPAL;
 
     protected KeycloakSession session;
     protected UserStorageProviderModel model;
@@ -197,7 +199,11 @@ public class KerberosFederationProvider implements UserStorageProvider,
 
             Map<String, String> state = new HashMap<String, String>();
             if (spnegoAuthenticator.isAuthenticated()) {
-                String username = spnegoAuthenticator.getAuthenticatedUsername();
+                KerberosPrincipal kerberosPrincipal = spnegoAuthenticator.getAuthenticatedKerberosPrincipal();
+
+                // TODO:mposolda this should be updated and properly tested with automated test!!!
+                String username = kerberosPrincipal.getName();
+
                 UserModel user = findOrCreateAuthenticatedUser(realm, username);
                 if (user == null) {
                     return CredentialValidationOutput.failed();
