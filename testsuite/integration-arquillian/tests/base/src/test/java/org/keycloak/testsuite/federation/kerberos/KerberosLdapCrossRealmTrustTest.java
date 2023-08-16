@@ -72,19 +72,19 @@ public class KerberosLdapCrossRealmTrustTest extends AbstractKerberosTest {
         AccessToken token = oauth.verifyToken(tokenResponse.getAccessToken());
 
         Assert.assertEquals(token.getEmail(), "hnelson2@kc2.com");
-        assertUser("hnelson2", "hnelson2@kc2.com", "Horatio", "Nelson", false);
+        assertUser("hnelson2", "hnelson2@kc2.com", "Horatio", "Nelson", "hnelson2@KC2.COM", false);
     }
 
 
     // Issue 20045
     @Test
-    public void test02SpnegoLogin_testCorrectKerberosRealm() throws Exception {
+    public void test02SpnegoLoginCorrectKerberosPrincipalUserFound() throws Exception {
         // Login as kerberos user myduke@KC2.COM. Ensure I am logged as user "myduke2" from realm KC2.COM (not as user myduke@KEYCLOAK.ORG)
         OAuthClient.AccessTokenResponse tokenResponse = assertSuccessfulSpnegoLogin("myduke@KC2.COM", "myduke2", "secret");
         AccessToken token = oauth.verifyToken(tokenResponse.getAccessToken());
 
         Assert.assertEquals(token.getEmail(), "myduke2@kc2.com");
-        assertUser("myduke2", "myduke2@kc2.com", "My", "Duke2", false);
+        assertUser("myduke2", "myduke2@kc2.com", "My", "Duke2", "myduke@KC2.COM", false);
 
         // Logout
         oauth.openLogout();

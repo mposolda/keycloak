@@ -65,17 +65,36 @@ public class KerberosStandaloneCrossRealmTrustTest extends AbstractKerberosTest 
     @Test
     public void test01spnegoLoginSameRealmTest() throws Exception {
         assertSuccessfulSpnegoLogin("hnelson", "hnelson", "secret");
-        assertUser("hnelson", "hnelson@keycloak.org", null, null, false);
+        assertUser("hnelson", "hnelson@keycloak.org", null, null, "hnelson@KEYCLOAK.ORG", false);
     }
 
 
     @Test
     public void test02spnegoLoginDifferentRealmTest() throws Exception {
         // Cross-realm trust login. Realm KEYCLOAK.ORG trusts realm KC2.COM.
-        // TODO: email hnelson2@keycloak.org is not very good. Will be better to have more flexibility for mapping of kerberos principals to Keycloak UserModel in KerberosFederationProvider (if needed)
         assertSuccessfulSpnegoLogin("hnelson2@KC2.COM", "hnelson2", "secret");
-        assertUser("hnelson2", "hnelson2@keycloak.org", null, null, false);
+        assertUser("hnelson2", "hnelson2@kc2.com", null, null, "hnelson2@KC2.COM", false);
+
+        // Logout
+        oauth.openLogout();
+        events.poll();
+
+        // Another login to check the scenario when user is in local storage
+        assertSuccessfulSpnegoLogin("hnelson2@KC2.COM", "hnelson2", "secret");
     }
 
-
+//    // Issue 20045
+//    @Test
+//    public void test03SpnegoLoginWithCorrectKerberosPrincipalRealm() throws Exception {
+//        // Login as kerberos user myduke@KC2.COM. Ensure I am logged with proper Kerberos realm
+//        assertSuccessfulSpnegoLogin("myduke@KC2.COM", "myduke", "secret");
+//        assertUser("myduke", "myduke@kc2.com", null, null, "myduke@KC2.COM", false);
+//
+//        // Logout
+//        oauth.openLogout();
+//        events.poll();
+//
+//        // Another login to check the scenario when user is in local storage
+//        assertSuccessfulSpnegoLogin("myduke@KC2.COM", "myduke", "secret");
+//    }
 }

@@ -47,7 +47,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import javax.security.auth.kerberos.KerberosPrincipal;
+import javax.security.auth.login.LoginException;
 
 /**
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
@@ -76,10 +76,6 @@ public class KerberosFederationProvider implements UserStorageProvider,
 
     @Override
     public UserModel validate(RealmModel realm, UserModel user) {
-        if (!isValid(realm, user)) {
-            return null;
-        }
-
         if (kerberosConfig.getEditMode() == EditMode.READ_ONLY) {
             return new ReadOnlyKerberosUserModelDelegate(user, this);
         } else {
@@ -91,12 +87,12 @@ public class KerberosFederationProvider implements UserStorageProvider,
     public UserModel getUserByUsername(RealmModel realm, String username) {
         KerberosUsernamePasswordAuthenticator authenticator = factory.createKerberosUsernamePasswordAuthenticator(kerberosConfig);
         if (authenticator.isUserAvailable(username)) {
-            // Case when method was called with username including kerberos realm like john@REALM.ORG . Authenticator already checked that kerberos realm was correct
-            if (username.contains("@")) {
-                username = username.split("@")[0];
+            try {
+                String kerberosPrincipal = authenticator.getKerberosPrincipal(username);
+                return findOrCreateAuthenticatedUser(realm, new KerberosPrincipal(kerberosPrincipal));
+            } catch (LoginException le) {
+                throw new IllegalStateException("Should not happen", le);
             }
-
-            return findOrCreateAuthenticatedUser(realm, username);
         } else {
             return null;
         }
@@ -125,13 +121,6 @@ public class KerberosFederationProvider implements UserStorageProvider,
     @Override
     public void preRemove(RealmModel realm, GroupModel group) {
 
-    }
-
-    public boolean isValid(RealmModel realm, UserModel local) {
-        // KerberosUsernamePasswordAuthenticator.isUserAvailable is an overhead, so avoid it for now
-
-        String kerberosPrincipal = local.getUsername() + "@" + kerberosConfig.getKerberosRealm();
-        return kerberosPrincipal.equalsIgnoreCase(local.getFirstAttribute(KERBEROS_PRINCIPAL));
     }
 
     @Override
@@ -172,16 +161,16 @@ public class KerberosFederationProvider implements UserStorageProvider,
     public boolean isValid(RealmModel realm, UserModel user, CredentialInput input) {
         if (!(input instanceof UserCredentialModel)) return false;
         if (input.getType().equals(PasswordCredentialModel.TYPE) && !((LegacyUserCredentialManager) user.credentialManager()).isConfiguredLocally(PasswordCredentialModel.TYPE)) {
-            return validPassword(user.getUsername(), input.getChallengeResponse());
+            return validPassword(user.getFirstAttribute(KERBEROS_PRINCIPAL), input.getChallengeResponse());
         } else {
             return false; // invalid cred type
         }
     }
 
-    protected boolean validPassword(String username, String password) {
+    protected boolean validPassword(String kerberosPrincipal, String password) {
         if (kerberosConfig.isAllowPasswordAuthentication()) {
             KerberosUsernamePasswordAuthenticator authenticator = factory.createKerberosUsernamePasswordAuthenticator(kerberosConfig);
-            return authenticator.validUser(username, password);
+            return authenticator.validUser(kerberosPrincipal, password);
         } else {
             return false;
         }
@@ -200,11 +189,7 @@ public class KerberosFederationProvider implements UserStorageProvider,
             Map<String, String> state = new HashMap<String, String>();
             if (spnegoAuthenticator.isAuthenticated()) {
                 KerberosPrincipal kerberosPrincipal = spnegoAuthenticator.getAuthenticatedKerberosPrincipal();
-
-                // TODO:mposolda this should be updated and properly tested with automated test!!!
-                String username = kerberosPrincipal.getName();
-
-                UserModel user = findOrCreateAuthenticatedUser(realm, username);
+                UserModel user = findOrCreateAuthenticatedUser(realm, kerberosPrincipal);
                 if (user == null) {
                     return CredentialValidationOutput.failed();
                 } else {
@@ -239,24 +224,26 @@ public class KerberosFederationProvider implements UserStorageProvider,
      * Called after successful authentication
      *
      * @param realm realm
-     * @param username username without realm prefix
+     * @param kerberosPrincipal
      * @return user if found or successfully created. Null if user with same username already exists, but is not linked to this provider
      */
-    protected UserModel findOrCreateAuthenticatedUser(RealmModel realm, String username) {
-        UserModel user = UserStoragePrivateUtil.userLocalStorage(session).getUserByUsername(realm, username);
+    protected UserModel findOrCreateAuthenticatedUser(RealmModel realm, KerberosPrincipal kerberosPrincipal) {
+        UserModel user = UserStoragePrivateUtil.userLocalStorage(session).searchForUserByUserAttributeStream(realm, KerberosConstants.KERBEROS_PRINCIPAL, kerberosPrincipal.toString())
+                .findFirst().orElse(null);
+
         if (user != null) {
             user = session.users().getUserById(realm, user.getId());  // make sure we get a cached instance
-            logger.debug("Kerberos authenticated user " + username + " found in Keycloak storage");
+            logger.debug("Kerberos authenticated user " + kerberosPrincipal + " found in Keycloak storage");
 
             if (!model.getId().equals(user.getFederationLink())) {
-                logger.warn("User with username " + username + " already exists, but is not linked to provider [" + model.getName() + "]");
+                logger.warn("User with username " + kerberosPrincipal + " already exists, but is not linked to provider [" + model.getName() + "]");
                 return null;
             } else {
                 UserModel proxied = validate(realm, user);
                 if (proxied != null) {
                     return proxied;
                 } else {
-                    logger.warn("User with username " + username + " already exists and is linked to provider [" + model.getName() +
+                    logger.warn("User with username " + kerberosPrincipal.getPrefix() + " already exists and is linked to provider [" + model.getName() +
                             "] but kerberos principal is not correct. Kerberos principal on user is: " + user.getFirstAttribute(KERBEROS_PRINCIPAL));
                     logger.warn("Will re-create user");
                     new UserManager(session).removeUser(realm, user, UserStoragePrivateUtil.userLocalStorage(session));
@@ -264,20 +251,22 @@ public class KerberosFederationProvider implements UserStorageProvider,
             }
         }
 
-        logger.debug("Kerberos authenticated user " + username + " not in Keycloak storage. Creating him");
-        return importUserToKeycloak(realm, username);
+        logger.debug("Kerberos authenticated user " + kerberosPrincipal + " not in Keycloak storage. Creating him");
+        return importUserToKeycloak(realm, kerberosPrincipal);
     }
 
-    protected UserModel importUserToKeycloak(RealmModel realm, String username) {
+    protected UserModel importUserToKeycloak(RealmModel realm, KerberosPrincipal kerberosPrincipal) {
         // Just guessing email from kerberos realm
-        String email = username + "@" + kerberosConfig.getKerberosRealm().toLowerCase();
+        String email = kerberosPrincipal.getPrefix() + "@" + kerberosPrincipal.getRealm().toLowerCase();
+        String username = kerberosPrincipal.getPrefix();
 
-        logger.debugf("Creating kerberos user: %s, email: %s to local Keycloak storage", username, email);
+        // TODO:mposolda back to debug
+        logger.infof("Creating kerberos user %s with username: %s, email: %s to local Keycloak storage", kerberosPrincipal, username, email);
         UserModel user = UserStoragePrivateUtil.userLocalStorage(session).addUser(realm, username);
         user.setEnabled(true);
         user.setEmail(email);
         user.setFederationLink(model.getId());
-        user.setSingleAttribute(KERBEROS_PRINCIPAL, username + "@" + kerberosConfig.getKerberosRealm());
+        user.setSingleAttribute(KERBEROS_PRINCIPAL, kerberosPrincipal.toString());
 
         if (kerberosConfig.isUpdateProfileFirstLogin()) {
             if (Profile.isFeatureEnabled(Profile.Feature.UPDATE_EMAIL)) {

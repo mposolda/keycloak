@@ -49,6 +49,7 @@ import org.keycloak.adapters.HttpClientBuilder;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.authentication.authenticators.browser.SpnegoAuthenticatorFactory;
 import org.keycloak.common.Profile.Feature;
+import org.keycloak.common.constants.KerberosConstants;
 import org.keycloak.common.util.MultivaluedHashMap;
 import org.keycloak.events.Details;
 import org.keycloak.federation.kerberos.CommonKerberosConfig;
@@ -280,13 +281,14 @@ public abstract class AbstractKerberosTest extends AbstractAuthTest {
 
 
     protected void assertUser(String expectedUsername, String expectedEmail, String expectedFirstname,
-                              String expectedLastname, boolean updateProfileActionExpected) {
+                              String expectedLastname, String expectedKerberosPrincipal, boolean updateProfileActionExpected) {
         try {
             UserRepresentation user = ApiUtil.findUserByUsername(testRealmResource(), expectedUsername);
             Assert.assertNotNull(user);
             Assert.assertEquals(expectedEmail, user.getEmail());
             Assert.assertEquals(expectedFirstname, user.getFirstName());
             Assert.assertEquals(expectedLastname, user.getLastName());
+            Assert.assertEquals(expectedKerberosPrincipal, user.getAttributes().get(KerberosConstants.KERBEROS_PRINCIPAL).get(0));
 
             if (updateProfileActionExpected) {
                 Assert.assertEquals(UserModel.RequiredAction.UPDATE_PROFILE.toString(),

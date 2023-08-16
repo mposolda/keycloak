@@ -27,9 +27,9 @@ import org.keycloak.common.constants.KerberosConstants;
 import org.keycloak.common.util.Base64;
 import org.keycloak.common.util.KerberosSerializationUtils;
 import org.keycloak.federation.kerberos.CommonKerberosConfig;
+import org.keycloak.federation.kerberos.KerberosPrincipal;
 
 import javax.security.auth.Subject;
-import javax.security.auth.kerberos.KerberosPrincipal;
 import javax.security.auth.kerberos.KerberosTicket;
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
