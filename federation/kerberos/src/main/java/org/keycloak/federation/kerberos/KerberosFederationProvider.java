@@ -258,7 +258,8 @@ public class KerberosFederationProvider implements UserStorageProvider,
     protected UserModel importUserToKeycloak(RealmModel realm, KerberosPrincipal kerberosPrincipal) {
         // Just guessing email from kerberos realm
         String email = kerberosPrincipal.getPrefix() + "@" + kerberosPrincipal.getRealm().toLowerCase();
-        String username = kerberosPrincipal.getPrefix();
+        // In case that kerberos realm is same like configured realm, create just username as prefix (EG. "john"). Otherwise for trusted realms, use the full kerberos principal (EG. "john@TRUSTED_REALM.ORG")
+        String username = (kerberosPrincipal.getRealm().equalsIgnoreCase(kerberosConfig.getKerberosRealm())) ? kerberosPrincipal.getPrefix() : email;
 
         // TODO:mposolda back to debug
         logger.infof("Creating kerberos user %s with username: %s, email: %s to local Keycloak storage", kerberosPrincipal, username, email);

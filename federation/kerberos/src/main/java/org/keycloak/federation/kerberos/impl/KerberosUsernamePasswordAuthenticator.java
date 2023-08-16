@@ -20,6 +20,7 @@ package org.keycloak.federation.kerberos.impl;
 import org.jboss.logging.Logger;
 import org.keycloak.common.util.KerberosJdkProvider;
 import org.keycloak.federation.kerberos.CommonKerberosConfig;
+import org.keycloak.federation.kerberos.KerberosPrincipal;
 import org.keycloak.models.ModelException;
 
 import javax.security.auth.Subject;
@@ -136,7 +137,7 @@ public class KerberosUsernamePasswordAuthenticator {
                 createJaasConfiguration());
 
         loginContext.login();
-        logger.debug("Principal " + principal + " authenticated succesfully");
+        logger.debug("Principal " + principal + " authenticated successfully");
         return loginContext.getSubject();
     }
 
@@ -154,12 +155,7 @@ public class KerberosUsernamePasswordAuthenticator {
 
     public String getKerberosPrincipal(String username) throws LoginException {
         if (username.contains("@")) {
-            String[] tokens = username.split("@");
-            if (tokens.length != 2) {
-                logger.warnf("Invalid kerberos principal %s", username);
-                throw new LoginException("Client not found");
-            }
-            return tokens[0] + "@" + tokens[1].toUpperCase();
+            return new KerberosPrincipal(username).toString();
         } else {
             return username + "@" + config.getKerberosRealm();
         }

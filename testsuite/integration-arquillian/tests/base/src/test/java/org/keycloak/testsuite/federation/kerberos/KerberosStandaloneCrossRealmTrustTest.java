@@ -25,8 +25,10 @@ import org.keycloak.federation.kerberos.CommonKerberosConfig;
 import org.keycloak.federation.kerberos.KerberosConfig;
 import org.keycloak.federation.kerberos.KerberosFederationProviderFactory;
 import org.keycloak.representations.idm.ComponentRepresentation;
+import org.keycloak.testsuite.Assert;
 import org.keycloak.testsuite.util.KerberosRule;
 import org.keycloak.testsuite.KerberosEmbeddedServer;
+import org.keycloak.testsuite.util.TestAppHelper;
 
 /**
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
@@ -72,29 +74,30 @@ public class KerberosStandaloneCrossRealmTrustTest extends AbstractKerberosTest 
     @Test
     public void test02spnegoLoginDifferentRealmTest() throws Exception {
         // Cross-realm trust login. Realm KEYCLOAK.ORG trusts realm KC2.COM.
-        assertSuccessfulSpnegoLogin("hnelson2@KC2.COM", "hnelson2", "secret");
-        assertUser("hnelson2", "hnelson2@kc2.com", null, null, "hnelson2@KC2.COM", false);
+        assertSuccessfulSpnegoLogin("hnelson2@KC2.COM", "hnelson2@kc2.com", "secret");
+        assertUser("hnelson2@kc2.com", "hnelson2@kc2.com", null, null, "hnelson2@KC2.COM", false);
 
         // Logout
         oauth.openLogout();
         events.poll();
 
         // Another login to check the scenario when user is in local storage
-        assertSuccessfulSpnegoLogin("hnelson2@KC2.COM", "hnelson2", "secret");
+        assertSuccessfulSpnegoLogin("hnelson2@KC2.COM", "hnelson2@kc2.com", "secret");
     }
 
-//    // Issue 20045
-//    @Test
-//    public void test03SpnegoLoginWithCorrectKerberosPrincipalRealm() throws Exception {
-//        // Login as kerberos user myduke@KC2.COM. Ensure I am logged with proper Kerberos realm
-//        assertSuccessfulSpnegoLogin("myduke@KC2.COM", "myduke", "secret");
-//        assertUser("myduke", "myduke@kc2.com", null, null, "myduke@KC2.COM", false);
-//
-//        // Logout
-//        oauth.openLogout();
-//        events.poll();
-//
-//        // Another login to check the scenario when user is in local storage
-//        assertSuccessfulSpnegoLogin("myduke@KC2.COM", "myduke", "secret");
-//    }
+    // Issue 20045 - username/password form login
+    @Test
+    public void test03SpnegoLoginWithCorrectKerberosPrincipalRealm() throws Exception {
+        // Login in username/password form as "jduke@KEYCLOAK.ORG"
+        TestAppHelper testAppHelper = new TestAppHelper(oauth, loginPage, appPage);
+        Assert.assertTrue(testAppHelper.login("jduke", "theduke"));
+        Assert.assertTrue(testAppHelper.logout());
+
+        // Login in username/password form as "jduke@KC2.COM"
+        Assert.assertFalse(testAppHelper.login("jduke@kc2.com", "theduke"));
+        Assert.assertTrue(testAppHelper.login("jduke@kc2.com", "theduke2"));
+
+        assertUser("jduke", "jduke@keycloak.org", null, null, "jduke@KEYCLOAK.ORG", false);
+        assertUser("jduke@kc2.com", "jduke@kc2.com", null, null, "jduke@KC2.COM", false);
+    }
 }

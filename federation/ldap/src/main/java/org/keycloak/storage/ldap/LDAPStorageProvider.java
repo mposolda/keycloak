@@ -633,7 +633,11 @@ public class LDAPStorageProvider implements UserStorageProvider,
         if (kerberosConfig.isAllowKerberosAuthentication() && kerberosConfig.isUseKerberosForPasswordAuthentication()) {
             // Use Kerberos JAAS (Krb5LoginModule)
             KerberosUsernamePasswordAuthenticator authenticator = factory.createKerberosUsernamePasswordAuthenticator(kerberosConfig);
-            return authenticator.validUser(user.getUsername(), password);
+            String kerberosUsername = user.getFirstAttribute(KerberosConstants.KERBEROS_PRINCIPAL);
+            // Fallback to username (backwards compatibility)
+            if (kerberosUsername == null) kerberosUsername = user.getUsername();
+
+            return authenticator.validUser(kerberosUsername, password);
         } else {
             // Use Naming LDAP API
             LDAPObject ldapUser = loadAndValidateUser(realm, user);

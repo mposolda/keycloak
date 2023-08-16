@@ -32,6 +32,7 @@ import org.keycloak.testsuite.KerberosEmbeddedServer;
 import org.keycloak.testsuite.util.OAuthClient;
 
 import jakarta.ws.rs.core.Response;
+import org.keycloak.testsuite.util.TestAppHelper;
 
 /**
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
@@ -79,25 +80,38 @@ public class KerberosLdapCrossRealmTrustTest extends AbstractKerberosTest {
     // Issue 20045
     @Test
     public void test02SpnegoLoginCorrectKerberosPrincipalUserFound() throws Exception {
-        // Login as kerberos user myduke@KC2.COM. Ensure I am logged as user "myduke2" from realm KC2.COM (not as user myduke@KEYCLOAK.ORG)
-        OAuthClient.AccessTokenResponse tokenResponse = assertSuccessfulSpnegoLogin("myduke@KC2.COM", "myduke2", "secret");
+        // Login as kerberos user jduke@KC2.COM. Ensure I am logged as user "jduke2" from realm KC2.COM (not as user jduke@KEYCLOAK.ORG)
+        OAuthClient.AccessTokenResponse tokenResponse = assertSuccessfulSpnegoLogin("jduke@KC2.COM", "jduke2", "theduke2");
         AccessToken token = oauth.verifyToken(tokenResponse.getAccessToken());
 
-        Assert.assertEquals(token.getEmail(), "myduke2@kc2.com");
-        assertUser("myduke2", "myduke2@kc2.com", "My", "Duke2", "myduke@KC2.COM", false);
+        Assert.assertEquals(token.getEmail(), "jduke2@kc2.com");
+        assertUser("jduke2", "jduke2@kc2.com", "Java", "Duke", "jduke@KC2.COM", false);
 
         // Logout
         oauth.openLogout();
         events.poll();
 
         // Another login to check the scenario when user is in local storage
-        tokenResponse = assertSuccessfulSpnegoLogin("myduke@KC2.COM", "myduke2", "secret");
+        tokenResponse = assertSuccessfulSpnegoLogin("jduke@KC2.COM", "jduke2", "theduke2");
         token = oauth.verifyToken(tokenResponse.getAccessToken());
-        Assert.assertEquals(token.getEmail(), "myduke2@kc2.com");
+        Assert.assertEquals(token.getEmail(), "jduke2@kc2.com");
+    }
+
+    // Issue 20045 - username/password form login
+    @Test
+    public void test03SpnegoLoginUsernamePassword() throws Exception {
+        // User jduke@KC2.COM
+        TestAppHelper testAppHelper = new TestAppHelper(oauth, loginPage, appPage);
+        Assert.assertFalse(testAppHelper.login("jduke2", "theduke"));
+        Assert.assertTrue(testAppHelper.login("jduke2", "theduke2"));
+        Assert.assertTrue(testAppHelper.logout());
+
+        // User jduke@KEYCLOAK.ORG
+        Assert.assertTrue(testAppHelper.login("jduke", "theduke"));
     }
 
     @Test
-    public void test03DisableTrust() throws Exception {
+    public void test04DisableTrust() throws Exception {
         // Remove the LDAP entry corresponding to the Kerberos principal krbtgt/KEYCLOAK.ORG@KC2.COM
         // This will effectively disable kerberos cross-realm trust
         testingClient.testing().ldap("test").removeLDAPUser("krbtgt2");
