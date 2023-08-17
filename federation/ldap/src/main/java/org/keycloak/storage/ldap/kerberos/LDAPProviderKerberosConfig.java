@@ -43,7 +43,6 @@ public class LDAPProviderKerberosConfig extends CommonKerberosConfig {
     }
 
     public String getKerberosPrincipalLDAPAttribute() {
-        // TODO:mposolda implement properly...
-        return "krb5PrincipalName";
+        return getConfig().getFirst(KerberosConstants.KERBEROS_PRINCIPAL_LDAP_ATTRIBUTE);
     }
 }

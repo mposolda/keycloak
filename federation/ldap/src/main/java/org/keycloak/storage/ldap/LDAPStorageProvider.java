@@ -570,7 +570,8 @@ public class LDAPStorageProvider implements UserStorageProvider,
             imported.setEmailVerified(true);
         }
         if (kerberosConfig.getKerberosPrincipalLDAPAttribute() != null) {
-            imported.setSingleAttribute(KerberosConstants.KERBEROS_PRINCIPAL, ldapUser.getAttributeAsString(kerberosConfig.getKerberosPrincipalLDAPAttribute()));
+            KerberosPrincipal kerberosPrincipal = new KerberosPrincipal(ldapUser.getAttributeAsString(kerberosConfig.getKerberosPrincipalLDAPAttribute()));
+            imported.setSingleAttribute(KerberosConstants.KERBEROS_PRINCIPAL, kerberosPrincipal.toString());
         }
         logger.debugf("Imported new user from LDAP to Keycloak DB. Username: [%s], Email: [%s], LDAP_ID: [%s], LDAP Entry DN: [%s]", imported.getUsername(), imported.getEmail(),
                 ldapUser.getUuid(), userDN);
@@ -798,7 +799,7 @@ public class LDAPStorageProvider implements UserStorageProvider,
             user = UserStoragePrivateUtil.userLocalStorage(session).searchForUserByUserAttributeStream(realm, KerberosConstants.KERBEROS_PRINCIPAL, kerberosPrincipal.toString())
                     .findFirst().orElse(null);
         } else {
-            // For this case, assuming that for kerberos principal "john@KEYCLOAK.ORG", the username would be "john"
+            // For this case, assuming that for kerberos principal "john@KEYCLOAK.ORG", the username would be "john" (backwards compatibility)
             logger.infof("Finding user in local storage based on username [%s]. Full kerberos principal [%s]", kerberosPrincipal.getPrefix(), kerberosPrincipal);
             user = UserStoragePrivateUtil.userLocalStorage(session).getUserByUsername(realm, kerberosPrincipal.getPrefix());
         }
@@ -810,7 +811,7 @@ public class LDAPStorageProvider implements UserStorageProvider,
                 return null;
             } else {
                 LDAPObject ldapObject = loadAndValidateUser(realm, user);
-                if (kerberosPrincipalAttrName != null && !kerberosPrincipal.toString().equals(ldapObject.getAttributeAsString(kerberosPrincipalAttrName))) {
+                if (kerberosPrincipalAttrName != null && !kerberosPrincipal.toString().equalsIgnoreCase(ldapObject.getAttributeAsString(kerberosPrincipalAttrName))) {
                     logger.warnf("User with username [%s] aready exists and is linked to provider [%s] but is not valid. Authenticated kerberos principal is [%s], but LDAP user has different kerberos principal [%s]",
                             user.getUsername(),  model.getName(), kerberosPrincipal, ldapObject.getAttributeAsString(kerberosPrincipalAttrName));
                     ldapObject = null;
