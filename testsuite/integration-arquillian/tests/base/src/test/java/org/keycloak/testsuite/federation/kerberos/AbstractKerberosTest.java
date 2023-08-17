@@ -292,7 +292,12 @@ public abstract class AbstractKerberosTest extends AbstractAuthTest {
             Assert.assertEquals(expectedEmail, user.getEmail());
             Assert.assertEquals(expectedFirstname, user.getFirstName());
             Assert.assertEquals(expectedLastname, user.getLastName());
-            Assert.assertEquals(expectedKerberosPrincipal, user.getAttributes().get(KerberosConstants.KERBEROS_PRINCIPAL).get(0));
+
+            if (expectedKerberosPrincipal == null) {
+                Assert.assertNull(user.getAttributes().get(KerberosConstants.KERBEROS_PRINCIPAL));
+            } else {
+                Assert.assertEquals(expectedKerberosPrincipal, user.getAttributes().get(KerberosConstants.KERBEROS_PRINCIPAL).get(0));
+            }
 
             if (updateProfileActionExpected) {
                 Assert.assertEquals(UserModel.RequiredAction.UPDATE_PROFILE.toString(),

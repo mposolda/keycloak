@@ -570,8 +570,13 @@ public class LDAPStorageProvider implements UserStorageProvider,
             imported.setEmailVerified(true);
         }
         if (kerberosConfig.getKerberosPrincipalLDAPAttribute() != null) {
-            KerberosPrincipal kerberosPrincipal = new KerberosPrincipal(ldapUser.getAttributeAsString(kerberosConfig.getKerberosPrincipalLDAPAttribute()));
-            imported.setSingleAttribute(KerberosConstants.KERBEROS_PRINCIPAL, kerberosPrincipal.toString());
+            String kerberosPrincipal = ldapUser.getAttributeAsString(kerberosConfig.getKerberosPrincipalLDAPAttribute());
+            if (kerberosPrincipal == null) {
+                logger.warnf("Kerberos principal attribute not found on LDAP user [%s]. Configured kerberos principal attribute name is [%s]", ldapUser.getDn(), kerberosConfig.getKerberosPrincipalLDAPAttribute());
+            } else {
+                KerberosPrincipal kerberosPrinc = new KerberosPrincipal(kerberosPrincipal);
+                imported.setSingleAttribute(KerberosConstants.KERBEROS_PRINCIPAL, kerberosPrinc.toString());
+            }
         }
         logger.debugf("Imported new user from LDAP to Keycloak DB. Username: [%s], Email: [%s], LDAP_ID: [%s], LDAP Entry DN: [%s]", imported.getUsername(), imported.getEmail(),
                 ldapUser.getUuid(), userDN);
