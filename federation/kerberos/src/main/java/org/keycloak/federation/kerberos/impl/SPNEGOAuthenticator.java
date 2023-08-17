@@ -111,8 +111,7 @@ public class SPNEGOAuthenticator {
     }
 
     /**
-     * TODO:mposolda update this javadoc
-     * @return username to be used in Keycloak. Username is authenticated kerberos principal without realm name
+     * @return kerberos principal to be used in Keycloak
      */
     public KerberosPrincipal getAuthenticatedKerberosPrincipal() {
         return new KerberosPrincipal(authenticatedKerberosPrincipal);

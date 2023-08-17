@@ -789,23 +789,21 @@ public class LDAPStorageProvider implements UserStorageProvider,
 
     /**
      * Called after successful kerberos authentication
-     * TODO:mposolda javadoc...
      *
      * @param realm realm
-     * @param username username without realm prefix
+     * @param kerberosPrincipal kerberos principal of the authenticated user
      * @return finded or newly created user
      */
     protected UserModel findOrCreateAuthenticatedUser(RealmModel realm, KerberosPrincipal kerberosPrincipal) {
         String kerberosPrincipalAttrName = kerberosConfig.getKerberosPrincipalLDAPAttribute();
         UserModel user;
         if (kerberosPrincipalAttrName != null) {
-            // TODO:mposolda trace?
-            logger.infof("Finding user with kerberos principal [%s] in local storage.", kerberosPrincipal.toString());
+            logger.tracef("Trying to find user with kerberos principal [%s] in local storage.", kerberosPrincipal.toString());
             user = UserStoragePrivateUtil.userLocalStorage(session).searchForUserByUserAttributeStream(realm, KerberosConstants.KERBEROS_PRINCIPAL, kerberosPrincipal.toString())
                     .findFirst().orElse(null);
         } else {
             // For this case, assuming that for kerberos principal "john@KEYCLOAK.ORG", the username would be "john" (backwards compatibility)
-            logger.infof("Finding user in local storage based on username [%s]. Full kerberos principal [%s]", kerberosPrincipal.getPrefix(), kerberosPrincipal);
+            logger.tracef("Trying to find user in local storage based on username [%s]. Full kerberos principal [%s]", kerberosPrincipal.getPrefix(), kerberosPrincipal);
             user = UserStoragePrivateUtil.userLocalStorage(session).getUserByUsername(realm, kerberosPrincipal.getPrefix());
         }
 
@@ -838,8 +836,7 @@ public class LDAPStorageProvider implements UserStorageProvider,
         }
 
         if (kerberosPrincipalAttrName != null) {
-            // TODO:mposolda
-            logger.infof("Trying to find kerberos authenticated user [%s] in LDAP. Kerberos principal attribute is [%s]", kerberosPrincipal.toString(), kerberosPrincipalAttrName);
+            logger.debugf("Trying to find kerberos authenticated user [%s] in LDAP. Kerberos principal attribute is [%s]", kerberosPrincipal.toString(), kerberosPrincipalAttrName);
             try (LDAPQuery ldapQuery = LDAPUtils.createQueryForUserSearch(this, realm)) {
                 LDAPQueryConditionsBuilder conditionsBuilder = new LDAPQueryConditionsBuilder();
                 Condition krbPrincipalCondition = conditionsBuilder.equal(kerberosPrincipalAttrName, kerberosPrincipal.toString(), EscapeStrategy.DEFAULT);
@@ -855,8 +852,7 @@ public class LDAPStorageProvider implements UserStorageProvider,
             }
         } else {
             // Creating user to local storage
-            // TODO:mposolda back to debug
-            logger.infof("Kerberos authenticated user [%s] not in Keycloak storage. Creating him", kerberosPrincipal.toString());
+            logger.debugf("Kerberos authenticated user [%s] not in Keycloak storage. Creating him", kerberosPrincipal.toString());
             return getUserByUsername(realm, kerberosPrincipal.getPrefix());
         }
     }
