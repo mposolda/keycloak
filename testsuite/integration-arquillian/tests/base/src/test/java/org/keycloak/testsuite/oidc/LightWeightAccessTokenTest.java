@@ -59,8 +59,6 @@ import static org.keycloak.protocol.oidc.OIDCLoginProtocolFactory.WEB_ORIGINS_SC
 import static org.keycloak.protocol.oidc.mappers.AbstractPairwiseSubMapper.PROVIDER_ID_SUFFIX;
 import static org.keycloak.protocol.oidc.mappers.AudienceProtocolMapper.INCLUDED_CLIENT_AUDIENCE;
 import static org.keycloak.protocol.oidc.mappers.HardcodedClaim.CLAIM_VALUE;
-import static org.keycloak.protocol.oidc.mappers.LightWeightAccessTokenMapper.EXCLUDE_FROM_ACCESS_TOKEN;
-import static org.keycloak.protocol.oidc.mappers.LightWeightAccessTokenMapper.LIGHT_WEIGHT_ACCESS_TOKEN_PROVIDER_ID;
 import static org.keycloak.protocol.oidc.mappers.OIDCAttributeMapperHelper.INCLUDE_IN_ACCESS_TOKEN;
 import static org.keycloak.protocol.oidc.mappers.OIDCAttributeMapperHelper.INCLUDE_IN_INTROSPECTION;
 import static org.keycloak.protocol.oidc.mappers.PairwiseSubMapperHelper.PAIRWISE_SUB_ALGORITHM_SALT;
@@ -71,7 +69,7 @@ import static org.keycloak.testsuite.auth.page.AuthRealm.TEST;
 
 @EnableFeature(value = Profile.Feature.TOKEN_EXCHANGE, skipRestart = true)
 @EnableFeature(value = Profile.Feature.LIGHT_WEIGHT_ACCESS_TOKEN, skipRestart = true)
-public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
+public class LightWeightAccessTokenTest extends AbstractKeycloakTest {
 
     @Before
     public void clientConfiguration() {
@@ -90,104 +88,85 @@ public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
 
     @Test
     public void accessTokenFalseIntrospectionTrueTest() throws IOException {
-        ProtocolMappersResource protocolMappers = setProtocolMappers(false, true, true);
+        ProtocolMappersResource protocolMappers = setProtocolMappers(false, true);
 
         oauth.nonce("123456");
         oauth.scope("address");
         oauth.clientId("test-app");
-        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password");
+        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password").tokenResponse;
         String accessToken = response.getAccessToken();
         System.out.println("accessToken:" + accessToken);
-        assertAccessToken(oauth.verifyToken(accessToken), true);
+        assertAccessToken(oauth.verifyToken(accessToken), true, false);
 
         oauth.clientId("resource-server");
         String tokenResponse = oauth.introspectAccessTokenWithClientCredential("resource-server", "password", accessToken);
         System.out.println("tokenResponse:" + tokenResponse);
-        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true);
-
-        deleteProtocolMappers(protocolMappers);
-    }
-
-    @Test
-    public void accessTokenFalseIntrospectionFalseTest() throws IOException {
-        ProtocolMappersResource protocolMappers = setProtocolMappers(false, false, true);
-
-        oauth.nonce("123456");
-        oauth.scope("address");
-        oauth.clientId("test-app");
-        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password");
-        String accessToken = response.getAccessToken();
-        System.out.println("accessToken:" + accessToken);
-        assertAccessToken(oauth.verifyToken(accessToken), true);
-
-        oauth.clientId("resource-server");
-        String tokenResponse = oauth.introspectAccessTokenWithClientCredential("resource-server", "password", accessToken);
-        System.out.println("tokenResponse:" + tokenResponse);
-        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true, false, true, true, false);
+        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true, true, false);
 
         deleteProtocolMappers(protocolMappers);
     }
 
     @Test
     public void accessTokenTrueIntrospectionFalseTest() throws IOException {
-        ProtocolMappersResource protocolMappers = setProtocolMappers(true, false, false);
+        ProtocolMappersResource protocolMappers = setProtocolMappers(true, false);
 
         oauth.nonce("123456");
         oauth.scope("address");
         oauth.clientId("test-app");
-        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password");
+        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password").tokenResponse;
         String accessToken = response.getAccessToken();
         System.out.println("accessToken:" + accessToken);
-        assertAccessToken(oauth.verifyToken(accessToken), true, true, false, true);
+        assertAccessToken(oauth.verifyToken(accessToken), true, true);
 
         oauth.clientId("resource-server");
         String tokenResponse = oauth.introspectAccessTokenWithClientCredential("resource-server", "password", accessToken);
         System.out.println("tokenResponse:" + tokenResponse);
-        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true, true, true, true, false);
+        // Most of the claims should not be included in introspectionResponse as introspectionMapper was disabled
+        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true, false, false);
 
         deleteProtocolMappers(protocolMappers);
     }
 
     @Test
     public void accessTokenTrueIntrospectionTrueTest() throws IOException {
-        ProtocolMappersResource protocolMappers = setProtocolMappers(true, true, false);
+        ProtocolMappersResource protocolMappers = setProtocolMappers(true, true);
 
         oauth.nonce("123456");
         oauth.scope("address");
         oauth.clientId("test-app");
-        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password");
+        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password").tokenResponse;
         String accessToken = response.getAccessToken();
         System.out.println("accessToken:" + accessToken);
-        assertAccessToken(oauth.verifyToken(accessToken), true, true, false, true);
+        assertAccessToken(oauth.verifyToken(accessToken), true, true);
 
         oauth.clientId("resource-server");
         String tokenResponse = oauth.introspectAccessTokenWithClientCredential("resource-server", "password", accessToken);
         System.out.println("tokenResponse:" + tokenResponse);
-        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true, true, true, true, false);
+        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true, true, false);
 
         deleteProtocolMappers(protocolMappers);
     }
 
     @Test
     public void offlineTokenTest() throws IOException {
-        ProtocolMappersResource protocolMappers = setProtocolMappers(false, true, true, false);
+        ProtocolMappersResource protocolMappers = setProtocolMappers(false, true);
 
         oauth.nonce("123456");
         oauth.scope("openid address offline_access");
 
         oauth.clientId("test-app");
-        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password");
+        TokenResponseContext ctx = browserLogin("password", "test-user@localhost", "password");
+        OAuthClient.AccessTokenResponse response = ctx.tokenResponse;
         String accessToken = response.getAccessToken();
         System.out.println("accessToken:" + accessToken);
         System.out.println("idtoken:" + response.getIdToken());
-        assertAccessToken(oauth.verifyToken(accessToken), true, false, true, false);
+        assertAccessToken(oauth.verifyToken(accessToken), true, false);
 
         oauth.clientId("resource-server");
-        AccessToken token = oauth.verifyToken(accessToken);
-        removeSession(token.getSessionState());
+        removeSession(ctx.userSessionId);
         String tokenResponse = oauth.introspectAccessTokenWithClientCredential("resource-server", "password", accessToken);
         System.out.println("tokenResponse:" + tokenResponse);
-        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true, true, true, false, false);
+        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true, true, false);
 
         deleteProtocolMappers(protocolMappers);
     }
@@ -202,27 +181,8 @@ public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
     }
 
     @Test
-    public void introspectionWithoutLightWeightMapperTest() throws IOException {
-        ProtocolMappersResource protocolMappers = setProtocolMappers(false, true, false);
-
-        oauth.nonce("123456");
-        oauth.scope("address");
-
-        oauth.clientId("test-app");
-        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password");
-        String accessToken = response.getAccessToken();
-        System.out.println("accessToken:" + accessToken);
-        assertAccessToken(oauth.verifyToken(accessToken), true, false, false, false);
-        oauth.clientId("resource-server");
-        String tokenResponse = oauth.introspectAccessTokenWithClientCredential("resource-server", "password", accessToken);
-        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true);
-
-        deleteProtocolMappers(protocolMappers);
-    }
-
-    @Test
     public void clientCredentialTest() throws Exception {
-        ProtocolMappersResource protocolMappers = setProtocolMappers(false, true, true);
+        ProtocolMappersResource protocolMappers = setProtocolMappers(false, true);
 
         oauth.nonce("123456");
         oauth.scope("address");
@@ -231,7 +191,8 @@ public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
         OAuthClient.AccessTokenResponse response = oauth.doClientCredentialsGrantAccessTokenRequest("password");
         String accessToken = response.getAccessToken();
         System.out.println("accessToken:" + accessToken);
-        assertAccessToken(oauth.verifyToken(accessToken), false);
+        assertAccessToken(oauth.verifyToken(accessToken), false, false);
+
         oauth.clientId("resource-server");
         String tokenResponse = oauth.introspectAccessTokenWithClientCredential("resource-server", "password", accessToken);
         System.out.println("tokenResponse:" + tokenResponse);
@@ -242,16 +203,16 @@ public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
 
     @Test
     public void exchangeTest() throws Exception {
-        ProtocolMappersResource protocolMappers = setProtocolMappers(false, true, false);
+        ProtocolMappersResource protocolMappers = setProtocolMappers(false, true);
 
         oauth.nonce("123456");
         oauth.scope("address");
 
         oauth.clientId("test-app");
-        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password");
+        OAuthClient.AccessTokenResponse response = browserLogin("password", "test-user@localhost", "password").tokenResponse;
         String accessToken = response.getAccessToken();
         System.out.println("accessToken:" + accessToken);
-        assertAccessToken(oauth.verifyToken(accessToken), true, false, false, false);
+        assertAccessToken(oauth.verifyToken(accessToken), true, false);
         response = oauth.doTokenExchange(TEST, accessToken, null, "test-app", "password");
         String exchangedTokenString = response.getAccessToken();
         System.out.println("exchangedTokenString:" + exchangedTokenString);
@@ -259,7 +220,7 @@ public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
         oauth.clientId("resource-server");
         String tokenResponse = oauth.introspectAccessTokenWithClientCredential("resource-server", "password", exchangedTokenString);
         System.out.println("tokenResponse:" + tokenResponse);
-        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true, true, false, false, true);
+        assertTokenIntrospectionResponse(JsonSerialization.readValue(tokenResponse, AccessToken.class), true, true, true);
 
         deleteProtocolMappers(protocolMappers);
     }
@@ -304,46 +265,21 @@ public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
         }
     }
 
-    private void assertInitClaims(AccessToken token, boolean isAuthCodeFlow, boolean enableLightWeight, boolean excludeFromAccessToken, boolean isIntrospect) {
+    private void assertInitClaims(AccessToken token, boolean isAuthCodeFlow) {
         Assert.assertNotNull(token.getExp());
         Assert.assertNotNull(token.getIat());
         Assert.assertNotNull(token.getId());
         Assert.assertNotNull(token.getType());
-        if (enableLightWeight) {
-            if (isIntrospect) {
-                Assert.assertNotNull(token.getSubject());
-                if (isAuthCodeFlow) {
-                    Assert.assertNotNull(token.getSessionId());
-                    Assert.assertNotNull(token.getAuth_time());
-                } else {
-                    Assert.assertTrue(token.getSessionId() == null);
-                    Assert.assertTrue(token.getAuth_time() == null);
-                }
-                Assert.assertNotNull(token.getIssuedFor());
-                Assert.assertNotNull(token.getScope());
-                Assert.assertNotNull(token.getIssuer());
-            } else {
-                if (excludeFromAccessToken) {
-                    Assert.assertTrue(token.getSubject() == null);
-                    Assert.assertTrue(token.getSessionId() == null);
-                    Assert.assertTrue(token.getIssuedFor() == null);
-                } else {
-                    Assert.assertNotNull(token.getSubject());
-                    Assert.assertNotNull(token.getSessionId());
-                    Assert.assertNotNull(token.getIssuedFor());
-                }
-                Assert.assertTrue(token.getScope() == null);
-                Assert.assertTrue(token.getAuth_time() == null);
-                Assert.assertTrue(token.getIssuer() == null);
-            }
-        } else {
-            Assert.assertNotNull(token.getSubject());
+        if (isAuthCodeFlow) {
             Assert.assertNotNull(token.getSessionId());
-            Assert.assertNotNull(token.getIssuedFor());
-            Assert.assertNotNull(token.getScope());
             Assert.assertNotNull(token.getAuth_time());
-            Assert.assertNotNull(token.getIssuer());
+        } else {
+            Assert.assertTrue(token.getSessionId() == null);
+            Assert.assertTrue(token.getAuth_time() == null);
         }
+        Assert.assertNotNull(token.getIssuedFor());
+        Assert.assertNotNull(token.getScope());
+        Assert.assertNotNull(token.getIssuer());
     }
 
     private void assertIntrospectClaims(AccessToken token) {
@@ -360,24 +296,20 @@ public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
         }
     }
 
-    private void assertAccessToken(AccessToken token, boolean isAuthCodeFlow) {
-        assertAccessToken(token, isAuthCodeFlow, false, true, true);
-    }
-
-    private void assertAccessToken(AccessToken token, boolean isAuthCodeFlow, boolean isAddToAccessToken, boolean enableLightWeight, boolean excludeFromAccessToken) {
+    private void assertAccessToken(AccessToken token, boolean isAuthCodeFlow, boolean isAddToAccessToken) {
         assertNonce(token, isAuthCodeFlow, false);
         assertMapperClaims(token, isAddToAccessToken, isAuthCodeFlow);
-        assertInitClaims(token, isAuthCodeFlow, enableLightWeight, excludeFromAccessToken, false);
+        assertInitClaims(token, isAuthCodeFlow);
     }
 
     private void assertTokenIntrospectionResponse(AccessToken token, boolean isAuthCodeFlow) {
-        assertTokenIntrospectionResponse(token, isAuthCodeFlow, true, true, true, false);
+        assertTokenIntrospectionResponse(token, isAuthCodeFlow, true, false);
     }
 
-    private void assertTokenIntrospectionResponse(AccessToken token, boolean isAuthCodeFlow, boolean isAddToIntrospect, boolean enableLightWeight, boolean excludeFromAccessToken, boolean exchangeToken) {
+    private void assertTokenIntrospectionResponse(AccessToken token, boolean isAuthCodeFlow, boolean isAddToIntrospect, boolean exchangeToken) {
         assertNonce(token, isAuthCodeFlow, exchangeToken);
         assertMapperClaims(token, isAddToIntrospect, isAuthCodeFlow);
-        assertInitClaims(token, isAuthCodeFlow, enableLightWeight, excludeFromAccessToken, true);
+        assertInitClaims(token, isAuthCodeFlow);
         assertIntrospectClaims(token);
     }
 
@@ -417,31 +349,13 @@ public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
         scope.getProtocolMappers().update(protocolMapper.getId(), protocolMapper);
     }
 
-    private ProtocolMappersResource setProtocolMappers(boolean isIncludeAccessToken, boolean isIncludeIntrospection, boolean enableLightWeight) {
-        return setProtocolMappers(isIncludeAccessToken, isIncludeIntrospection, enableLightWeight, true);
-    }
-
-    private ProtocolMappersResource setProtocolMappers(boolean isIncludeAccessToken, boolean isIncludeIntrospection, boolean enableLightWeight, boolean excludeFromAccessToken) {
+    private ProtocolMappersResource setProtocolMappers(boolean isIncludeAccessToken, boolean isIncludeIntrospection) {
         setScopeProtocolMappers(isIncludeAccessToken, isIncludeIntrospection);
         List<ProtocolMapperRepresentation> protocolMapperList = new ArrayList<>();
-        setLightWeightAccessTokenMapper(protocolMapperList, enableLightWeight, excludeFromAccessToken);
         setExistingProtocolMappers(protocolMapperList, isIncludeAccessToken, isIncludeIntrospection);
         ProtocolMappersResource protocolMappers = ApiUtil.findClientResourceByClientId(adminClient.realm("test"), "test-app").getProtocolMappers();
         protocolMappers.createMapper(protocolMapperList);
         return protocolMappers;
-    }
-
-    private void setLightWeightAccessTokenMapper(List<ProtocolMapperRepresentation> protocolMapperList, boolean enableLightWeight, boolean excludeFromAccessToken) {
-        if (enableLightWeight) {
-            ProtocolMapperRepresentation lightWeightProtocolMapper = createClaimMapper("light", LIGHT_WEIGHT_ACCESS_TOKEN_PROVIDER_ID, new HashMap<>());
-            Map<String, String> config = lightWeightProtocolMapper.getConfig();
-            if (excludeFromAccessToken) {
-                config.put(EXCLUDE_FROM_ACCESS_TOKEN, "true");
-            } else {
-                config.put(EXCLUDE_FROM_ACCESS_TOKEN, "false");
-            }
-            protocolMapperList.add(lightWeightProtocolMapper);
-        }
     }
 
     private void setExistingProtocolMappers(List<ProtocolMapperRepresentation> protocolMapperList, boolean isIncludeAccessToken, boolean isIncludeIntrospection) {
@@ -501,7 +415,7 @@ public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
     }
 
     private void deleteProtocolMappers(ProtocolMappersResource protocolMappers) {
-        List<String> mapperNames = new ArrayList<>(Arrays.asList("light", "audience", "role-name", "group-member", "hardcoded-claim", "hardcoded-role", "user-session-note", "pairwise-sub-mapper"));
+        List<String> mapperNames = new ArrayList<>(Arrays.asList("reference", "audience", "role-name", "group-member", "hardcoded-claim", "hardcoded-role", "user-session-note", "pairwise-sub-mapper"));
         List<ProtocolMapperRepresentation> mappers = new ArrayList<>();
         for (String mapperName : mapperNames) {
             mappers.add(ProtocolMapperUtil.getMapperByNameAndProtocol(protocolMappers, OIDCLoginProtocol.LOGIN_PROTOCOL, mapperName));
@@ -514,8 +428,21 @@ public class LightWeightAccessTokenMapperTest extends AbstractKeycloakTest {
         }
     }
 
-    private OAuthClient.AccessTokenResponse browserLogin(String clientSecret, String username, String password) {
+    private TokenResponseContext browserLogin(String clientSecret, String username, String password) {
         OAuthClient.AuthorizationEndpointResponse authsEndpointResponse = oauth.doLogin(username, password);
-        return oauth.doAccessTokenRequest(authsEndpointResponse.getCode(), clientSecret);
+        String userSessionId = authsEndpointResponse.getSessionState();
+        OAuthClient.AccessTokenResponse tokenResponse = oauth.doAccessTokenRequest(authsEndpointResponse.getCode(), clientSecret);
+        return new TokenResponseContext(userSessionId, tokenResponse);
+    }
+
+    private class TokenResponseContext {
+
+        private final String userSessionId;
+        private final OAuthClient.AccessTokenResponse tokenResponse;
+
+        public TokenResponseContext(String userSessionId, OAuthClient.AccessTokenResponse tokenResponse) {
+            this.userSessionId = userSessionId;
+            this.tokenResponse = tokenResponse;
+        }
     }
 }

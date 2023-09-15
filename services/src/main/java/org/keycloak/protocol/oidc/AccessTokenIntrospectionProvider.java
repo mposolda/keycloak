@@ -33,24 +33,16 @@ import org.keycloak.models.ClientSessionContext;
 import org.keycloak.models.ImpersonationSessionNote;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
-import org.keycloak.models.SingleUseObjectProvider;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.services.Urls;
-import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.util.DefaultClientSessionContext;
 import org.keycloak.services.util.UserSessionUtil;
 import org.keycloak.util.JsonSerialization;
 
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-
-import java.util.Map;
-
-import static org.keycloak.representations.IDToken.SESSION_ID;
-import static org.keycloak.representations.JsonWebToken.AZP;
-import static org.keycloak.representations.JsonWebToken.SUBJECT;
 
 /**
  * @author <a href="mailto:psilva@redhat.com">Pedro Igor</a>
@@ -70,7 +62,7 @@ public class AccessTokenIntrospectionProvider implements TokenIntrospectionProvi
 
     public Response introspect(String token) {
         try {
-            AccessToken accessToken = getAccessToken(token);
+            AccessToken accessToken = verifyAccessToken(token);
             accessToken = transformAccessToken(accessToken);
             ObjectNode tokenMetadata;
 
@@ -118,33 +110,6 @@ public class AccessTokenIntrospectionProvider implements TokenIntrospectionProvi
         }
     }
 
-    private AccessToken getAccessToken(String token) {
-        AccessToken accessToken;
-        TokenVerifier<AccessToken> verifier = TokenVerifier.create(token, AccessToken.class);
-        try {
-            SignatureVerifierContext verifierContext = session.getProvider(SignatureProvider.class, verifier.getHeader().getAlgorithm().name()).verifier(verifier.getHeader().getKeyId());
-            verifier.verifierContext(verifierContext);
-            accessToken = verifier.verify().getToken();
-        } catch (VerificationException e) {
-            logger.debugf("JWT check failed: %s", e.getMessage());
-            return null;
-        }
-        SingleUseObjectProvider singleUseStore = session.singleUseObjects();
-        Map<String, String> tokenData = singleUseStore.get(accessToken.getId());
-        if (tokenData != null) {
-            // enabled lightWeightAccessTokenMapper
-            accessToken.setSessionState(tokenData.get(SESSION_ID));
-            accessToken.issuedFor(tokenData.get(AZP));
-            accessToken.setSubject(tokenData.get(SUBJECT));
-            return accessToken;
-        } else {
-            verifier.realmUrl(Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName()));
-            RealmModel realm = this.session.getContext().getRealm();
-            return tokenManager.checkTokenValidForIntrospection(session, realm, accessToken, false) ? accessToken : null;
-        }
-    }
-
-
     private AccessToken transformAccessToken(AccessToken token) {
         if (token == null) {
             return null;
@@ -167,18 +132,25 @@ public class AccessTokenIntrospectionProvider implements TokenIntrospectionProvi
         }
         AuthenticatedClientSessionModel clientSession = userSession.getAuthenticatedClientSessionByClient(client.getId());
         ClientSessionContext clientSessionCtx = DefaultClientSessionContext.fromClientSessionScopeParameter(clientSession, session);
-        return tokenManager.transformIntrospectionAccessToken(session, getAccessTokenFromStoredData(token, clientSessionCtx, userSession), userSession, clientSessionCtx);
+        AccessToken smallToken = getAccessTokenFromStoredData(token, clientSessionCtx, userSession);
+        return tokenManager.transformIntrospectionAccessToken(session, smallToken, userSession, clientSessionCtx);
     }
 
     private AccessToken getAccessTokenFromStoredData(AccessToken token, ClientSessionContext clientSessionCtx, UserSessionModel userSession) {
-        token.setScope(clientSessionCtx.getScopeString());
-        String authTime = userSession.getNote(AuthenticationManager.AUTH_TIME);
-        if (authTime != null) {
-            token.setAuth_time(Long.parseLong(authTime));
-        }
-        token.issuer(clientSessionCtx.getClientSession().getNote(OIDCLoginProtocol.ISSUER));
-        token.subject(userSession.getUser().getId());
-        return token;
+        // Copy just "basic" claims from the initial token. The same like filled in TokenManager.initToken. The rest should be possibly added by protocol mappers (only if configured for introspection response)
+        AccessToken newToken = new AccessToken();
+        newToken.id(token.getId());
+        newToken.type(token.getType());
+        newToken.subject(token.getSubject() != null ? token.getSubject() : userSession.getUser().getId());
+        newToken.iat(token.getIat());
+        newToken.exp(token.getExp());
+        newToken.issuedFor(token.getIssuedFor());
+        newToken.issuer(token.getIssuer());
+        newToken.setNonce(token.getNonce());
+        newToken.setScope(token.getScope());
+        newToken.setAuth_time(token.getAuth_time());
+        newToken.setSessionState(token.getSessionState());
+        return newToken;
     }
 
     protected AccessToken verifyAccessToken(String token) {
