@@ -23,6 +23,7 @@ import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jboss.logging.Logger;
 import org.junit.Assert;
@@ -36,6 +37,7 @@ import org.keycloak.common.util.PemUtils;
 import org.keycloak.common.util.Time;
 import org.keycloak.component.ComponentValidationException;
 import org.keycloak.credential.hash.Pbkdf2PasswordHashProvider;
+import org.keycloak.credential.hash.Pbkdf2PasswordHashProviderFactory;
 import org.keycloak.credential.hash.Pbkdf2Sha256PasswordHashProviderFactory;
 import org.keycloak.credential.hash.Pbkdf2Sha512PasswordHashProviderFactory;
 import org.keycloak.jose.jws.JWSBuilder;
@@ -111,10 +113,10 @@ public class CryptoPerfTest {
 
     @Test
     public void testPbkdf256() {
-        int iterations = 600 * 1000;
-        int derivedKeySize = 256;
-        String providerId = Pbkdf2Sha256PasswordHashProviderFactory.ID;
-        String algorithm = Pbkdf2Sha256PasswordHashProviderFactory.PBKDF2_ALGORITHM;
+        int iterations = 1;
+        int derivedKeySize = 512;
+        String providerId = Pbkdf2PasswordHashProviderFactory.ID;
+        String algorithm = Pbkdf2PasswordHashProviderFactory.PBKDF2_ALGORITHM;
         perfTestPasswordHashins(iterations, derivedKeySize, providerId, algorithm);
     }
 
@@ -134,13 +136,14 @@ public class CryptoPerfTest {
                 iterations,
                 0,
                 derivedKeySize);
+        AtomicInteger i = new AtomicInteger(0);
 
         perfTest(new Runnable() {
             @Override
             public void run() {
-                provider.encode("password", -1);
+                provider.encode("password" + i.incrementAndGet(), -1);
             }
-        }, "testPbkdf512", 1);
+        }, "testPbkdf : " + providerId + ", hashing iterations: " + iterations + ", countOfHashedPasswords: " + 1000, 50000);
     }
 
     private KeyPair generateKeys(int size) {
