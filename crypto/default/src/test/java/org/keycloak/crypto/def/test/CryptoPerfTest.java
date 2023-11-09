@@ -113,9 +113,9 @@ public class CryptoPerfTest {
 
     @Test
     public void testPbkdf256() {
-        int iterations = 1;
-        int derivedKeySize = 512;
-        String providerId = Pbkdf2PasswordHashProviderFactory.ID;
+        int iterations = 27500;
+        int derivedKeySize = 256;
+        String providerId = Pbkdf2Sha256PasswordHashProviderFactory.ID;
         String algorithm = Pbkdf2PasswordHashProviderFactory.PBKDF2_ALGORITHM;
         perfTestPasswordHashins(iterations, derivedKeySize, providerId, algorithm);
     }
@@ -138,12 +138,14 @@ public class CryptoPerfTest {
                 derivedKeySize);
         AtomicInteger i = new AtomicInteger(0);
 
+        int count = 20000;
+
         perfTest(new Runnable() {
             @Override
             public void run() {
                 provider.encode("password" + i.incrementAndGet(), -1);
             }
-        }, "testPbkdf : " + providerId + ", hashing iterations: " + iterations + ", countOfHashedPasswords: " + 1000, 50000);
+        }, "testPbkdf : " + providerId + ", hashing iterations: " + iterations + ", countOfHashedPasswords: " + count, count);
     }
 
     private KeyPair generateKeys(int size) {
