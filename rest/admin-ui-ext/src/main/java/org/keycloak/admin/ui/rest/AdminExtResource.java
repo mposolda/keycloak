@@ -1,7 +1,13 @@
 package org.keycloak.admin.ui.rest;
 
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.PathParam;
+import org.keycloak.events.admin.ResourceType;
+import org.keycloak.models.ClientModel;
+import org.keycloak.models.ClientScopeModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.services.ForbiddenException;
 import org.keycloak.services.resources.admin.AdminEventBuilder;
 import org.keycloak.services.resources.admin.permissions.AdminPermissionEvaluator;
 
@@ -58,5 +64,35 @@ public final class AdminExtResource {
     @Path("/users")
     public UsersResource users() {
         return new UsersResource(session);
+    }
+
+    @Path("/client-scopes/{client-scope-id}")
+    public UIProtocolMappersResource protocolMappersByClientScope(final @PathParam("client-scope-id") String id) {
+        this.adminEvent.resource(ResourceType.CLIENT_SCOPE);
+        auth.clients().requireListClientScopes();
+        ClientScopeModel clientScope = realm.getClientScopeById(id);
+        if (clientScope == null) {
+            throw new NotFoundException("Could not find client scope");
+        }
+
+        AdminPermissionEvaluator.RequirePermissionCheck manageCheck = () -> auth.clients().requireManage(clientScope);
+        AdminPermissionEvaluator.RequirePermissionCheck viewCheck = () -> auth.clients().requireView(clientScope);
+        return new UIProtocolMappersResource(session, clientScope, auth, adminEvent, manageCheck, viewCheck);
+    }
+
+    @Path("/clients/{client-uuid}")
+    public UIProtocolMappersResource protocolMappersByClient(final @PathParam("client-uuid") String id) {
+        this.adminEvent.resource(ResourceType.CLIENT);
+        ClientModel clientModel = realm.getClientById(id);
+        if (clientModel == null) {
+            // we do this to make sure somebody can't phish ids
+            if (auth.clients().canList()) throw new NotFoundException("Could not find client");
+            else throw new ForbiddenException();
+        }
+        session.getContext().setClient(clientModel);
+
+        AdminPermissionEvaluator.RequirePermissionCheck manageCheck = () -> auth.clients().requireManage(clientModel);
+        AdminPermissionEvaluator.RequirePermissionCheck viewCheck = () -> auth.clients().requireView(clientModel);
+        return new UIProtocolMappersResource(session, clientModel, auth, adminEvent, manageCheck, viewCheck);
     }
 }

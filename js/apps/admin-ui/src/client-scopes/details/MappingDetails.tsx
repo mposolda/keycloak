@@ -31,6 +31,8 @@ import { useFetch } from "../../utils/useFetch";
 import { useParams } from "../../utils/useParams";
 import { toClientScope } from "../routes/ClientScope";
 import { MapperParams, MapperRoute } from "../routes/Mapper";
+import { findProtocolMapperByClientScope } from "../../components/client-scope/protocolMapperGetter";
+import { findProtocolMapperByClient } from "../../components/client-scope/protocolMapperGetter";
 
 export default function MappingDetails() {
   const { t } = useTranslation();
@@ -67,15 +69,13 @@ export default function MappingDetails() {
       let data: ProtocolMapperRepresentation | undefined;
       if (isUpdating) {
         if (isOnClientScope) {
-          data = await adminClient.clientScopes.findProtocolMapper({
-            id,
-            mapperId,
-          });
+          data = await findProtocolMapperByClientScope(
+            id, mapperId,
+          );
         } else {
-          data = await adminClient.clients.findProtocolMapperById({
-            id,
-            mapperId,
-          });
+          data = await findProtocolMapperByClient(
+            id, mapperId,
+          );
         }
         if (!data) {
           throw new Error(t("notFound"));
