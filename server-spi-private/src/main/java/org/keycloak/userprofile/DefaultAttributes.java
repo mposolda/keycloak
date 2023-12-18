@@ -409,11 +409,17 @@ public class DefaultAttributes extends HashMap<String, List<String>> implements 
 
         Stream<String> valuesStream = Optional.ofNullable(values).orElse(EMPTY_VALUE).stream().filter(Objects::nonNull);
 
-        if (UserModel.USERNAME.equals(name) || UserModel.EMAIL.equals(name)) {
-            valuesStream = valuesStream.map(KeycloakModelUtils::toLowerCaseSafe);
-        }
+        valuesStream = handleLowerCaseRootAttributes(name, valuesStream);
 
         return valuesStream.collect(Collectors.toList());
+    }
+
+    protected Stream<String> handleLowerCaseRootAttributes(String attributeName, Stream<String> valuesStream) {
+        if (UserModel.USERNAME.equals(attributeName) || UserModel.EMAIL.equals(attributeName)) {
+            return valuesStream.map(KeycloakModelUtils::toLowerCaseSafe);
+        } else {
+            return valuesStream;
+        }
     }
 
     private boolean isAllowUnmanagedAttribute() {
