@@ -524,7 +524,9 @@ public class DeclarativeUserProfileProvider implements UserProfileProvider {
 
     @Override
     public boolean isEnabled(RealmModel realm) {
-        return isDeclarativeConfigurationEnabled && realm.getAttribute(REALM_USER_PROFILE_ENABLED, false);
+
+        // return isDeclarativeConfigurationEnabled && realm.getAttribute(REALM_USER_PROFILE_ENABLED, false);
+        return true;
     }
 
     @Override
