@@ -1211,6 +1211,7 @@ public class VerifyProfileTest extends AbstractTestRealmKeycloakTest {
         return result;
     }
 
+    // TODO:mposolda remove this method as it should not be needed
     public static void enableDynamicUserProfile(RealmRepresentation testRealm) {
         if (testRealm.getAttributes() == null) {
             testRealm.setAttributes(new HashMap<>());
@@ -1218,10 +1219,12 @@ public class VerifyProfileTest extends AbstractTestRealmKeycloakTest {
         testRealm.getAttributes().put(REALM_USER_PROFILE_ENABLED, Boolean.TRUE.toString());
     }
 
+    // TODO:mposolda probably remove this method (or make it working with unmanaged attributes)
     public static void disableDynamicUserProfile(RealmResource realm) {
         disableDynamicUserProfile(realm, true);
     }
 
+    // TODO:mposolda probably remove this method (or make it working with unmanaged attributes)
     public static void disableDynamicUserProfile(RealmResource realm, boolean reset) {
         RealmRepresentation realmRep = realm.toRepresentation();
         if (realmRep.getAttributes() == null) {

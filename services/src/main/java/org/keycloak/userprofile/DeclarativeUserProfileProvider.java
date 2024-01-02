@@ -68,7 +68,7 @@ import org.keycloak.validate.ValidatorConfig;
 public class DeclarativeUserProfileProvider implements UserProfileProvider {
 
     public static final String UP_COMPONENT_CONFIG_KEY = "kc.user.profile.config";
-    public static final String REALM_USER_PROFILE_ENABLED = "userProfileEnabled";
+    public static final String REALM_USER_PROFILE_ENABLED = "userProfileEnabled"; // TODO:mposolda remove this constant (also check all the places in the UI where it is used)
     protected static final String PARSED_CONFIG_COMPONENT_KEY = "kc.user.profile.metadata";
     protected static final String PARSED_UP_CONFIG_COMPONENT_KEY = "kc.parsed.up.config";
 
@@ -522,6 +522,7 @@ public class DeclarativeUserProfileProvider implements UserProfileProvider {
         model.getConfig().remove(UP_COMPONENT_CONFIG_KEY);
     }
 
+    // TODO:mposolda probably remove this method directly
     @Override
     public boolean isEnabled(RealmModel realm) {
 

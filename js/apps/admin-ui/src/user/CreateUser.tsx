@@ -47,9 +47,7 @@ export default function CreateUser() {
 
       setRealm(realm);
 
-      const isUserProfileEnabled =
-        isFeatureEnabled(Feature.DeclarativeUserProfile) &&
-        realm.attributes?.userProfileEnabled === "true";
+      const isUserProfileEnabled = true;
 
       setUserProfileMetadata(
         isUserProfileEnabled ? userProfileMetadata : undefined,

@@ -85,6 +85,7 @@ public class DeclarativeUserProfileProviderFactory implements UserProfileProvide
     private static final Pattern readOnlyAttributesPattern = getRegexPatternString(DEFAULT_READ_ONLY_ATTRIBUTES);
     private static final Pattern adminReadOnlyAttributesPattern = getRegexPatternString(DEFAULT_ADMIN_READ_ONLY_ATTRIBUTES);
 
+    // TODO:mposolda probably remove this variable entirely and also all related methods
     private boolean isDeclarativeConfigurationEnabled;
 
     private UPConfig parsedDefaultRawConfig;
@@ -198,7 +199,7 @@ public class DeclarativeUserProfileProviderFactory implements UserProfileProvide
 
     @Override
     public void init(Config.Scope config) {
-        isDeclarativeConfigurationEnabled = Profile.isFeatureEnabled(Profile.Feature.DECLARATIVE_USER_PROFILE);
+        isDeclarativeConfigurationEnabled = true;
         parsedDefaultRawConfig = UPConfigUtils.parseDefaultConfig();
 
         // make sure registry is clear in case of re-deploy

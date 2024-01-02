@@ -113,9 +113,7 @@ export default function EditUser() {
         throw new Error(t("notFound"));
       }
 
-      const isUserProfileEnabled =
-        isFeatureEnabled(Feature.DeclarativeUserProfile) &&
-        realm.attributes?.userProfileEnabled === "true";
+      const isUserProfileEnabled = true;
 
       setUserProfileMetadata(
         isUserProfileEnabled ? user.userProfileMetadata : undefined,
