@@ -73,8 +73,6 @@ public class Profile {
 
         PAR("OAuth 2.0 Pushed Authorization Requests (PAR)", Type.DEFAULT),
 
-        DECLARATIVE_USER_PROFILE("Configure user profiles using a declarative style", Type.PREVIEW), // TODO:mposolda remove this feature and assume it is always enabled
-
         DYNAMIC_SCOPES("Dynamic OAuth 2.0 scopes", Type.EXPERIMENTAL),
 
         CLIENT_SECRET_ROTATION("Client Secret Rotation", Type.PREVIEW),

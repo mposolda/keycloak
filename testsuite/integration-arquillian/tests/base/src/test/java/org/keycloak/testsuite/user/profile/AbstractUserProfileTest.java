@@ -19,8 +19,6 @@
 
 package org.keycloak.testsuite.user.profile;
 
-import static org.keycloak.userprofile.DeclarativeUserProfileProvider.REALM_USER_PROFILE_ENABLED;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,9 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import org.junit.Before;
 import org.keycloak.OAuth2Constants;
-import org.keycloak.common.Profile;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.KeycloakSession;
@@ -40,8 +36,6 @@ import org.keycloak.representations.idm.RealmRepresentation;
 import org.keycloak.sessions.AuthenticationSessionModel;
 import org.keycloak.sessions.RootAuthenticationSessionModel;
 import org.keycloak.testsuite.AbstractTestRealmKeycloakTest;
-import org.keycloak.testsuite.arquillian.annotation.EnableFeature;
-import org.keycloak.testsuite.forms.VerifyProfileTest;
 import org.keycloak.userprofile.UserProfileProvider;
 import org.keycloak.representations.userprofile.config.UPAttribute;
 import org.keycloak.representations.userprofile.config.UPConfig;

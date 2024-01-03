@@ -106,13 +106,13 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.keycloak.migration.migrators.MigrateTo24_0_0.REALM_USER_PROFILE_ENABLED;
 import static org.keycloak.models.AccountRoles.MANAGE_ACCOUNT;
 import static org.keycloak.models.AccountRoles.MANAGE_ACCOUNT_LINKS;
 import static org.keycloak.models.AccountRoles.VIEW_GROUPS;
 import static org.keycloak.models.Constants.ACCOUNT_MANAGEMENT_CLIENT_ID;
 import static org.keycloak.testsuite.Assert.assertNames;
 import static org.keycloak.testsuite.auth.page.AuthRealm.MASTER;
-import static org.keycloak.userprofile.DeclarativeUserProfileProvider.REALM_USER_PROFILE_ENABLED;
 import static org.keycloak.userprofile.DeclarativeUserProfileProvider.UP_COMPONENT_CONFIG_KEY;
 
 /**

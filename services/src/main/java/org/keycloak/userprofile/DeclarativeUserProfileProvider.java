@@ -41,7 +41,6 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserProvider;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
-import org.keycloak.services.messages.Messages;
 import org.keycloak.sessions.AuthenticationSessionModel;
 import org.keycloak.userprofile.config.DeclarativeUserProfileModel;
 import org.keycloak.representations.userprofile.config.UPAttribute;
@@ -52,7 +51,6 @@ import org.keycloak.representations.userprofile.config.UPConfig;
 import org.keycloak.userprofile.config.UPConfigUtils;
 import org.keycloak.representations.userprofile.config.UPGroup;
 import org.keycloak.userprofile.validator.AttributeRequiredByMetadataValidator;
-import org.keycloak.userprofile.validator.BlankAttributeValidator;
 import org.keycloak.userprofile.validator.ImmutableAttributeValidator;
 import org.keycloak.util.JsonSerialization;
 import org.keycloak.validate.AbstractSimpleValidator;
@@ -68,7 +66,6 @@ import org.keycloak.validate.ValidatorConfig;
 public class DeclarativeUserProfileProvider implements UserProfileProvider {
 
     public static final String UP_COMPONENT_CONFIG_KEY = "kc.user.profile.config";
-    public static final String REALM_USER_PROFILE_ENABLED = "userProfileEnabled"; // TODO:mposolda remove this constant (also check all the places in the UI where it is used)
     protected static final String PARSED_CONFIG_COMPONENT_KEY = "kc.user.profile.metadata";
     protected static final String PARSED_UP_CONFIG_COMPONENT_KEY = "kc.parsed.up.config";
 
@@ -109,16 +106,11 @@ public class DeclarativeUserProfileProvider implements UserProfileProvider {
 
     protected Attributes createAttributes(UserProfileContext context, Map<String, ?> attributes,
             UserModel user, UserProfileMetadata metadata) {
-        RealmModel realm = session.getContext().getRealm();
 
-        if (isEnabled(realm)) {
-            if (user != null && user.getServiceAccountClientLink() != null) {
-                return new LegacyAttributes(context, attributes, user, metadata, session);
-            }
-            return new DefaultAttributes(context, attributes, user, metadata, session);
+        if (user != null && user.getServiceAccountClientLink() != null) {
+            return new LegacyAttributes(context, attributes, user, metadata, session);
         }
-
-        return new LegacyAttributes(context, attributes, user, metadata, session);
+        return new DefaultAttributes(context, attributes, user, metadata, session);
     }
 
     @Override
@@ -187,16 +179,6 @@ public class DeclarativeUserProfileProvider implements UserProfileProvider {
         UserProfileMetadata decoratedMetadata = metadata.clone();
         RealmModel realm = session.getContext().getRealm();
 
-        if (!isEnabled(realm)) {
-            if(!context.equals(UserProfileContext.USER_API)
-                    && !context.equals(UserProfileContext.UPDATE_EMAIL)) {
-                decoratedMetadata.addAttribute(UserModel.FIRST_NAME, 1, new AttributeValidatorMetadata(BlankAttributeValidator.ID, BlankAttributeValidator.createConfig(
-                        Messages.MISSING_FIRST_NAME, metadata.getContext() == UserProfileContext.IDP_REVIEW))).setAttributeDisplayName("${firstName}");
-                decoratedMetadata.addAttribute(UserModel.LAST_NAME, 2, new AttributeValidatorMetadata(BlankAttributeValidator.ID, BlankAttributeValidator.createConfig(Messages.MISSING_LAST_NAME, metadata.getContext() == UserProfileContext.IDP_REVIEW))).setAttributeDisplayName("${lastName}");
-            }
-            return decoratedMetadata;
-        }
-
         ComponentModel component = getComponentModel().orElse(null);
 
         if (component == null) {
@@ -218,12 +200,6 @@ public class DeclarativeUserProfileProvider implements UserProfileProvider {
 
     @Override
     public UPConfig getConfiguration() {
-        RealmModel realm = session.getContext().getRealm();
-
-        if (!isEnabled(realm)) {
-            return parsedDefaultRawConfig.clone();
-        }
-
         Optional<ComponentModel> component = getComponentModel();
 
         if (component.isPresent()) {
@@ -520,14 +496,6 @@ public class DeclarativeUserProfileProvider implements UserProfileProvider {
             return;
 
         model.getConfig().remove(UP_COMPONENT_CONFIG_KEY);
-    }
-
-    // TODO:mposolda probably remove this method directly
-    @Override
-    public boolean isEnabled(RealmModel realm) {
-
-        // return isDeclarativeConfigurationEnabled && realm.getAttribute(REALM_USER_PROFILE_ENABLED, false);
-        return true;
     }
 
     @Override

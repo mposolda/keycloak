@@ -33,7 +33,7 @@ public class MigrateTo24_0_0 implements Migration {
 
     private static final Logger LOG = Logger.getLogger(MigrateTo24_0_0.class);
     public static final ModelVersion VERSION = new ModelVersion("24.0.0");
-    private static final String REALM_USER_PROFILE_ENABLED = "userProfileEnabled";
+    public static final String REALM_USER_PROFILE_ENABLED = "userProfileEnabled";
 
     @Override
     public void migrate(KeycloakSession session) {
