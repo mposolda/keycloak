@@ -21,14 +21,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.keycloak.userprofile.DeclarativeUserProfileProvider.REALM_USER_PROFILE_ENABLED;
 import static org.keycloak.userprofile.config.UPConfigUtils.ROLE_ADMIN;
 import static org.keycloak.userprofile.config.UPConfigUtils.ROLE_USER;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -1192,14 +1190,6 @@ public class VerifyProfileTest extends AbstractTestRealmKeycloakTest {
                 ? StringUtils.isBlank(adminEvent.getRepresentation())
                 : StringUtils.isNotBlank(adminEvent.getRepresentation()));
         return result;
-    }
-
-    // TODO:mposolda remove this method as it should not be needed
-    public static void enableDynamicUserProfile(RealmRepresentation testRealm) {
-        if (testRealm.getAttributes() == null) {
-            testRealm.setAttributes(new HashMap<>());
-        }
-        testRealm.getAttributes().put(REALM_USER_PROFILE_ENABLED, Boolean.TRUE.toString());
     }
 
     public static UPConfig setUserProfileConfiguration(RealmResource testRealm, String configuration) {
