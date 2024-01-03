@@ -42,6 +42,7 @@ import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.representations.userprofile.config.UPConfig;
 import org.keycloak.testsuite.admin.ApiUtil;
+import org.keycloak.testsuite.forms.VerifyProfileTest;
 import org.keycloak.testsuite.updaters.Creator;
 import org.keycloak.testsuite.util.AdminEventPaths;
 import org.keycloak.testsuite.util.ClientBuilder;
@@ -1285,9 +1286,7 @@ public class GroupTest extends AbstractGroupTest {
 
         // enable user profile unmanaged attributes
         UserProfileResource upResource = realm.users().userProfile();
-        UPConfig cfg = upResource.getConfiguration();
-        cfg.setUnmanagedAttributePolicy(UPConfig.UnmanagedAttributePolicy.ENABLED);
-        upResource.update(cfg);
+        UPConfig cfg = VerifyProfileTest.enableUnmanagedAttributes(upResource);
 
         GroupsResource groups = realm.groups();
         try (Response response = groups.add(GroupBuilder.create().name(groupName).build())) {

@@ -39,6 +39,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.resource.RealmResource;
+import org.keycloak.admin.client.resource.UserProfileResource;
 import org.keycloak.common.Profile;
 import org.keycloak.events.Details;
 import org.keycloak.events.EventType;
@@ -1216,6 +1217,13 @@ public class VerifyProfileTest extends AbstractTestRealmKeycloakTest {
         } catch (IOException ioe) {
             throw new RuntimeException("Failed to read configuration", ioe);
         }
+    }
+
+    public static UPConfig enableUnmanagedAttributes(UserProfileResource upResource) {
+        UPConfig cfg = upResource.getConfiguration();
+        cfg.setUnmanagedAttributePolicy(UPConfig.UnmanagedAttributePolicy.ENABLED);
+        upResource.update(cfg);
+        return cfg;
     }
 
     public static UserRepresentation getUser(RealmResource testRealm, String userId) {

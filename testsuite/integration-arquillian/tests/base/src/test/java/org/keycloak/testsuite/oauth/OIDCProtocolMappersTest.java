@@ -54,6 +54,7 @@ import org.keycloak.testsuite.Assert;
 import org.keycloak.testsuite.AssertEvents;
 import org.keycloak.testsuite.admin.ApiUtil;
 import org.keycloak.testsuite.arquillian.annotation.EnableFeature;
+import org.keycloak.testsuite.forms.VerifyProfileTest;
 import org.keycloak.testsuite.updaters.ClientAttributeUpdater;
 import org.keycloak.testsuite.updaters.ProtocolMappersUpdater;
 import org.keycloak.testsuite.util.AdminClientUtil;
@@ -125,9 +126,7 @@ public class OIDCProtocolMappersTest extends AbstractKeycloakTest {
 
         // enable user profile unmanaged attributes
         UserProfileResource upResource = adminClient.realm("test").users().userProfile();
-        UPConfig cfg = upResource.getConfiguration();
-        cfg.setUnmanagedAttributePolicy(UPConfig.UnmanagedAttributePolicy.ENABLED);
-        upResource.update(cfg);
+        VerifyProfileTest.enableUnmanagedAttributes(upResource);
     }
 
 
