@@ -25,6 +25,7 @@ import org.keycloak.admin.client.resource.GroupResource;
 import org.keycloak.admin.client.resource.GroupsResource;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.RoleMappingResource;
+import org.keycloak.admin.client.resource.UserProfileResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.events.admin.OperationType;
@@ -39,6 +40,7 @@ import org.keycloak.representations.idm.MappingsRepresentation;
 import org.keycloak.representations.idm.RealmRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.keycloak.representations.userprofile.config.UPConfig;
 import org.keycloak.testsuite.admin.ApiUtil;
 import org.keycloak.testsuite.updaters.Creator;
 import org.keycloak.testsuite.util.AdminEventPaths;
@@ -1281,6 +1283,12 @@ public class GroupTest extends AbstractGroupTest {
         String groupName = "brief-grouptest-group";
         String userName = "brief-grouptest-user";
 
+        // enable user profile unmanaged attributes
+        UserProfileResource upResource = realm.users().userProfile();
+        UPConfig cfg = upResource.getConfiguration();
+        cfg.setUnmanagedAttributePolicy(UPConfig.UnmanagedAttributePolicy.ENABLED);
+        upResource.update(cfg);
+
         GroupsResource groups = realm.groups();
         try (Response response = groups.add(GroupBuilder.create().name(groupName).build())) {
             String groupId = ApiUtil.getCreatedId(response);
@@ -1308,6 +1316,9 @@ public class GroupTest extends AbstractGroupTest {
 
             group.remove();
             user.remove();
+        } finally {
+            cfg.setUnmanagedAttributePolicy(null);
+            upResource.update(cfg);
         }
     }
 
