@@ -51,7 +51,6 @@ import org.keycloak.util.JsonSerialization;
 /**
  * @author <a href="mailto:psilva@redhat.com">Pedro Igor</a>
  */
-@EnableFeature(value = Profile.Feature.DECLARATIVE_USER_PROFILE)
 public abstract class AbstractUserProfileTest extends AbstractTestRealmKeycloakTest {
 
     protected static void configureAuthenticationSession(KeycloakSession session) {
@@ -296,17 +295,5 @@ public abstract class AbstractUserProfileTest extends AbstractTestRealmKeycloakT
 
     @Override
     public void configureTestRealm(RealmRepresentation testRealm) {
-        if (testRealm.getAttributes() == null) {
-            testRealm.setAttributes(new HashMap<>());
-        }
-        testRealm.getAttributes().put(REALM_USER_PROFILE_ENABLED, Boolean.TRUE.toString());
-    }
-
-    @Before
-    public void resetConfigBeforeTest() {
-        VerifyProfileTest.disableDynamicUserProfile(testRealm());
-        RealmRepresentation realm = testRealm().toRepresentation();
-        VerifyProfileTest.enableDynamicUserProfile(realm);
-        testRealm().update(realm);
     }
 }
