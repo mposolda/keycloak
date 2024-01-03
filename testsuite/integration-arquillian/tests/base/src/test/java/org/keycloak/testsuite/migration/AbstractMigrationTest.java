@@ -1204,7 +1204,7 @@ public abstract class AbstractMigrationTest extends AbstractKeycloakTest {
         RealmRepresentation rep = realm.toRepresentation();
         Map<String, String> attributes = rep.getAttributes();
         String userProfileEnabled = attributes.get(REALM_USER_PROFILE_ENABLED);
-        assertTrue(Boolean.parseBoolean(userProfileEnabled));
+        assertNull(userProfileEnabled);
     }
 
     private void testUnmanagedAttributePolicySet(RealmResource realm, UnmanagedAttributePolicy policy) {

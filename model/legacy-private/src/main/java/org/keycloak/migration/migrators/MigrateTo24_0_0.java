@@ -64,14 +64,14 @@ public class MigrateTo24_0_0 implements Migration {
         RealmModel realm = session.getContext().getRealm();
         boolean isUserProfileEnabled = Boolean.parseBoolean(realm.getAttribute(REALM_USER_PROFILE_ENABLED));
 
+        // Remove attribute as user profile is always enabled from this version
+        realm.removeAttribute(REALM_USER_PROFILE_ENABLED);
+
         if (isUserProfileEnabled) {
             // existing realms with user profile enabled does not need any addition migration step
             LOG.debugf("Skipping migration for realm %s. The declarative user profile is already enabled.", realm.getName());
             return;
         }
-
-        // user profile is enabled by default since this version
-        realm.setAttribute(REALM_USER_PROFILE_ENABLED, Boolean.TRUE.toString());
 
         // for backward compatibility in terms of behavior, we enable unmanaged attributes for existing realms
         // that don't have the declarative user profile enabled
