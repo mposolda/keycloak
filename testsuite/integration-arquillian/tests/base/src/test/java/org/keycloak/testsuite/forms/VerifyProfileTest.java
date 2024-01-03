@@ -79,7 +79,6 @@ import org.openqa.selenium.By;
 /**
  * @author Vlastimil Elias <velias@redhat.com>
  */
-@EnableFeature(value = Profile.Feature.DECLARATIVE_USER_PROFILE)
 public class VerifyProfileTest extends AbstractTestRealmKeycloakTest {
 
     public static final String SCOPE_DEPARTMENT = "department";
@@ -117,9 +116,6 @@ public class VerifyProfileTest extends AbstractTestRealmKeycloakTest {
 
     @Override
     public void configureTestRealm(RealmRepresentation testRealm) {
-
-        enableDynamicUserProfile(testRealm);
-
         UserRepresentation user = UserBuilder.create().id(UUID.randomUUID().toString()).username("login-test").email("login@test.com").enabled(true).password("password").build();
         UserRepresentation user2 = UserBuilder.create().id(UUID.randomUUID().toString()).username("login-test2").email("login2@test.com").enabled(true).password("password").build();
         UserRepresentation user3 = UserBuilder.create().id(UUID.randomUUID().toString()).username("login-test3").email("login3@test.com").enabled(true).password("password").lastName("ExistingLast").build();
@@ -404,15 +400,8 @@ public class VerifyProfileTest extends AbstractTestRealmKeycloakTest {
 
     @Test
     public void testIgnoreCustomAttributeWhenUserProfileIsDisabled() {
-        try {
-            disableDynamicUserProfile(testRealm());
-            testingClient.server(TEST_REALM_NAME).run(setEmptyFirstNameAndCustomAttribute());
-            testDefaultProfile();
-        } finally {
-            RealmRepresentation realm = testRealm().toRepresentation();
-            enableDynamicUserProfile(realm);
-            testRealm().update(realm);
-        }
+        testingClient.server(TEST_REALM_NAME).run(setEmptyFirstNameAndCustomAttribute());
+        testDefaultProfile();
     }
 
     private static RunOnServer setEmptyFirstNameAndCustomAttribute() {
@@ -1166,7 +1155,7 @@ public class VerifyProfileTest extends AbstractTestRealmKeycloakTest {
     }
 
     @Test
-    public void testConfigurationRemainsAfterReset() throws IOException {
+    public void testConfigurationPersisted() throws IOException {
         String customConfig = "{\"attributes\": ["
                 + "{\"name\": \"firstName\"," + PERMISSIONS_ALL + ", \"required\": {}},"
                 + "{\"name\": \"lastName\"," + PERMISSIONS_ALL + "},"
@@ -1175,13 +1164,7 @@ public class VerifyProfileTest extends AbstractTestRealmKeycloakTest {
 
         UPConfig persistedConfig = setUserProfileConfiguration(customConfig);
 
-        RealmResource realmRes = testRealm();
-        disableDynamicUserProfile(realmRes, false);
-        RealmRepresentation realm = realmRes.toRepresentation();
-        enableDynamicUserProfile(realm);
-        testRealm().update(realm);
-
-        JsonTestUtils.assertJsonEquals(JsonSerialization.writeValueAsString(persistedConfig), realmRes.users().userProfile().getConfiguration());
+        JsonTestUtils.assertJsonEquals(JsonSerialization.writeValueAsString(persistedConfig), testRealm().users().userProfile().getConfiguration());
     }
 
     protected UserRepresentation getUser(String userId) {
@@ -1218,25 +1201,6 @@ public class VerifyProfileTest extends AbstractTestRealmKeycloakTest {
         }
         testRealm.getAttributes().put(REALM_USER_PROFILE_ENABLED, Boolean.TRUE.toString());
     }
-
-    // TODO:mposolda probably remove this method (or make it working with unmanaged attributes)
-    public static void disableDynamicUserProfile(RealmResource realm) {
-        disableDynamicUserProfile(realm, true);
-    }
-
-    // TODO:mposolda probably remove this method (or make it working with unmanaged attributes)
-    public static void disableDynamicUserProfile(RealmResource realm, boolean reset) {
-        RealmRepresentation realmRep = realm.toRepresentation();
-        if (realmRep.getAttributes() == null) {
-            realmRep.setAttributes(new HashMap<>());
-        }
-        realmRep.getAttributes().put(REALM_USER_PROFILE_ENABLED, Boolean.FALSE.toString());
-        realm.update(realmRep);
-        if (reset) {
-            setUserProfileConfiguration(realm, null);
-        }
-    }
-
 
     public static UPConfig setUserProfileConfiguration(RealmResource testRealm, String configuration) {
         try {
