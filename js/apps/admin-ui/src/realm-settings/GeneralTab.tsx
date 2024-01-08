@@ -28,7 +28,6 @@ import {
   convertAttributeNameToForm,
   convertToFormValues,
 } from "../util";
-import useIsFeatureEnabled, { Feature } from "../utils/useIsFeatureEnabled";
 import {
   UnmanagedAttributePolicy,
   UserProfileConfig,
@@ -57,7 +56,6 @@ export const RealmSettingsGeneralTab = ({
     setValue,
     formState: { isDirty, errors },
   } = form;
-  const isFeatureEnabled = useIsFeatureEnabled();
   const [open, setOpen] = useState(false);
 
   const requireSslTypes = ["all", "external", "none"];

@@ -34,7 +34,6 @@ import { useAccess } from "../context/access/Access";
 import { useRealm } from "../context/realm-context/RealmContext";
 import { UserProfileProvider } from "../realm-settings/user-profile/UserProfileContext";
 import { useFetch } from "../utils/useFetch";
-import useIsFeatureEnabled, { Feature } from "../utils/useIsFeatureEnabled";
 import { useParams } from "../utils/useParams";
 import { UserAttributes } from "./UserAttributes";
 import { UserConsents } from "./UserConsents";
@@ -64,7 +63,6 @@ export default function EditUser() {
   const { hasAccess } = useAccess();
   const { id } = useParams<UserParams>();
   const { realm: realmName } = useRealm();
-  const isFeatureEnabled = useIsFeatureEnabled();
   const form = useForm<UserFormFields>({ mode: "onChange" });
   const [realm, setRealm] = useState<RealmRepresentation>();
   const [user, setUser] = useState<UIUserRepresentation>();
