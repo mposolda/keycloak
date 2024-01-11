@@ -94,7 +94,7 @@ async function downloadServer(local) {
       path.join(LOCAL_QUARKUS, LOCAL_DIST_NAME),
     );
   } else {
-    console.info("Downloading and extracting server…");
+    console.info("Downloading and extracting serverr…");
     const nightlyAsset = await getNightlyAsset();
     assetStream = await getAssetAsStream(nightlyAsset);
   }
