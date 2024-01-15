@@ -51,6 +51,7 @@ public class ProviderConfigProperty {
     public static final String MULTIVALUED_LIST_TYPE="MultivaluedList";
 
     public static final String CLIENT_LIST_TYPE="ClientList";
+    public static final String USER_PROFILE_ATTRIBUTE_LIST_TYPE="UserProfileAttributeList";
     public static final String PASSWORD="Password";
 
     /**
