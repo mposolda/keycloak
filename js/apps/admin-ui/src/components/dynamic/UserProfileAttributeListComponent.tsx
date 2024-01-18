@@ -10,7 +10,8 @@ import { useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { HelpItem } from "ui-shared";
-
+import { KeycloakTextInput } from "../keycloak-text-input/KeycloakTextInput";
+import { convertToName } from "./DynamicComponents";
 import { adminClient } from "../../admin-client";
 import { useFetch } from "../../utils/useFetch";
 import type { ComponentProps } from "./components";
@@ -29,6 +30,7 @@ export const UserProfileAttributeListComponent = ({
   const {
     control,
     formState: { errors },
+    register,
   } = useFormContext();
 
   const [open, setOpen] = useState(false);
@@ -67,6 +69,10 @@ export const UserProfileAttributeListComponent = ({
             isOpen={open}
             isDisabled={isDisabled}
             selections={field.value}
+            onFilter={(_, value) => {
+              setSearch(value);
+              return convert(clients);
+            }}
             onSelect={(_, value) => {
               field.onChange(value.toString());
               setOpen(false);
@@ -76,6 +82,13 @@ export const UserProfileAttributeListComponent = ({
             {convert(config)}
           </Select>
         )}
+      />
+      <KeycloakTextInput
+        id={name!}
+        data-testid={name}
+        isDisabled={isDisabled}
+        defaultValue={defaultValue?.toString()}
+        {...register(convertToName(name!))}
       />
     </FormGroup>
   );
