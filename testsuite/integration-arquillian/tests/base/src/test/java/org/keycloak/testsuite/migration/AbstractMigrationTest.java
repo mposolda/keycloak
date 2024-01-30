@@ -1093,6 +1093,7 @@ public abstract class AbstractMigrationTest extends AbstractKeycloakTest {
 
     protected void testMigrationTo24_x(boolean testUserProfileMigration) {
         testMigrationTo24_0_0(testUserProfileMigration);
+        System.out.println("Hello");
     }
 
     protected void testMigrationTo7_x(boolean supportedAuthzServices) {
