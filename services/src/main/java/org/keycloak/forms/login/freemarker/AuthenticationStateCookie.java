@@ -69,6 +69,8 @@ public class AuthenticationStateCookie {
         cookie.setAuthSessionId(rootAuthSession.getId());
         cookie.setRemainingTabs(rootAuthSession.getAuthenticationSessions().keySet());
 
+        logger.infof("Adding cookie. rootAuthSession.id=%s, tabIDs=%s", rootAuthSession.getId(), rootAuthSession.getAuthenticationSessions().keySet());
+
         try {
             String encoded = Encode.urlEncode(JsonSerialization.writeValueAsString(cookie));
             session.getProvider(CookieProvider.class).set(CookieType.AUTH_STATE, encoded, cookieMaxAge);

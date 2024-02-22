@@ -18,6 +18,7 @@
 package org.keycloak.authentication;
 
 import org.jboss.logging.Logger;
+import org.keycloak.common.util.Base64Url;
 import org.keycloak.http.HttpRequest;
 import org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator;
 import org.keycloak.authentication.authenticators.client.ClientAuthUtil;
@@ -40,8 +41,10 @@ import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.light.LightweightUserAdapter;
 import org.keycloak.models.utils.AuthenticationFlowResolver;
 import org.keycloak.models.utils.FormMessage;
+import org.keycloak.protocol.ClientData;
 import org.keycloak.protocol.LoginProtocol;
 import org.keycloak.protocol.LoginProtocol.Error;
+import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.services.ErrorPage;
 import org.keycloak.services.ErrorPageException;
@@ -571,12 +574,28 @@ public class AuthenticationProcessor {
                     .queryParam(LoginActionsService.SESSION_CODE, code)
                     .queryParam(Constants.EXECUTION, getExecution().getId())
                     .queryParam(Constants.CLIENT_ID, getAuthenticationSession().getClient().getClientId())
-                    .queryParam(Constants.TAB_ID, getAuthenticationSession().getTabId());
+                    .queryParam(Constants.TAB_ID, getAuthenticationSession().getTabId())
+                    .queryParam(Constants.CLIENT_DATA, getClientData());
             if (getUriInfo().getQueryParameters().containsKey(LoginActionsService.AUTH_SESSION_ID)) {
                 uriBuilder.queryParam(LoginActionsService.AUTH_SESSION_ID, getAuthenticationSession().getParentSession().getId());
             }
             return uriBuilder
                     .build(getRealm().getName());
+        }
+
+        private String getClientData() {
+            AuthenticationSessionModel authSession = getAuthenticationSession();
+
+            // TODO:mposolda: Are those notes protocol independent? Will they work also in SAML?
+            ClientData clientData = new ClientData(authSession.getRedirectUri(),
+                    authSession.getClientNote(OIDCLoginProtocol.RESPONSE_TYPE_PARAM),
+                    authSession.getClientNote(OIDCLoginProtocol.RESPONSE_MODE_PARAM),
+                    authSession.getClientNote(OIDCLoginProtocol.STATE_PARAM));
+            try {
+                return Base64Url.encode(JsonSerialization.writeValueAsBytes(clientData));
+            } catch (IOException ioe) {
+                throw new RuntimeException("Not possible to serialize clientData");
+            }
         }
 
         @Override

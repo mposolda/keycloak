@@ -19,14 +19,15 @@ package org.keycloak.services.resources;
 
 import static org.keycloak.services.managers.AuthenticationManager.authenticateIdentityCookie;
 
+import java.io.IOException;
 import java.net.URI;
 
-import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
 
 import org.jboss.logging.Logger;
+import org.keycloak.common.util.Base64Url;
 import org.keycloak.http.HttpRequest;
 import org.keycloak.authentication.AuthenticationProcessor;
 import org.keycloak.common.ClientConnection;
@@ -40,6 +41,8 @@ import org.keycloak.models.Constants;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.protocol.AuthorizationEndpointBase;
+import org.keycloak.protocol.ClientData;
+import org.keycloak.protocol.LoginProtocol;
 import org.keycloak.protocol.RestartLoginCookie;
 import org.keycloak.services.ErrorPage;
 import org.keycloak.services.ServicesLogger;
@@ -51,6 +54,7 @@ import org.keycloak.services.util.BrowserHistoryHelper;
 import org.keycloak.services.util.AuthenticationFlowURLHelper;
 import org.keycloak.sessions.AuthenticationSessionModel;
 import org.keycloak.sessions.RootAuthenticationSessionModel;
+import org.keycloak.util.JsonSerialization;
 
 
 public class SessionCodeChecks {
@@ -72,12 +76,14 @@ public class SessionCodeChecks {
     private final String code;
     private final String execution;
     private final String clientId;
+    private final ClientData clientData;
     private final String tabId;
     private final String flowPath;
     private final String authSessionId;
 
+    // TODO:mposolda find all calls of this and figure whether to use proper data instead of "null"
     public SessionCodeChecks(RealmModel realm, UriInfo uriInfo, HttpRequest request, ClientConnection clientConnection, KeycloakSession session, EventBuilder event,
-                             String authSessionId, String code, String execution, String clientId, String tabId, String flowPath) {
+                             String authSessionId, String code, String execution, String clientId, String tabId, String clientData, String flowPath) {
         this.realm = realm;
         this.uriInfo = uriInfo;
         this.request = request;
@@ -91,6 +97,20 @@ public class SessionCodeChecks {
         this.tabId = tabId;
         this.flowPath = flowPath;
         this.authSessionId = authSessionId;
+
+        ClientData cdata;
+        try {
+            if (ObjectUtil.isBlank(clientData)) {
+                cdata = null;
+            } else {
+                byte[] cdataJson = Base64Url.decode(clientData);
+                cdata = JsonSerialization.readValue(cdataJson, ClientData.class);
+            }
+        } catch (IOException ioe) {
+            logger.warnf("ClientData parameter in invalid format during request for client %s and authSession %s. clientData is %s", clientId, authSessionId, clientData);
+            cdata = null;
+        }
+        this.clientData = cdata;
     }
 
 
@@ -186,14 +206,24 @@ public class SessionCodeChecks {
             AuthenticationManager.AuthResult authResult = authenticateIdentityCookie(session, realm, false);
 
             if (authResult != null && authResult.getSession() != null) {
-                LoginFormsProvider loginForm = session.getProvider(LoginFormsProvider.class).setAuthenticationSession(authSession)
-                        .setSuccess(Messages.ALREADY_LOGGED_IN);
+                // TODO:mposolda Maybe also check the switch on the client (if we add it)
+                if (client != null && clientData != null) {
+                    LoginProtocol protocol = session.getProvider(LoginProtocol.class, client.getProtocol());
+                    protocol.setRealm(realm)
+                            .setHttpHeaders(session.getContext().getRequestHeaders())
+                            .setUriInfo(session.getContext().getUri())
+                            .setEventBuilder(event);
+                    response = protocol.sendError(clientData, LoginProtocol.Error.ALREADY_LOGGED_IN);
+                } else {
+                    LoginFormsProvider loginForm = session.getProvider(LoginFormsProvider.class).setAuthenticationSession(authSession)
+                            .setSuccess(Messages.ALREADY_LOGGED_IN);
 
-                if (client == null) {
-                    loginForm.setAttribute(Constants.SKIP_LINK, true);
+                    if (client == null) {
+                        loginForm.setAttribute(Constants.SKIP_LINK, true);
+                    }
+
+                    response = loginForm.createInfoPage();
                 }
-
-                response = loginForm.createInfoPage();
             }
         }
 

@@ -72,6 +72,7 @@ public class AuthenticationFlowURLHelper {
         }
         uriBuilder.queryParam(Constants.CLIENT_ID, clientId);
         uriBuilder.queryParam(Constants.TAB_ID, tabId);
+        // TODO:mposolda: Are clientData needed here or not? If it is possible to avoid it (because of long URL), it can be good, but not yet sure...
 
         return uriBuilder.build(realm.getName());
     }

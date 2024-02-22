@@ -50,6 +50,7 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.SingleUseObjectProvider;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
+import org.keycloak.protocol.ClientData;
 import org.keycloak.protocol.LoginProtocol;
 import org.keycloak.protocol.ProtocolMapper;
 import org.keycloak.protocol.ProtocolMapperUtils;
@@ -239,6 +240,11 @@ public class SamlProtocol implements LoginProtocol {
             // Remove authenticationSession of current browser tab
             new AuthenticationSessionManager(session).removeTabIdInAuthenticationSession(realm, authSession);
         }
+    }
+
+    @Override
+    public Response sendError(ClientData clientData, Error error) {
+        return null; // TODO:mposolda implement...
     }
 
     private Response samlErrorMessage(

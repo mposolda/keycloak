@@ -40,6 +40,7 @@ import org.keycloak.models.Constants;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserSessionModel;
+import org.keycloak.protocol.ClientData;
 import org.keycloak.protocol.LoginProtocol;
 import org.keycloak.protocol.oidc.endpoints.LogoutEndpoint;
 import org.keycloak.protocol.oidc.utils.LogoutUtil;
@@ -321,13 +322,23 @@ public class OIDCLoginProtocol implements LoginProtocol {
         String redirect = authSession.getRedirectUri();
         String state = authSession.getClientNote(OIDCLoginProtocol.STATE_PARAM);
 
+        OIDCRedirectUriBuilder redirectUri = buildErrorRedirectUri(redirect, state, error);
+
+        // Remove authenticationSession from current tab
+        new AuthenticationSessionManager(session).removeTabIdInAuthenticationSession(realm, authSession);
+
+        return redirectUri.build();
+    }
+
+    private OIDCRedirectUriBuilder buildErrorRedirectUri(String redirect, String state, Error error) {
         OIDCRedirectUriBuilder redirectUri = OIDCRedirectUriBuilder.fromUri(redirect, responseMode, session, null);
 
         if (error != Error.CANCELLED_AIA_SILENT) {
             redirectUri.addParam(OAuth2Constants.ERROR, translateError(error));
         }
-        if (error == Error.CANCELLED_AIA) {
-            redirectUri.addParam(OAuth2Constants.ERROR_DESCRIPTION, "User cancelled aplication-initiated action.");
+        String errorDescription = translateErrorDescription(error);
+        if (errorDescription != null) {
+            redirectUri.addParam(OAuth2Constants.ERROR_DESCRIPTION, errorDescription);
         }
         if (state != null) {
             redirectUri.addParam(OAuth2Constants.STATE, state);
@@ -339,9 +350,19 @@ public class OIDCLoginProtocol implements LoginProtocol {
             redirectUri.addParam(OAuth2Constants.ISSUER, Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName()));
         }
 
-        // Remove authenticationSession from current tab
-        new AuthenticationSessionManager(session).removeTabIdInAuthenticationSession(realm, authSession);
+        return redirectUri;
+    }
 
+    @Override
+    public Response sendError(ClientData clientData, Error error) {
+        // TODO:mposolda handle device authz (See other "sendError" method)
+        ClientModel client = session.getContext().getClient();
+        if (client == null) {
+            throw new IllegalStateException("Client is not set in context"); // TODO:mposolda figure if more appropriate error message should be added? Or just remove this check if it is possible to sure that client is in context for all callers
+        }
+
+        setupResponseTypeAndMode(clientData.getResponseType(), clientData.getResponseMode());
+        OIDCRedirectUriBuilder redirectUri = buildErrorRedirectUri(clientData.getRedirectUri(), clientData.getState(), error);
         return redirectUri.build();
     }
 
@@ -355,10 +376,21 @@ public class OIDCLoginProtocol implements LoginProtocol {
                 return OAuthErrorException.INTERACTION_REQUIRED;
             case PASSIVE_LOGIN_REQUIRED:
                 return OAuthErrorException.LOGIN_REQUIRED;
+            case ALREADY_LOGGED_IN:
+                return OAuthErrorException.SERVER_ERROR;
             default:
                 ServicesLogger.LOGGER.untranslatedProtocol(error.name());
                 return OAuthErrorException.SERVER_ERROR;
         }
+    }
+
+    // Can return null. In that case, "error_description" parameter will be omitted
+    private String translateErrorDescription(Error error) {
+        return switch (error) {
+            case CANCELLED_AIA -> "User cancelled aplication-initiated action.";
+            case ALREADY_LOGGED_IN -> "Authentication expired. Please try again.";
+            default -> null;
+        };
     }
 
     @Override

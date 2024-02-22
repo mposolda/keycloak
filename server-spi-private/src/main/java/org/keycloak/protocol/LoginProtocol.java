@@ -52,6 +52,12 @@ public interface LoginProtocol extends Provider {
          */
         CANCELLED_AIA_SILENT,
         /**
+         * User is already logged-in and he has userSession in this browser. But authenticationSession is not valid anymore and hence could not continue authentication
+         * in proper way. Will need to redirect back to client, so client can retry authentication. Once client retries authentication, it will usually success automatically
+         * due SSO reauthentication.
+         */
+        ALREADY_LOGGED_IN,
+        /**
          * Consent denied by the user
          */
         CONSENT_DENIED,
@@ -79,6 +85,9 @@ public interface LoginProtocol extends Provider {
     Response authenticated(AuthenticationSessionModel authSession, UserSessionModel userSession, ClientSessionContext clientSessionCtx);
 
     Response sendError(AuthenticationSessionModel authSession, Error error);
+
+    // TODO:mposolda javadoc? (maybe with mentioning that none of the parameters is supposed to be null. In that case, add null checks inside and make sure that arguments are not really null when this method is called)
+    Response sendError(ClientData clientData, Error error);
 
     Response backchannelLogout(UserSessionModel userSession, AuthenticatedClientSessionModel clientSession);
     Response frontchannelLogout(UserSessionModel userSession, AuthenticatedClientSessionModel clientSession);

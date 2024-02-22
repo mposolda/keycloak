@@ -199,8 +199,9 @@ public class LoginActionsService {
         }
     }
 
-    private SessionCodeChecks checksForCode(String authSessionId, String code, String execution, String clientId, String tabId, String flowPath) {
-        SessionCodeChecks res = new SessionCodeChecks(realm, session.getContext().getUri(), request, clientConnection, session, event, authSessionId, code, execution, clientId, tabId, flowPath);
+    // TODO:mposolda all occurences of "checksForCode" and add "clientData" to all of them
+    private SessionCodeChecks checksForCode(String authSessionId, String code, String execution, String clientId, String tabId, String clientData, String flowPath) {
+        SessionCodeChecks res = new SessionCodeChecks(realm, session.getContext().getUri(), request, clientConnection, session, event, authSessionId, code, execution, clientId, tabId, clientData, flowPath);
         res.initialVerify();
         return res;
     }
@@ -224,7 +225,7 @@ public class LoginActionsService {
                                    @QueryParam(Constants.TAB_ID) String tabId,
                                    @QueryParam(Constants.SKIP_LOGOUT) String skipLogout) {
         event.event(EventType.RESTART_AUTHENTICATION);
-        SessionCodeChecks checks = new SessionCodeChecks(realm, session.getContext().getUri(), request, clientConnection, session, event, authSessionId, null, null, clientId,  tabId, null);
+        SessionCodeChecks checks = new SessionCodeChecks(realm, session.getContext().getUri(), request, clientConnection, session, event, authSessionId, null, null, clientId,  tabId, null, null);
 
         AuthenticationSessionModel authSession = checks.initialVerifyAuthSession();
         if (authSession == null) {
@@ -310,11 +311,12 @@ public class LoginActionsService {
                                  @QueryParam(SESSION_CODE) String code,
                                  @QueryParam(Constants.EXECUTION) String execution,
                                  @QueryParam(Constants.CLIENT_ID) String clientId,
-                                 @QueryParam(Constants.TAB_ID) String tabId) {
+                                 @QueryParam(Constants.TAB_ID) String tabId,
+                                 @QueryParam(Constants.CLIENT_DATA) String clientData) {
 
         event.event(EventType.LOGIN);
 
-        SessionCodeChecks checks = checksForCode(authSessionId, code, execution, clientId, tabId, AUTHENTICATE_PATH);
+        SessionCodeChecks checks = checksForCode(authSessionId, code, execution, clientId, tabId, clientData, AUTHENTICATE_PATH);
         if (!checks.verifyActiveAndValidAction(AuthenticationSessionModel.Action.AUTHENTICATE.name(), ClientSessionCode.ActionType.LOGIN)) {
             return checks.getResponse();
         }
@@ -388,8 +390,9 @@ public class LoginActionsService {
                                      @QueryParam(SESSION_CODE) String code,
                                      @QueryParam(Constants.EXECUTION) String execution,
                                      @QueryParam(Constants.CLIENT_ID) String clientId,
-                                     @QueryParam(Constants.TAB_ID) String tabId) {
-        return authenticate(authSessionId, code, execution, clientId, tabId);
+                                     @QueryParam(Constants.TAB_ID) String tabId,
+                                     @QueryParam(Constants.CLIENT_DATA) String clientData) {
+        return authenticate(authSessionId, code, execution, clientId, tabId, clientData);
     }
 
     @Path(RESET_CREDENTIALS_PATH)
@@ -498,7 +501,7 @@ public class LoginActionsService {
      * @return
      */
     protected Response resetCredentials(String authSessionId, String code, String execution, String clientId, String tabId) {
-        SessionCodeChecks checks = checksForCode(authSessionId, code, execution, clientId, tabId, RESET_CREDENTIALS_PATH);
+        SessionCodeChecks checks = checksForCode(authSessionId, code, execution, clientId, tabId, null, RESET_CREDENTIALS_PATH);
         if (!checks.verifyActiveAndValidAction(AuthenticationSessionModel.Action.AUTHENTICATE.name(), ClientSessionCode.ActionType.USER)) {
             return checks.getResponse();
         }
@@ -766,7 +769,7 @@ public class LoginActionsService {
             return ErrorPage.error(session, null, Response.Status.BAD_REQUEST, Messages.REGISTRATION_NOT_ALLOWED);
         }
 
-        SessionCodeChecks checks = checksForCode(authSessionId, code, execution, clientId, tabId, REGISTRATION_PATH);
+        SessionCodeChecks checks = checksForCode(authSessionId, code, execution, clientId, tabId, null, REGISTRATION_PATH);
         if (!checks.verifyActiveAndValidAction(AuthenticationSessionModel.Action.AUTHENTICATE.name(), ClientSessionCode.ActionType.LOGIN)) {
             return checks.getResponse();
         }
@@ -828,7 +831,7 @@ public class LoginActionsService {
         EventType eventType = firstBrokerLogin ? EventType.IDENTITY_PROVIDER_FIRST_LOGIN : EventType.IDENTITY_PROVIDER_POST_LOGIN;
         event.event(eventType);
 
-        SessionCodeChecks checks = checksForCode(authSessionId, code, execution, clientId, tabId, flowPath);
+        SessionCodeChecks checks = checksForCode(authSessionId, code, execution, clientId, tabId, null, flowPath);
         if (!checks.verifyActiveAndValidAction(AuthenticationSessionModel.Action.AUTHENTICATE.name(), ClientSessionCode.ActionType.LOGIN)) {
             event.error("Failed to verify login action");
             return checks.getResponse();
@@ -945,7 +948,7 @@ public class LoginActionsService {
         String code = formData.getFirst(SESSION_CODE);
         String clientId = session.getContext().getUri().getQueryParameters().getFirst(Constants.CLIENT_ID);
         String tabId = session.getContext().getUri().getQueryParameters().getFirst(Constants.TAB_ID);
-        SessionCodeChecks checks = checksForCode(null, code, null, clientId, tabId, REQUIRED_ACTION);
+        SessionCodeChecks checks = checksForCode(null, code, null, clientId, tabId, null, REQUIRED_ACTION);
         if (!checks.verifyRequiredAction(AuthenticationSessionModel.Action.OAUTH_GRANT.name())) {
             return checks.getResponse();
         }
@@ -1064,7 +1067,7 @@ public class LoginActionsService {
     private Response processRequireAction(final String authSessionId, final String code, String action, String clientId, String tabId) {
         event.event(EventType.CUSTOM_REQUIRED_ACTION);
 
-        SessionCodeChecks checks = checksForCode(authSessionId, code, action, clientId, tabId, REQUIRED_ACTION);
+        SessionCodeChecks checks = checksForCode(authSessionId, code, action, clientId, tabId, null, REQUIRED_ACTION);
         if (!checks.verifyRequiredAction(action)) {
             return checks.getResponse();
         }

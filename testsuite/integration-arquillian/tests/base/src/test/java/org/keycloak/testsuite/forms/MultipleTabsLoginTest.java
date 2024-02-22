@@ -31,6 +31,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.keycloak.OAuth2Constants;
+import org.keycloak.OAuthErrorException;
 import org.keycloak.models.Constants;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
@@ -216,6 +217,9 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
 
             loginPage.login("login-test", "password");
             appPage.assertCurrent(); // Page "You are already logged in." should not be here
+            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
+            Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
+            Assert.assertEquals("Authentication expired. Please try again.", authzResponse.getErrorDescription()); // TODO:mposolda should this be constant?
         }
     }
 
