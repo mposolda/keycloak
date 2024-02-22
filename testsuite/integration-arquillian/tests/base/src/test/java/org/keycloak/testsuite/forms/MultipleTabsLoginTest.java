@@ -57,6 +57,7 @@ import org.keycloak.testsuite.pages.VerifyEmailPage;
 import org.keycloak.testsuite.util.BrowserTabUtil;
 import org.keycloak.testsuite.util.ClientBuilder;
 import org.keycloak.testsuite.util.GreenMailRule;
+import org.keycloak.testsuite.util.InfinispanTestTimeServiceRule;
 import org.keycloak.testsuite.util.OAuthClient;
 import org.keycloak.testsuite.util.UserBuilder;
 import org.keycloak.testsuite.util.WaitUtils;
@@ -98,6 +99,9 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
 
     @Rule
     public GreenMailRule greenMail = new GreenMailRule();
+
+    @Rule
+    public InfinispanTestTimeServiceRule ispnTestTimeService = new InfinispanTestTimeServiceRule(this);
 
     @Page
     protected AppPage appPage;
@@ -174,6 +178,44 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
             // Should be back on tab1 and logged-in automatically here
             WaitUtils.waitUntilElement(appPage.getAccountLink()).is().clickable();
             appPage.assertCurrent();
+        }
+    }
+
+    // Simulating scenario described in https://github.com/keycloak/keycloak/issues/24112
+    @Test
+    public void multipleTabsParallelLoginTestWithAuthSessionExpiredInTheMiddle() {
+        try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
+            assertThat(tabUtil.getCountOfTabs(), Matchers.is(1));
+            oauth.openLoginForm();
+            loginPage.assertCurrent();
+            getLogger().info("URL in tab1: " + driver.getCurrentUrl()); // TODO:mposolda remove or switch to debug?
+
+            // Open new tab 2
+            tabUtil.newTab(oauth.getLoginFormUrl());
+            assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(2));
+            loginPage.assertCurrent();
+            getLogger().info("URL in tab2: " + driver.getCurrentUrl()); // TODO:mposolda remove or switch to debug?
+
+            // Wait until authentication session expires
+            setTimeOffset(7200000);
+
+            // Try to login in tab2. After fill login form, the login will be restarted (due KC_RESTART cookie). User can continue login
+            loginPage.login("login-test", "password");
+            loginPage.assertCurrent();
+            Assert.assertEquals(loginPage.getError(), "Your login attempt timed out. Login will start from the beginning.");
+
+            loginPage.login("login-test", "password");
+            updatePasswordPage.changePassword("password", "password");
+            updateProfilePage.prepareUpdate().firstName("John").lastName("Doe3")
+                    .email("john@doe3.com").submit();
+            appPage.assertCurrent();
+
+            // Go back to tab1. Should be authenticated automatically
+            tabUtil.closeTab(1);
+            assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
+
+            loginPage.login("login-test", "password");
+            appPage.assertCurrent(); // Page "You are already logged in." should not be here
         }
     }
 
