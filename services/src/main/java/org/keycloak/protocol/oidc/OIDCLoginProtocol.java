@@ -388,7 +388,7 @@ public class OIDCLoginProtocol implements LoginProtocol {
     private String translateErrorDescription(Error error) {
         return switch (error) {
             case CANCELLED_AIA -> "User cancelled aplication-initiated action.";
-            case ALREADY_LOGGED_IN -> "Authentication expired. Please try again.";
+            case ALREADY_LOGGED_IN -> Constants.AUTHENTICATION_EXPIRED_MESSAGE;
             default -> null;
         };
     }

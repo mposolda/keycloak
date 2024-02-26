@@ -44,7 +44,10 @@ import org.keycloak.protocol.AuthorizationEndpointBase;
 import org.keycloak.protocol.ClientData;
 import org.keycloak.protocol.LoginProtocol;
 import org.keycloak.protocol.RestartLoginCookie;
+import org.keycloak.protocol.oidc.endpoints.AuthorizationEndpointChecker;
+import org.keycloak.protocol.oidc.endpoints.request.AuthorizationEndpointRequest;
 import org.keycloak.services.ErrorPage;
+import org.keycloak.services.ErrorPageException;
 import org.keycloak.services.ServicesLogger;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.AuthenticationSessionManager;
@@ -208,6 +211,22 @@ public class SessionCodeChecks {
             if (authResult != null && authResult.getSession() != null) {
                 // TODO:mposolda Maybe also check the switch on the client (if we add it)
                 if (client != null && clientData != null) {
+
+                    AuthorizationEndpointRequest req = AuthorizationEndpointRequest.fromClientData(clientData);
+                    // Check it (TODO:mposolda should check like this work also for SAML?)
+                    AuthorizationEndpointChecker checker = new AuthorizationEndpointChecker()
+                            .event(event)
+                            .client(client)
+                            .realm(realm)
+                            .request(req)
+                            .session(session);
+                    try {
+                        checker.checkResponseType();
+                        checker.checkRedirectUri();
+                    } catch (AuthorizationEndpointChecker.AuthorizationCheckException ex) {
+                        ex.throwAsErrorPageException(null);
+                    }
+
                     LoginProtocol protocol = session.getProvider(LoginProtocol.class, client.getProtocol());
                     protocol.setRealm(realm)
                             .setHttpHeaders(session.getContext().getRequestHeaders())

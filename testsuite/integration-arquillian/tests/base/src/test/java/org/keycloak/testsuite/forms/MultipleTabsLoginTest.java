@@ -23,6 +23,7 @@ import static org.keycloak.testsuite.util.URLAssert.assertCurrentUrlStartsWith;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -32,6 +33,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.OAuthErrorException;
+import org.keycloak.admin.client.resource.ClientResource;
 import org.keycloak.models.Constants;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
@@ -55,6 +57,7 @@ import org.keycloak.testsuite.pages.LoginUpdateProfilePage;
 import org.keycloak.testsuite.pages.OAuthGrantPage;
 import org.keycloak.testsuite.pages.RegisterPage;
 import org.keycloak.testsuite.pages.VerifyEmailPage;
+import org.keycloak.testsuite.updaters.ClientAttributeUpdater;
 import org.keycloak.testsuite.util.BrowserTabUtil;
 import org.keycloak.testsuite.util.ClientBuilder;
 import org.keycloak.testsuite.util.GreenMailRule;
@@ -219,7 +222,51 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
             appPage.assertCurrent(); // Page "You are already logged in." should not be here
             OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
             Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
-            Assert.assertEquals("Authentication expired. Please try again.", authzResponse.getErrorDescription()); // TODO:mposolda should this be constant?
+            Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+        }
+    }
+
+    @Test
+    public void multipleTabsParallelLoginTestWithAuthSessionExpiredInTheMiddle_badRedirectUri() throws Exception {
+        // TODO:mposolda extract some parts of this test to separate method? Or even add those tests to separate class?
+        try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
+            assertThat(tabUtil.getCountOfTabs(), Matchers.is(1));
+            oauth.openLoginForm();
+            loginPage.assertCurrent();
+            getLogger().info("URL in tab1: " + driver.getCurrentUrl()); // TODO:mposolda remove or switch to debug?
+
+            // Open new tab 2
+            tabUtil.newTab(oauth.getLoginFormUrl());
+            assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(2));
+            loginPage.assertCurrent();
+            getLogger().info("URL in tab2: " + driver.getCurrentUrl()); // TODO:mposolda remove or switch to debug?
+
+            // Wait until authentication session expires
+            setTimeOffset(7200000);
+
+            // Try to login in tab2. After fill login form, the login will be restarted (due KC_RESTART cookie). User can continue login
+            loginPage.login("login-test", "password");
+            loginPage.assertCurrent();
+            Assert.assertEquals(loginPage.getError(), "Your login attempt timed out. Login will start from the beginning.");
+
+            loginPage.login("login-test", "password");
+            updatePasswordPage.changePassword("password", "password");
+            updateProfilePage.prepareUpdate().firstName("John").lastName("Doe3")
+                    .email("john@doe3.com").submit();
+            appPage.assertCurrent();
+
+            // Remove redirectUri from the client
+            try (ClientAttributeUpdater cap = ClientAttributeUpdater.forClient(adminClient, "test", "test-app")
+                    .setRedirectUris(List.of("https://foo"))
+                    .update()) {
+                // Go back to tab1. Should be authenticated automatically
+                tabUtil.closeTab(1);
+                assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
+
+                loginPage.login("login-test", "password");
+                errorPage.assertCurrent(); // Page "You are already logged in." should not be here
+                Assert.assertEquals("Invalid parameter: redirect_uri", errorPage.getError());
+            }
         }
     }
 
