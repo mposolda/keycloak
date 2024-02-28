@@ -18,6 +18,7 @@
 package org.keycloak.testsuite.forms;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.keycloak.testsuite.util.ServerURLs.getAuthServerContextRoot;
 import static org.keycloak.testsuite.util.URLAssert.assertCurrentUrlStartsWith;
 
@@ -33,7 +34,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.OAuthErrorException;
-import org.keycloak.admin.client.resource.ClientResource;
 import org.keycloak.models.Constants;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
@@ -189,34 +189,7 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
     @Test
     public void multipleTabsParallelLoginTestWithAuthSessionExpiredInTheMiddle() {
         try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
-            assertThat(tabUtil.getCountOfTabs(), Matchers.is(1));
-            oauth.openLoginForm();
-            loginPage.assertCurrent();
-            getLogger().info("URL in tab1: " + driver.getCurrentUrl()); // TODO:mposolda remove or switch to debug?
-
-            // Open new tab 2
-            tabUtil.newTab(oauth.getLoginFormUrl());
-            assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(2));
-            loginPage.assertCurrent();
-            getLogger().info("URL in tab2: " + driver.getCurrentUrl()); // TODO:mposolda remove or switch to debug?
-
-            // Wait until authentication session expires
-            setTimeOffset(7200000);
-
-            // Try to login in tab2. After fill login form, the login will be restarted (due KC_RESTART cookie). User can continue login
-            loginPage.login("login-test", "password");
-            loginPage.assertCurrent();
-            Assert.assertEquals(loginPage.getError(), "Your login attempt timed out. Login will start from the beginning.");
-
-            loginPage.login("login-test", "password");
-            updatePasswordPage.changePassword("password", "password");
-            updateProfilePage.prepareUpdate().firstName("John").lastName("Doe3")
-                    .email("john@doe3.com").submit();
-            appPage.assertCurrent();
-
-            // Go back to tab1. Should be authenticated automatically
-            tabUtil.closeTab(1);
-            assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
+            multipleTabsParallelLogin(tabUtil);
 
             loginPage.login("login-test", "password");
             appPage.assertCurrent(); // Page "You are already logged in." should not be here
@@ -228,11 +201,98 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
 
     @Test
     public void multipleTabsParallelLoginTestWithAuthSessionExpiredInTheMiddle_badRedirectUri() throws Exception {
-        // TODO:mposolda extract some parts of this test to separate method? Or even add those tests to separate class?
         try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
+            multipleTabsParallelLogin(tabUtil);
+
+            // Remove redirectUri from the client
+            try (ClientAttributeUpdater cap = ClientAttributeUpdater.forClient(adminClient, "test", "test-app")
+                    .setRedirectUris(List.of("https://foo"))
+                    .update()) {
+
+                loginPage.login("login-test", "password");
+                errorPage.assertCurrent(); // Page "You are already logged in." should not be here
+                Assert.assertEquals("Invalid parameter: redirect_uri", errorPage.getError());
+            }
+        }
+    }
+
+    private void multipleTabsParallelLogin(BrowserTabUtil tabUtil) {
+        assertThat(tabUtil.getCountOfTabs(), Matchers.is(1));
+        oauth.openLoginForm();
+        loginPage.assertCurrent();
+        getLogger().info("URL in tab1: " + driver.getCurrentUrl()); // TODO:mposolda remove or switch to debug?
+
+        // Open new tab 2
+        tabUtil.newTab(oauth.getLoginFormUrl());
+        assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(2));
+        loginPage.assertCurrent();
+        getLogger().info("URL in tab2: " + driver.getCurrentUrl()); // TODO:mposolda remove or switch to debug?
+
+        // Wait until authentication session expires
+        setTimeOffset(7200000);
+
+        // Try to login in tab2. After fill login form, the login will be restarted (due KC_RESTART cookie). User can continue login
+        loginPage.login("login-test", "password");
+        loginPage.assertCurrent();
+        Assert.assertEquals(loginPage.getError(), "Your login attempt timed out. Login will start from the beginning.");
+
+        loginPage.login("login-test", "password");
+        updatePasswordPage.changePassword("password", "password");
+        updateProfilePage.prepareUpdate().firstName("John").lastName("Doe3")
+                .email("john@doe3.com").submit();
+        appPage.assertCurrent();
+
+        // Go back to tab1. Usually should be automatically authenticated here (previously it showed "You are already logged-in")
+        tabUtil.closeTab(1);
+        assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
+    }
+
+    @Test
+    public void multipleTabsParallelLoginTestWithAuthSessionExpiredAndRegisterClick() {
+        try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
+            multipleTabsParallelLogin(tabUtil);
+
+            loginPage.clickRegister();
+
+            // TODO:mposolda extract this part to separate method? As it might be used by more tests
+            appPage.assertCurrent(); // Page "You are already logged in." should not be here
+            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
+            Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
+            Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+        }
+    }
+
+    @Test
+    public void multipleTabsParallelLoginTestWithAuthSessionExpiredAndResetPasswordClick() {
+        try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
+            multipleTabsParallelLogin(tabUtil);
+
+            loginPage.resetPassword();
+
+            // We expect here the "Reset password" flow to be successfu
+            resetPasswordPage.assertCurrent();
+            resetPasswordPage.changePassword("login-test");
+
+            // Currently there is internal server error due the URI issue. Should be investigated and fixed...
+            loginPage.assertCurrent();
+            assertEquals("You should receive an email shortly with further instructions.", loginPage.getSuccessMessage());
+
+//            appPage.assertCurrent(); // Page "You are already logged in." should not be here
+//            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
+//            Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
+//            Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+        }
+    }
+
+    @Test
+    public void multipleTabsParallelLoginTestWithAuthSessionExpiredAndRequiredAction() {
+        try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
+            // Go through login in tab1 until required actions are shown
             assertThat(tabUtil.getCountOfTabs(), Matchers.is(1));
             oauth.openLoginForm();
             loginPage.assertCurrent();
+            loginPage.login("login-test", "password");
+            updatePasswordPage.assertCurrent();
             getLogger().info("URL in tab1: " + driver.getCurrentUrl()); // TODO:mposolda remove or switch to debug?
 
             // Open new tab 2
@@ -255,18 +315,15 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
                     .email("john@doe3.com").submit();
             appPage.assertCurrent();
 
-            // Remove redirectUri from the client
-            try (ClientAttributeUpdater cap = ClientAttributeUpdater.forClient(adminClient, "test", "test-app")
-                    .setRedirectUris(List.of("https://foo"))
-                    .update()) {
-                // Go back to tab1. Should be authenticated automatically
-                tabUtil.closeTab(1);
-                assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
+            // Go back to tab1. Usually should be automatically authenticated here (previously it showed "You are already logged-in")
+            tabUtil.closeTab(1);
+            assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
 
-                loginPage.login("login-test", "password");
-                errorPage.assertCurrent(); // Page "You are already logged in." should not be here
-                Assert.assertEquals("Invalid parameter: redirect_uri", errorPage.getError());
-            }
+            updatePasswordPage.changePassword("password", "password");
+            appPage.assertCurrent(); // Page "You are already logged in." should not be here
+            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
+            Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
+            Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
         }
     }
 
