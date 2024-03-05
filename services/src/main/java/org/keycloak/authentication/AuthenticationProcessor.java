@@ -18,7 +18,6 @@
 package org.keycloak.authentication;
 
 import org.jboss.logging.Logger;
-import org.keycloak.common.util.Base64Url;
 import org.keycloak.http.HttpRequest;
 import org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator;
 import org.keycloak.authentication.authenticators.client.ClientAuthUtil;
@@ -44,7 +43,6 @@ import org.keycloak.models.utils.FormMessage;
 import org.keycloak.protocol.ClientData;
 import org.keycloak.protocol.LoginProtocol;
 import org.keycloak.protocol.LoginProtocol.Error;
-import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.services.ErrorPage;
 import org.keycloak.services.ErrorPageException;
@@ -285,11 +283,22 @@ public class AuthenticationProcessor {
         getAuthenticationSession().setAuthenticatedUser(null);
     }
 
+    private String getClientData() {
+        return getClientData(getSession(), getAuthenticationSession());
+    }
+
+    public static String getClientData(KeycloakSession session, AuthenticationSessionModel authSession) {
+        LoginProtocol protocol = session.getProvider(LoginProtocol.class, authSession.getProtocol());
+        ClientData clientData = protocol.getClientData(authSession);
+        return clientData.encode();
+    }
+
     public URI getRefreshUrl(boolean authSessionIdParam) {
         UriBuilder uriBuilder = LoginActionsService.loginActionsBaseUrl(getUriInfo())
                 .path(AuthenticationProcessor.this.flowPath)
                 .queryParam(Constants.CLIENT_ID, getAuthenticationSession().getClient().getClientId())
-                .queryParam(Constants.TAB_ID, getAuthenticationSession().getTabId());
+                .queryParam(Constants.TAB_ID, getAuthenticationSession().getTabId())
+                .queryParam(Constants.CLIENT_DATA, getClientData());
         if (authSessionIdParam) {
             uriBuilder.queryParam(LoginActionsService.AUTH_SESSION_ID, getAuthenticationSession().getParentSession().getId());
         }
@@ -583,28 +592,14 @@ public class AuthenticationProcessor {
                     .build(getRealm().getName());
         }
 
-        private String getClientData() {
-            AuthenticationSessionModel authSession = getAuthenticationSession();
-
-            // TODO:mposolda: Are those notes protocol independent? Will they work also in SAML?
-            ClientData clientData = new ClientData(authSession.getRedirectUri(),
-                    authSession.getClientNote(OIDCLoginProtocol.RESPONSE_TYPE_PARAM),
-                    authSession.getClientNote(OIDCLoginProtocol.RESPONSE_MODE_PARAM),
-                    authSession.getClientNote(OIDCLoginProtocol.STATE_PARAM));
-            try {
-                return Base64Url.encode(JsonSerialization.writeValueAsBytes(clientData));
-            } catch (IOException ioe) {
-                throw new RuntimeException("Not possible to serialize clientData");
-            }
-        }
-
         @Override
         public URI getActionTokenUrl(String tokenString) {
             UriBuilder uriBuilder = LoginActionsService.actionTokenProcessor(getUriInfo())
                     .queryParam(Constants.KEY, tokenString)
                     .queryParam(Constants.EXECUTION, getExecution().getId())
                     .queryParam(Constants.CLIENT_ID, getAuthenticationSession().getClient().getClientId())
-                    .queryParam(Constants.TAB_ID, getAuthenticationSession().getTabId());
+                    .queryParam(Constants.TAB_ID, getAuthenticationSession().getTabId())
+                    .queryParam(Constants.CLIENT_DATA, getClientData());
             if (getUriInfo().getQueryParameters().containsKey(LoginActionsService.AUTH_SESSION_ID)) {
                 uriBuilder.queryParam(LoginActionsService.AUTH_SESSION_ID, getAuthenticationSession().getParentSession().getId());
             }
@@ -618,7 +613,8 @@ public class AuthenticationProcessor {
                     .path(AuthenticationProcessor.this.flowPath)
                     .queryParam(Constants.EXECUTION, getExecution().getId())
                     .queryParam(Constants.CLIENT_ID, getAuthenticationSession().getClient().getClientId())
-                    .queryParam(Constants.TAB_ID, getAuthenticationSession().getTabId());
+                    .queryParam(Constants.TAB_ID, getAuthenticationSession().getTabId())
+                    .queryParam(Constants.CLIENT_DATA, getClientData());
             if (getUriInfo().getQueryParameters().containsKey(LoginActionsService.AUTH_SESSION_ID)) {
                 uriBuilder.queryParam(LoginActionsService.AUTH_SESSION_ID, getAuthenticationSession().getParentSession().getId());
             }

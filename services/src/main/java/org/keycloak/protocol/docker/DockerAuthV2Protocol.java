@@ -150,6 +150,11 @@ public class DockerAuthV2Protocol implements LoginProtocol {
     }
 
     @Override
+    public ClientData getClientData(AuthenticationSessionModel authSession) {
+        return new ClientData();
+    }
+
+    @Override
     public Response sendError(ClientData clientData, Error error) {
         return new ResponseBuilderImpl().status(Response.Status.INTERNAL_SERVER_ERROR).build();
     }

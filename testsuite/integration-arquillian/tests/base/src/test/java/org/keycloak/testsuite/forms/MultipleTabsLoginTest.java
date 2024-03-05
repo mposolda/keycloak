@@ -273,7 +273,7 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
             resetPasswordPage.assertCurrent();
             resetPasswordPage.changePassword("login-test");
 
-            // Currently there is internal server error due the URI issue. Should be investigated and fixed...
+            // TODO:mposolda fix this ... Currently there is internal server error due the URI issue. Should be investigated and fixed...
             loginPage.assertCurrent();
             assertEquals("You should receive an email shortly with further instructions.", loginPage.getSuccessMessage());
 

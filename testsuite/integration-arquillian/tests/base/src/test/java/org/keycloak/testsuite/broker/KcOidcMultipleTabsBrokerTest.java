@@ -115,7 +115,7 @@ public class KcOidcMultipleTabsBrokerTest  extends AbstractInitializedBaseBroker
             updateAccountInformationPage.updateAccountInformation(bc.getUserLogin(), bc.getUserEmail(), "Firstname", "Lastname");
             appPage.assertCurrent();
 
-            // Go back to tab1 and finish login in provider realm and being redirected back to "consumer" realm. Login should automatically happen here, but won't
+            // TODO:mposolda fix this: Go back to tab1 and finish login in provider realm and being redirected back to "consumer" realm. Login should automatically happen here, but won't
             tabUtil.closeTab(1);
             assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
             loginPage.login(bc.getUserLogin(), bc.getUserPassword());

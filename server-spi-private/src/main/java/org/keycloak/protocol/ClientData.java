@@ -19,14 +19,23 @@
 
 package org.keycloak.protocol;
 
+import java.io.IOException;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.jboss.logging.Logger;
+import org.keycloak.common.util.Base64Url;
+import org.keycloak.common.util.ObjectUtil;
+import org.keycloak.util.JsonSerialization;
 
 /**
- * TODO:mposolda not sure if here is best place for this class...
+ * Encapsulates necessary data about client login request (OIDC or SAML request). Can be useful for cases when authenticationSession
+ * expired and we need to redirect back to the client with the error due to this.
  *
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
 public class ClientData {
+
+    protected static final Logger logger = Logger.getLogger(ClientData.class);
 
     @JsonProperty("ru")
     private String redirectUri;
@@ -85,5 +94,27 @@ public class ClientData {
     @Override
     public String toString() {
         return String.format("ClientData [ redirectUri=%s, responseType=%s, responseMode=%s, state=%s ]", redirectUri, responseType, responseMode, state);
+    }
+
+    public static ClientData decodeClientDataFromParameter(String clientDataParam) {
+        try {
+            if (ObjectUtil.isBlank(clientDataParam)) {
+                return null;
+            } else {
+                byte[] cdataJson = Base64Url.decode(clientDataParam);
+                return JsonSerialization.readValue(cdataJson, ClientData.class);
+            }
+        } catch (IOException ioe) {
+            logger.warnf("ClientData parameter in invalid format. ClientData parameter was %s", clientDataParam);
+            return null;
+        }
+    }
+
+    public String encode() {
+        try {
+            return Base64Url.encode(JsonSerialization.writeValueAsBytes(this));
+        } catch (IOException ioe) {
+            throw new RuntimeException("Not possible to serialize clientData");
+        }
     }
 }

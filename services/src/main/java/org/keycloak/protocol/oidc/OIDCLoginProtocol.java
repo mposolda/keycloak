@@ -354,6 +354,14 @@ public class OIDCLoginProtocol implements LoginProtocol {
     }
 
     @Override
+    public ClientData getClientData(AuthenticationSessionModel authSession) {
+        return new ClientData(authSession.getRedirectUri(),
+                authSession.getClientNote(OIDCLoginProtocol.RESPONSE_TYPE_PARAM),
+                authSession.getClientNote(OIDCLoginProtocol.RESPONSE_MODE_PARAM),
+                authSession.getClientNote(OIDCLoginProtocol.STATE_PARAM));
+    }
+
+    @Override
     public Response sendError(ClientData clientData, Error error) {
         // TODO:mposolda handle device authz (See other "sendError" method)
         ClientModel client = session.getContext().getClient();

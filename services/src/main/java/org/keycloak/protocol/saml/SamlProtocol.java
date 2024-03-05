@@ -243,6 +243,11 @@ public class SamlProtocol implements LoginProtocol {
     }
 
     @Override
+    public ClientData getClientData(AuthenticationSessionModel authSession) {
+        return new ClientData(); // TODO:mposolda implement...
+    }
+
+    @Override
     public Response sendError(ClientData clientData, Error error) {
         return null; // TODO:mposolda implement...
     }

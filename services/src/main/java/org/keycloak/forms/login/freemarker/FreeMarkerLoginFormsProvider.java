@@ -24,6 +24,7 @@ import jakarta.ws.rs.core.UriInfo;
 import org.jboss.logging.Logger;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.authentication.AuthenticationFlowContext;
+import org.keycloak.authentication.AuthenticationProcessor;
 import org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator;
 import org.keycloak.authentication.authenticators.browser.OTPFormAuthenticator;
 import org.keycloak.authentication.requiredactions.util.UpdateProfileContext;
@@ -367,6 +368,7 @@ public class FreeMarkerLoginFormsProvider implements LoginFormsProvider {
         }
         if (authenticationSession != null) {
             uriBuilder.queryParam(Constants.TAB_ID, authenticationSession.getTabId());
+            uriBuilder.queryParam(Constants.CLIENT_DATA, AuthenticationProcessor.getClientData(session, authenticationSession));
         }
         return uriBuilder;
     }

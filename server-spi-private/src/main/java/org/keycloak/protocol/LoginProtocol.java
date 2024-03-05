@@ -87,6 +87,9 @@ public interface LoginProtocol extends Provider {
     Response sendError(AuthenticationSessionModel authSession, Error error);
 
     // TODO:mposolda javadoc? (maybe with mentioning that none of the parameters is supposed to be null. In that case, add null checks inside and make sure that arguments are not really null when this method is called)
+    ClientData getClientData(AuthenticationSessionModel authSession);
+
+    // TODO:mposolda javadoc? (maybe with mentioning that none of the parameters is supposed to be null. In that case, add null checks inside and make sure that arguments are not really null when this method is called)
     Response sendError(ClientData clientData, Error error);
 
     Response backchannelLogout(UserSessionModel userSession, AuthenticatedClientSessionModel clientSession);

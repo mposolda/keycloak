@@ -84,7 +84,7 @@ public class SessionCodeChecks {
     private final String flowPath;
     private final String authSessionId;
 
-    // TODO:mposolda find all calls of this and figure whether to use proper data instead of "null"
+
     public SessionCodeChecks(RealmModel realm, UriInfo uriInfo, HttpRequest request, ClientConnection clientConnection, KeycloakSession session, EventBuilder event,
                              String authSessionId, String code, String execution, String clientId, String tabId, String clientData, String flowPath) {
         this.realm = realm;
@@ -100,20 +100,7 @@ public class SessionCodeChecks {
         this.tabId = tabId;
         this.flowPath = flowPath;
         this.authSessionId = authSessionId;
-
-        ClientData cdata;
-        try {
-            if (ObjectUtil.isBlank(clientData)) {
-                cdata = null;
-            } else {
-                byte[] cdataJson = Base64Url.decode(clientData);
-                cdata = JsonSerialization.readValue(cdataJson, ClientData.class);
-            }
-        } catch (IOException ioe) {
-            logger.warnf("ClientData parameter in invalid format during request for client %s and authSession %s. clientData is %s", clientId, authSessionId, clientData);
-            cdata = null;
-        }
-        this.clientData = cdata;
+        this.clientData = ClientData.decodeClientDataFromParameter(clientData);
     }
 
 
@@ -209,6 +196,8 @@ public class SessionCodeChecks {
             AuthenticationManager.AuthResult authResult = authenticateIdentityCookie(session, realm, false);
 
             if (authResult != null && authResult.getSession() != null) {
+                response = null;
+
                 // TODO:mposolda Maybe also check the switch on the client (if we add it)
                 if (client != null && clientData != null) {
 
@@ -233,7 +222,9 @@ public class SessionCodeChecks {
                             .setUriInfo(session.getContext().getUri())
                             .setEventBuilder(event);
                     response = protocol.sendError(clientData, LoginProtocol.Error.ALREADY_LOGGED_IN);
-                } else {
+                }
+
+                if (response == null) {
                     LoginFormsProvider loginForm = session.getProvider(LoginFormsProvider.class).setAuthenticationSession(authSession)
                             .setSuccess(Messages.ALREADY_LOGGED_IN);
 
@@ -480,8 +471,9 @@ public class SessionCodeChecks {
         }
 
         ClientModel client = authSession.getClient();
-        uriBuilder.queryParam(Constants.CLIENT_ID, client.getClientId());
-        uriBuilder.queryParam(Constants.TAB_ID, authSession.getTabId());
+        uriBuilder.queryParam(Constants.CLIENT_ID, client.getClientId())
+                .queryParam(Constants.TAB_ID, authSession.getTabId())
+                .queryParam(Constants.CLIENT_DATA, AuthenticationProcessor.getClientData(session, authSession));
 
         URI redirect = uriBuilder.build(realm.getName());
         return Response.status(302).location(redirect).build();
