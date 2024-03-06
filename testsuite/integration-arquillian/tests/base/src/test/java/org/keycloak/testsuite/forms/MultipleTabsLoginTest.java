@@ -269,7 +269,7 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
 
             loginPage.resetPassword();
 
-            // We expect here the "Reset password" flow to be successfu
+            // We expect here the "Reset password" flow to be successful
             resetPasswordPage.assertCurrent();
             resetPasswordPage.changePassword("login-test");
 

@@ -965,6 +965,9 @@ public class AuthenticationProcessor {
         }
 
         clone.setAuthNote(FORKED_FROM, authSession.getTabId());
+        if (authSession.getAuthNote(AuthenticationManager.END_AFTER_REQUIRED_ACTIONS) != null) {
+            clone.setAuthNote(AuthenticationManager.END_AFTER_REQUIRED_ACTIONS, authSession.getAuthNote(AuthenticationManager.END_AFTER_REQUIRED_ACTIONS));
+        }
 
         logger.debugf("Forked authSession %s from authSession %s . Client: %s, Root session: %s",
                 clone.getTabId(), authSession.getTabId(), authSession.getClient().getClientId(), authSession.getParentSession().getId());
