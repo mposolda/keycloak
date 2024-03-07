@@ -78,10 +78,7 @@ public class KcOidcMultipleTabsBrokerTest  extends AbstractInitializedBaseBroker
             assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
             loginPage.clickSocial(bc.getIDPAlias());
 
-            appPage.assertCurrent(); // Page "You are already logged in." should not be here
-            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
-            org.keycloak.testsuite.Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
-            org.keycloak.testsuite.Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+            assertOnAppPageWithAlreadyLoggedInError();
         }
 
     }
@@ -120,11 +117,16 @@ public class KcOidcMultipleTabsBrokerTest  extends AbstractInitializedBaseBroker
             assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
             loginPage.login(bc.getUserLogin(), bc.getUserPassword());
 
-            appPage.assertCurrent(); // Page "You are already logged in." should not be here
-            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
-            org.keycloak.testsuite.Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
-            org.keycloak.testsuite.Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+            assertOnAppPageWithAlreadyLoggedInError();
 
         }
+    }
+
+    // Assert browser was redirected to the appPage with "error=temporarily_unavailable" and error_description corresponding to Constants.AUTHENTICATION_EXPIRED_MESSAGE
+    private void assertOnAppPageWithAlreadyLoggedInError() {
+        appPage.assertCurrent(); // Page "You are already logged in." should not be here
+        OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
+        org.keycloak.testsuite.Assert.assertEquals(OAuthErrorException.TEMPORARILY_UNAVAILABLE, authzResponse.getError());
+        org.keycloak.testsuite.Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
     }
 }

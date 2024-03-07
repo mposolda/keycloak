@@ -191,10 +191,7 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
             multipleTabsParallelLogin(tabUtil);
 
             loginPage.login("login-test", "password");
-            appPage.assertCurrent(); // Page "You are already logged in." should not be here
-            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
-            Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
-            Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+            assertOnAppPageWithAlreadyLoggedInError();
         }
     }
 
@@ -246,6 +243,14 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
         assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
     }
 
+    // Assert browser was redirected to the appPage with "error=temporarily_unavailable" and error_description corresponding to Constants.AUTHENTICATION_EXPIRED_MESSAGE
+    private void assertOnAppPageWithAlreadyLoggedInError() {
+        appPage.assertCurrent(); // Page "You are already logged in." should not be here
+        OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
+        Assert.assertEquals(OAuthErrorException.TEMPORARILY_UNAVAILABLE, authzResponse.getError());
+        Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+    }
+
     @Test
     public void multipleTabsParallelLoginTestWithAuthSessionExpiredAndRegisterClick() {
         try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
@@ -253,11 +258,7 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
 
             loginPage.clickRegister();
 
-            // TODO:mposolda extract this part to separate method? As it might be used by more tests
-            appPage.assertCurrent(); // Page "You are already logged in." should not be here
-            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
-            Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
-            Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+            assertOnAppPageWithAlreadyLoggedInError();
         }
     }
 
@@ -268,10 +269,7 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
 
             loginPage.resetPassword();
 
-            appPage.assertCurrent(); // Page "You are already logged in." should not be here
-            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
-            Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
-            Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+            assertOnAppPageWithAlreadyLoggedInError();
         }
     }
 
@@ -311,10 +309,7 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
             assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
 
             updatePasswordPage.changePassword("password", "password");
-            appPage.assertCurrent(); // Page "You are already logged in." should not be here
-            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
-            Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
-            Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+            assertOnAppPageWithAlreadyLoggedInError();
         }
     }
 

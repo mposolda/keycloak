@@ -385,7 +385,7 @@ public class OIDCLoginProtocol implements LoginProtocol {
             case PASSIVE_LOGIN_REQUIRED:
                 return OAuthErrorException.LOGIN_REQUIRED;
             case ALREADY_LOGGED_IN:
-                return OAuthErrorException.SERVER_ERROR;
+                return OAuthErrorException.TEMPORARILY_UNAVAILABLE;
             default:
                 ServicesLogger.LOGGER.untranslatedProtocol(error.name());
                 return OAuthErrorException.SERVER_ERROR;
