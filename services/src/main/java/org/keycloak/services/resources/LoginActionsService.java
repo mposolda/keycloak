@@ -429,13 +429,14 @@ public class LoginActionsService {
                                         @QueryParam(Constants.EXECUTION) String execution,
                                         @QueryParam(Constants.CLIENT_ID) String clientId,
                                         @QueryParam(OIDCLoginProtocol.REDIRECT_URI_PARAM) String redirectUri,
-                                        @QueryParam(Constants.TAB_ID) String tabId) {
+                                        @QueryParam(Constants.TAB_ID) String tabId,
+                                        @QueryParam(Constants.CLIENT_DATA) String clientData) {
         ClientModel client = realm.getClientByClientId(clientId);
         AuthenticationSessionModel authSession = new AuthenticationSessionManager(session).getCurrentAuthenticationSession(realm, client, tabId);
         processLocaleParam(authSession);
 
         // we allow applications to link to reset credentials without going through OAuth or SAML handshakes
-        if (authSession == null && code == null) {
+        if (authSession == null && code == null && clientData == null) {
             if (!realm.isResetPasswordAllowed()) {
                 event.event(EventType.RESET_PASSWORD);
                 event.error(Errors.NOT_ALLOWED);
@@ -447,7 +448,7 @@ public class LoginActionsService {
         }
 
         event.event(EventType.RESET_PASSWORD);
-        return resetCredentials(authSessionId, code, execution, clientId, tabId, null);
+        return resetCredentials(authSessionId, code, execution, clientId, tabId, clientData);
     }
 
     AuthenticationSessionModel createAuthenticationSessionForClient(String clientID, String redirectUriParam)

@@ -18,7 +18,6 @@
 package org.keycloak.testsuite.forms;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.keycloak.testsuite.util.ServerURLs.getAuthServerContextRoot;
 import static org.keycloak.testsuite.util.URLAssert.assertCurrentUrlStartsWith;
 
@@ -269,18 +268,10 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
 
             loginPage.resetPassword();
 
-            // We expect here the "Reset password" flow to be successful
-            resetPasswordPage.assertCurrent();
-            resetPasswordPage.changePassword("login-test");
-
-            // TODO:mposolda fix this ... Currently there is internal server error due the URI issue. Should be investigated and fixed...
-            loginPage.assertCurrent();
-            assertEquals("You should receive an email shortly with further instructions.", loginPage.getSuccessMessage());
-
-//            appPage.assertCurrent(); // Page "You are already logged in." should not be here
-//            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
-//            Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
-//            Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
+            appPage.assertCurrent(); // Page "You are already logged in." should not be here
+            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
+            Assert.assertEquals(OAuthErrorException.SERVER_ERROR, authzResponse.getError());
+            Assert.assertEquals(Constants.AUTHENTICATION_EXPIRED_MESSAGE, authzResponse.getErrorDescription());
         }
     }
 
