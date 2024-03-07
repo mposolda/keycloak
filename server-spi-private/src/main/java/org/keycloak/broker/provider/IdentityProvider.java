@@ -155,4 +155,11 @@ public interface IdentityProvider<C extends IdentityProviderModel> extends Provi
     default boolean reloadKeys() {
         return false;
     }
+
+    /**
+     * @return true if identity provider supports long value of "state" parameter (or "RelayState" parameter), which can hold relatively big amount of context data
+     */
+    default boolean supportsLongStateParameter() {
+        return true;
+    }
 }

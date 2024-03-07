@@ -329,7 +329,7 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
 
         try {
             IdentityProvider<?> identityProvider = getIdentityProvider(session, realmModel, providerAlias);
-            Response response = identityProvider.performLogin(createAuthenticationRequest(providerAlias, clientSessionCode));
+            Response response = identityProvider.performLogin(createAuthenticationRequest(identityProvider, providerAlias, clientSessionCode));
 
             if (response != null) {
                 if (isDebugEnabled()) {
@@ -394,7 +394,7 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
 
             IdentityProvider<?> identityProvider = providerFactory.create(session, identityProviderModel);
 
-            Response response = identityProvider.performLogin(createAuthenticationRequest(providerAlias, clientSessionCode));
+            Response response = identityProvider.performLogin(createAuthenticationRequest(identityProvider, providerAlias, clientSessionCode));
 
             if (response != null) {
                 if (isDebugEnabled()) {
@@ -1151,15 +1151,15 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
         return null;
     }
 
-    private AuthenticationRequest createAuthenticationRequest(String providerAlias, ClientSessionCode<AuthenticationSessionModel> clientSessionCode) {
+    private AuthenticationRequest createAuthenticationRequest(IdentityProvider<?> identityProvider, String providerAlias, ClientSessionCode<AuthenticationSessionModel> clientSessionCode) {
         AuthenticationSessionModel authSession = null;
         IdentityBrokerState encodedState = null;
 
         if (clientSessionCode != null) {
             authSession = clientSessionCode.getClientSession();
             String relayState = clientSessionCode.getOrGenerateCode();
-            // TODO:mposolda add clientData here. Maybe will need to have IDP configurable as SAML IDPs likely should not add "clientData" (as length of relayState is limited)
-            encodedState = IdentityBrokerState.decoded(relayState, authSession.getClient().getId(), authSession.getClient().getClientId(), authSession.getTabId(), null);
+            String clientData = identityProvider.supportsLongStateParameter() ? AuthenticationProcessor.getClientData(session, authSession) : null;
+            encodedState = IdentityBrokerState.decoded(relayState, authSession.getClient().getId(), authSession.getClient().getClientId(), authSession.getTabId(), clientData);
         }
 
         return new AuthenticationRequest(this.session, this.realmModel, authSession, this.request, this.session.getContext().getUri(), encodedState, getRedirectUri(providerAlias));

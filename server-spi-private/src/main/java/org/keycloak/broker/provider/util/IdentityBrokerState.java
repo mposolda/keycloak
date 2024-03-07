@@ -17,12 +17,10 @@
 
 package org.keycloak.broker.provider.util;
 
-import org.keycloak.authorization.policy.evaluation.Realm;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.RealmModel;
 import org.keycloak.common.util.Base64Url;
 
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;

@@ -19,6 +19,7 @@ package org.keycloak.broker.oidc;
 
 import org.keycloak.OAuth2Constants;
 import org.keycloak.OAuthErrorException;
+import org.keycloak.broker.provider.AuthenticationRequest;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.broker.provider.util.SimpleHttp;
 import org.keycloak.constants.AdapterConstants;
@@ -28,6 +29,7 @@ import org.keycloak.events.EventBuilder;
 import org.keycloak.headers.SecurityHeadersProvider;
 import org.keycloak.jose.jws.JWSInput;
 import org.keycloak.jose.jws.JWSInputException;
+import org.keycloak.models.Constants;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserSessionModel;
@@ -134,6 +136,16 @@ public class KeycloakOIDCIdentityProvider extends OIDCIdentityProvider {
                     .param(AdapterConstants.CLIENT_SESSION_STATE, "n/a");  // hack to get backchannel logout to work
 
         }
+
+        // TODO:mposolda
+//        @Override
+//        protected Response handleCustomError(String error, String errorDescription) {
+//            // Reply login
+//            if (error != null && OAuthErrorException.TEMPORARILY_UNAVAILABLE.equals(error) && errorDescription != null && Constants.AUTHENTICATION_EXPIRED_MESSAGE.equals(errorDescription)) {
+//                AuthenticationRequest authRequest = new AuthenticationRequest(this.session, this.realmModel, authSession, this.request, this.session.getContext().getUri(), encodedState, getRedirectUri(providerAlias));
+//                return this.provider.performLogin(authRequest);
+//            }
+//        }
     }
 
     @Override

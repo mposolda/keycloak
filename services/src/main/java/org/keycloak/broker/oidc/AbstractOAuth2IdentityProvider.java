@@ -507,7 +507,8 @@ public abstract class AbstractOAuth2IdentityProvider<C extends OAuth2IdentityPro
         @GET
         public Response authResponse(@QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_STATE) String state,
                                      @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_CODE) String authorizationCode,
-                                     @QueryParam(OAuth2Constants.ERROR) String error) {
+                                     @QueryParam(OAuth2Constants.ERROR) String error,
+                                     @QueryParam(OAuth2Constants.ERROR_DESCRIPTION) String errorDescription) {
             OAuth2IdentityProviderConfig providerConfig = provider.getConfig();
             
             if (state == null) {
@@ -636,6 +637,10 @@ public abstract class AbstractOAuth2IdentityProvider<C extends OAuth2IdentityPro
             }
 
             return provider.authenticateTokenRequest(tokenRequest);
+        }
+
+        protected Response handleCustomError(String error, String errorDescription) {
+            return null;
         }
 
     }
