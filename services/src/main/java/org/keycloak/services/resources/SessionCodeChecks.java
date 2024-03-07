@@ -19,7 +19,6 @@ package org.keycloak.services.resources;
 
 import static org.keycloak.services.managers.AuthenticationManager.authenticateIdentityCookie;
 
-import java.io.IOException;
 import java.net.URI;
 
 import jakarta.ws.rs.core.Response;
@@ -27,7 +26,6 @@ import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
 
 import org.jboss.logging.Logger;
-import org.keycloak.common.util.Base64Url;
 import org.keycloak.http.HttpRequest;
 import org.keycloak.authentication.AuthenticationProcessor;
 import org.keycloak.common.ClientConnection;
@@ -47,7 +45,6 @@ import org.keycloak.protocol.RestartLoginCookie;
 import org.keycloak.protocol.oidc.endpoints.AuthorizationEndpointChecker;
 import org.keycloak.protocol.oidc.endpoints.request.AuthorizationEndpointRequest;
 import org.keycloak.services.ErrorPage;
-import org.keycloak.services.ErrorPageException;
 import org.keycloak.services.ServicesLogger;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.AuthenticationSessionManager;
@@ -57,7 +54,6 @@ import org.keycloak.services.util.BrowserHistoryHelper;
 import org.keycloak.services.util.AuthenticationFlowURLHelper;
 import org.keycloak.sessions.AuthenticationSessionModel;
 import org.keycloak.sessions.RootAuthenticationSessionModel;
-import org.keycloak.util.JsonSerialization;
 
 
 public class SessionCodeChecks {
@@ -198,7 +194,6 @@ public class SessionCodeChecks {
             if (authResult != null && authResult.getSession() != null) {
                 response = null;
 
-                // TODO:mposolda Maybe also check the switch on the client (if we add it)
                 if (client != null && clientData != null) {
 
                     AuthorizationEndpointRequest req = AuthorizationEndpointRequest.fromClientData(clientData);
@@ -320,7 +315,8 @@ public class SessionCodeChecks {
                 if (ObjectUtil.isEqualOrBothNull(execution, authSession.getAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION))) {
                     String latestFlowPath = authSession.getAuthNote(AuthenticationProcessor.CURRENT_FLOW_PATH);
                     if (latestFlowPath != null) {
-                        URI redirectUri = getLastExecutionUrl(latestFlowPath, execution, tabId);
+                        String clientData = AuthenticationProcessor.getClientData(session, authSession);
+                        URI redirectUri = getLastExecutionUrl(latestFlowPath, execution, tabId, clientData);
 
                         logger.debugf("Invalid action code, but execution matches. So just redirecting to %s", redirectUri);
                         authSession.setAuthNote(LoginActionsService.FORWARDED_ERROR_MESSAGE_NOTE, Messages.EXPIRED_ACTION);
@@ -382,7 +378,8 @@ public class SessionCodeChecks {
 
             authSession.setAuthNote(LoginActionsService.FORWARDED_ERROR_MESSAGE_NOTE, Messages.LOGIN_TIMEOUT);
 
-            URI redirectUri = getLastExecutionUrl(LoginActionsService.AUTHENTICATE_PATH, null, tabId);
+            String clientData = AuthenticationProcessor.getClientData(session, authSession);
+            URI redirectUri = getLastExecutionUrl(LoginActionsService.AUTHENTICATE_PATH, null, tabId, clientData);
             logger.debugf("Flow restart after timeout. Redirecting to %s", redirectUri);
             response = Response.status(Response.Status.FOUND).location(redirectUri).build();
             return false;
@@ -451,7 +448,8 @@ public class SessionCodeChecks {
                 flowPath = LoginActionsService.AUTHENTICATE_PATH;
             }
 
-            URI redirectUri = getLastExecutionUrl(flowPath, null, authSession.getTabId());
+            String clientData = AuthenticationProcessor.getClientData(session, authSession);
+            URI redirectUri = getLastExecutionUrl(flowPath, null, authSession.getTabId(), clientData);
             logger.debugf("Authentication session restart from cookie succeeded. Redirecting to %s", redirectUri);
             return Response.status(Response.Status.FOUND).location(redirectUri).build();
         } else {
@@ -480,9 +478,9 @@ public class SessionCodeChecks {
     }
 
 
-    private URI getLastExecutionUrl(String flowPath, String executionId, String tabId) {
+    private URI getLastExecutionUrl(String flowPath, String executionId, String tabId, String clientData) {
         return new AuthenticationFlowURLHelper(session, realm, uriInfo)
-                .getLastExecutionUrl(flowPath, executionId, clientId, tabId);
+                .getLastExecutionUrl(flowPath, executionId, clientId, tabId, clientData);
     }
 
 

@@ -207,9 +207,9 @@ public class LoginActionsService {
     }
 
 
-    protected URI getLastExecutionUrl(String flowPath, String executionId, String clientId, String tabId) {
+    protected URI getLastExecutionUrl(String flowPath, String executionId, String clientId, String tabId, String clientData) {
         return new AuthenticationFlowURLHelper(session, realm, session.getContext().getUri())
-                .getLastExecutionUrl(flowPath, executionId, clientId, tabId);
+                .getLastExecutionUrl(flowPath, executionId, clientId, tabId, clientData);
     }
 
 
@@ -250,7 +250,7 @@ public class LoginActionsService {
 
         AuthenticationProcessor.resetFlow(authSession, flowPath);
 
-        URI redirectUri = getLastExecutionUrl(flowPath, null, authSession.getClient().getClientId(), tabId);
+        URI redirectUri = getLastExecutionUrl(flowPath, null, authSession.getClient().getClientId(), tabId, AuthenticationProcessor.getClientData(session, authSession));
         logger.debugf("Flow restart requested. Redirecting to %s", redirectUri);
         return Response.status(Response.Status.FOUND).location(redirectUri).build();
     }
