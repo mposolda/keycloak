@@ -154,6 +154,7 @@ public class SessionCodeChecks {
         }
         if (client != null) {
             session.getContext().setClient(client);
+            event.client(client);
         }
 
 
@@ -208,6 +209,7 @@ public class SessionCodeChecks {
                         checker.checkResponseType();
                         checker.checkRedirectUri();
                     } catch (AuthorizationEndpointChecker.AuthorizationCheckException ex) {
+                        // TODO:mposolda verify if error event is needed for this case?
                         ex.throwAsErrorPageException(null);
                     }
 
@@ -217,6 +219,7 @@ public class SessionCodeChecks {
                             .setUriInfo(session.getContext().getUri())
                             .setEventBuilder(event);
                     response = protocol.sendError(clientData, LoginProtocol.Error.ALREADY_LOGGED_IN);
+                    event.detail(Details.REDIRECTED_TO_CLIENT, "true");
                 }
 
                 if (response == null) {
@@ -228,7 +231,11 @@ public class SessionCodeChecks {
                     }
 
                     response = loginForm.createInfoPage();
+                    event.detail(Details.REDIRECTED_TO_CLIENT, "false");
                 }
+                event.error(Errors.ALREADY_LOGGED_IN);
+            } else {
+                event.error(Errors.COOKIE_NOT_FOUND);
             }
         }
 
@@ -424,7 +431,6 @@ public class SessionCodeChecks {
 
         String cook = RestartLoginCookie.getRestartCookie(session);
         if (cook == null) {
-            event.error(Errors.COOKIE_NOT_FOUND);
             return ErrorPage.error(session, authSession, Response.Status.BAD_REQUEST, Messages.COOKIE_NOT_FOUND);
         }
 

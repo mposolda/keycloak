@@ -18,6 +18,7 @@
 package org.keycloak.testsuite.forms;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.keycloak.testsuite.AssertEvents.DEFAULT_REDIRECT_URI;
 import static org.keycloak.testsuite.util.ServerURLs.getAuthServerContextRoot;
 import static org.keycloak.testsuite.util.URLAssert.assertCurrentUrlStartsWith;
 
@@ -33,9 +34,14 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.OAuthErrorException;
+import org.keycloak.events.Details;
+import org.keycloak.events.Errors;
+import org.keycloak.events.EventType;
 import org.keycloak.models.Constants;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
+import org.keycloak.protocol.oidc.utils.OIDCResponseMode;
+import org.keycloak.protocol.oidc.utils.OIDCResponseType;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.RealmRepresentation;
@@ -183,9 +189,10 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
     public void multipleTabsParallelLoginTestWithAuthSessionExpiredInTheMiddle() {
         try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
             multipleTabsParallelLogin(tabUtil);
+            events.clear();
 
             loginPage.login("login-test", "password");
-            assertOnAppPageWithAlreadyLoggedInError();
+            assertOnAppPageWithAlreadyLoggedInError(EventType.LOGIN);
         }
     }
 
@@ -199,7 +206,14 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
                     .setRedirectUris(List.of("https://foo"))
                     .update()) {
 
+                events.clear();
                 loginPage.login("login-test", "password");
+                events.expectLogin().user((String) null).session((String) null).error(Errors.INVALID_REDIRECT_URI)
+                        .detail(Details.RESPONSE_TYPE, OIDCResponseType.CODE)
+                        .detail(Details.RESPONSE_MODE, OIDCResponseMode.QUERY.value())
+                        .removeDetail(Details.CONSENT)
+                        .removeDetail(Details.CODE_ID)
+                        .assertEvent();
                 errorPage.assertCurrent(); // Page "You are already logged in." should not be here
                 Assert.assertEquals("Invalid parameter: redirect_uri", errorPage.getError());
             }
@@ -223,6 +237,7 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
 
         // Try to login in tab2. After fill login form, the login will be restarted (due KC_RESTART cookie). User can continue login
         loginPage.login("login-test", "password");
+        // TODO:mposolda there is login event here with "expired_code"
         loginPage.assertCurrent();
         Assert.assertEquals(loginPage.getError(), "Your login attempt timed out. Login will start from the beginning.");
 
@@ -242,7 +257,14 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
     }
 
     // Assert browser was redirected to the appPage with "error=temporarily_unavailable" and error_description corresponding to Constants.AUTHENTICATION_EXPIRED_MESSAGE
-    private void assertOnAppPageWithAlreadyLoggedInError() {
+    private void assertOnAppPageWithAlreadyLoggedInError(EventType expectedEventType) {
+        events.expect(expectedEventType)
+                .user((String) null).error(Errors.ALREADY_LOGGED_IN)
+                .detail(Details.REDIRECT_URI, Matchers.equalTo(DEFAULT_REDIRECT_URI))
+                .detail(Details.REDIRECTED_TO_CLIENT, "true")
+                .detail(Details.RESPONSE_TYPE, OIDCResponseType.CODE)
+                .detail(Details.RESPONSE_MODE, OIDCResponseMode.QUERY.value())
+                .assertEvent();
         appPage.assertCurrent(); // Page "You are already logged in." should not be here
         OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
         Assert.assertEquals(OAuthErrorException.TEMPORARILY_UNAVAILABLE, authzResponse.getError());
@@ -253,10 +275,10 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
     public void multipleTabsParallelLoginTestWithAuthSessionExpiredAndRegisterClick() {
         try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
             multipleTabsParallelLogin(tabUtil);
+            events.clear();
 
             loginPage.clickRegister();
-
-            assertOnAppPageWithAlreadyLoggedInError();
+            assertOnAppPageWithAlreadyLoggedInError(EventType.REGISTER);
         }
     }
 
@@ -264,10 +286,10 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
     public void multipleTabsParallelLoginTestWithAuthSessionExpiredAndResetPasswordClick() {
         try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
             multipleTabsParallelLogin(tabUtil);
+            events.clear();
 
             loginPage.resetPassword();
-
-            assertOnAppPageWithAlreadyLoggedInError();
+            assertOnAppPageWithAlreadyLoggedInError(EventType.RESET_PASSWORD);
         }
     }
 
@@ -301,9 +323,10 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
             // Go back to tab1. Usually should be automatically authenticated here (previously it showed "You are already logged-in")
             tabUtil.closeTab(1);
             assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
+            events.clear();
 
             updatePasswordPage.changePassword("password", "password");
-            assertOnAppPageWithAlreadyLoggedInError();
+            assertOnAppPageWithAlreadyLoggedInError(EventType.CUSTOM_REQUIRED_ACTION);
         }
     }
 
@@ -337,8 +360,10 @@ public class MultipleTabsLoginTest extends AbstractTestRealmKeycloakTest {
             // Go back to tab1 and refresh the page. Should be automatically authenticated here (previously it showed "You are already logged-in")
             tabUtil.closeTab(1);
             assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
+            events.clear();
+
             driver.navigate().refresh();
-            assertOnAppPageWithAlreadyLoggedInError();
+            assertOnAppPageWithAlreadyLoggedInError(EventType.LOGIN);
         }
     }
 
