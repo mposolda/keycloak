@@ -398,7 +398,7 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
 
             if (response != null) {
                 if (isDebugEnabled()) {
-                    logger.debugf("Identity provider [%s] is going to send a request [%s].", identityProvider, response);
+                    logger.debugf("Identity provider [%s] is going to send a request [%s].", identityProvider.getConfig().getAlias(), response);
                 }
                 return response;
             }
@@ -408,6 +408,22 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
             return redirectToErrorPage(Response.Status.INTERNAL_SERVER_ERROR, Messages.UNEXPECTED_ERROR_HANDLING_REQUEST, e, providerAlias);
         }
 
+        return redirectToErrorPage(Response.Status.INTERNAL_SERVER_ERROR, Messages.COULD_NOT_PROCEED_WITH_AUTHENTICATION_REQUEST);
+    }
+
+    @Override
+    public Response retryLogin(IdentityProvider<?> identityProvider, AuthenticationSessionModel authSession) {
+        ClientSessionCode<AuthenticationSessionModel> clientSessionCode = new ClientSessionCode<>(session, realmModel, authSession);
+        clientSessionCode.setAction(AuthenticationSessionModel.Action.AUTHENTICATE.name());
+        Response response = identityProvider.performLogin(createAuthenticationRequest(identityProvider, identityProvider.getConfig().getAlias(), clientSessionCode));
+
+        if (response != null) {
+            // TODO:mposolda change level to debug
+//            if (isDebugEnabled()) {
+                logger.infof("Identity provider [%s] is going to retry a login request [%s].", identityProvider.getConfig().getAlias(), response);
+//            }
+            return response;
+        }
         return redirectToErrorPage(Response.Status.INTERNAL_SERVER_ERROR, Messages.COULD_NOT_PROCEED_WITH_AUTHENTICATION_REQUEST);
     }
 

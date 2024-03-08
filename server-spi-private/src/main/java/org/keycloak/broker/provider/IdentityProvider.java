@@ -70,6 +70,15 @@ public interface IdentityProvider<C extends IdentityProviderModel> extends Provi
         Response cancelled(IdentityProviderModel idpConfig);
 
         /**
+         * Indicates that login with the particular IDP should be retried
+         *
+         * @param identityProvider provider to retry login
+         * @param authSession authentication session
+         * @return see description
+         */
+        Response retryLogin(IdentityProvider<?> identityProvider, AuthenticationSessionModel authSession);
+
+        /**
          * Called when error happened on the IDP side.
          * Assumption is that authenticationSession is set in the {@link org.keycloak.models.KeycloakContext} when this method is called
          *

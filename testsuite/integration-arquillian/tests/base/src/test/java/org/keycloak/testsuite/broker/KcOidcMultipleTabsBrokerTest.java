@@ -25,6 +25,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.keycloak.OAuthErrorException;
 import org.keycloak.models.Constants;
+import org.keycloak.testsuite.updaters.RealmAttributeUpdater;
 import org.keycloak.testsuite.util.BrowserTabUtil;
 import org.keycloak.testsuite.util.InfinispanTestTimeServiceRule;
 import org.keycloak.testsuite.util.OAuthClient;
@@ -68,7 +69,7 @@ public class KcOidcMultipleTabsBrokerTest  extends AbstractInitializedBaseBroker
 
             waitForPage(driver, "update account information", false);
             updateAccountInformationPage.assertCurrent();
-            Assert.assertTrue("We must be on correct realm right now",
+            Assert.assertTrue("We must be on consumer realm right now",
                     driver.getCurrentUrl().contains("/auth/realms/" + bc.consumerRealmName() + "/"));
             updateAccountInformationPage.updateAccountInformation(bc.getUserLogin(), bc.getUserEmail(), "Firstname", "Lastname");
             appPage.assertCurrent();
@@ -107,18 +108,66 @@ public class KcOidcMultipleTabsBrokerTest  extends AbstractInitializedBaseBroker
 
             waitForPage(driver, "update account information", false);
             updateAccountInformationPage.assertCurrent();
-            Assert.assertTrue("We must be on correct realm right now",
+            Assert.assertTrue("We must be on consumer realm right now",
                     driver.getCurrentUrl().contains("/auth/realms/" + bc.consumerRealmName() + "/"));
             updateAccountInformationPage.updateAccountInformation(bc.getUserLogin(), bc.getUserEmail(), "Firstname", "Lastname");
             appPage.assertCurrent();
 
-            // TODO:mposolda fix this: Go back to tab1 and finish login in provider realm and being redirected back to "consumer" realm. Login should automatically happen here, but won't
+            // Login in provider realm will redirect back to consumer with "authentication expired" error. That one will redirect straight to client due the "clientData" in IdentityBrokerState
             tabUtil.closeTab(1);
             assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
             loginPage.login(bc.getUserLogin(), bc.getUserPassword());
 
             assertOnAppPageWithAlreadyLoggedInError();
 
+        }
+    }
+
+    @Test
+    public void testAuthenticationExpiredWithMoreBrowserTabs_finishIdpLoginInTab1AfterExpirationAfterRedirectBackToIDP() throws Exception {
+        try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver);
+             AutoCloseable realmUpdater = new RealmAttributeUpdater(adminClient.realm(bc.consumerRealmName()))
+                     .setAccessCodeLifespanLogin(7200)
+                     .update()
+        ) {
+            // Open login page in tab1 and click "login with IDP"
+            oauth.clientId("broker-app");
+            loginPage.open(bc.consumerRealmName());
+            loginPage.clickSocial(bc.getIDPAlias());
+
+            // Open login page in tab 2
+            tabUtil.newTab(oauth.getLoginFormUrl());
+            assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(2));
+            Assert.assertTrue(loginPage.isCurrent("consumer"));
+            getLogger().infof("URL in tab2: %s", driver.getCurrentUrl()); // TODO:mposolda remove or switch to debug?
+
+            setTimeOffset(3600);
+
+            // Finish login in tab2
+            logInWithBroker(bc);
+
+            waitForPage(driver, "update account information", false);
+            updateAccountInformationPage.assertCurrent();
+            Assert.assertTrue("We must be on consumer realm right now",
+                    driver.getCurrentUrl().contains("/auth/realms/" + bc.consumerRealmName() + "/"));
+            updateAccountInformationPage.updateAccountInformation(bc.getUserLogin(), bc.getUserEmail(), "Firstname", "Lastname");
+            appPage.assertCurrent();
+
+            // Login in provider realm will redirect back to consumer with "authentication expired" error. That one will redirect straight to client due the "clientData" in IdentityBrokerState
+            tabUtil.closeTab(1);
+            assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
+            loginPage.login(bc.getUserLogin(), bc.getUserPassword());
+
+            // We are redirected back to IDP where user is asked to re-authenticate (due prompt=login being sent to OIDC IDP in authz request)
+            Assert.assertEquals("Please re-authenticate to continue", loginPage.getInfoMessage());
+            Assert.assertTrue("We must be on provider realm right now",driver.getCurrentUrl().contains("/auth/realms/" + bc.providerRealmName() + "/"));
+            loginPage.login(bc.getUserPassword());
+
+            // Being redirected back to consumer and then back to client right away. Authentication session on "consumer" realm is still valid, so no error here.
+            appPage.assertCurrent();
+            OAuthClient.AuthorizationEndpointResponse authzResponse = new OAuthClient.AuthorizationEndpointResponse(oauth);
+            org.keycloak.testsuite.Assert.assertNotNull(authzResponse.getCode());
+            org.keycloak.testsuite.Assert.assertNull(authzResponse.getError());
         }
     }
 
