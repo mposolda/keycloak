@@ -418,10 +418,13 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
         Response response = identityProvider.performLogin(createAuthenticationRequest(identityProvider, identityProvider.getConfig().getAlias(), clientSessionCode));
 
         if (response != null) {
-            // TODO:mposolda change level to debug
-//            if (isDebugEnabled()) {
+            event.detail(Details.IDENTITY_PROVIDER, identityProvider.getConfig().getAlias())
+                    .detail(Details.LOGIN_RETRY, "true")
+                    .success();
+
+            if (isDebugEnabled()) {
                 logger.infof("Identity provider [%s] is going to retry a login request [%s].", identityProvider.getConfig().getAlias(), response);
-//            }
+            }
             return response;
         }
         return redirectToErrorPage(Response.Status.INTERNAL_SERVER_ERROR, Messages.COULD_NOT_PROCEED_WITH_AUTHENTICATION_REQUEST);
