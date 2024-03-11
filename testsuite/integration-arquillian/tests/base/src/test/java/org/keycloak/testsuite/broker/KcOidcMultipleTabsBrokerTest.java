@@ -86,7 +86,7 @@ public class KcOidcMultipleTabsBrokerTest  extends AbstractInitializedBaseBroker
 
     // Similar to MultipleTabsLoginTest.multipleTabsParallelLogin but with IDP brokering test involved
     @Test
-    public void testAuthenticationExpiredWithMoreBrowserTabs_finishIdpLoginInTab1AfterExpiration() {
+    public void testAuthenticationExpiredWithMoreBrowserTabs_loginExpiredInBothConsumerAndProvider() {
         try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
             // Open login page in tab1 and click "login with IDP"
             oauth.clientId("broker-app");
@@ -113,7 +113,8 @@ public class KcOidcMultipleTabsBrokerTest  extends AbstractInitializedBaseBroker
             updateAccountInformationPage.updateAccountInformation(bc.getUserLogin(), bc.getUserEmail(), "Firstname", "Lastname");
             appPage.assertCurrent();
 
-            // Login in provider realm will redirect back to consumer with "authentication expired" error. That one will redirect straight to client due the "clientData" in IdentityBrokerState
+            // Login in provider realm will redirect back to consumer with "authentication expired" error.
+            // The consumer has also expired authentication session, so that one will redirect straight to client due the "clientData" in IdentityBrokerState
             tabUtil.closeTab(1);
             assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(1));
             loginPage.login(bc.getUserLogin(), bc.getUserPassword());
