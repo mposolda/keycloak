@@ -42,7 +42,9 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.protocol.ClientData;
 import org.keycloak.protocol.LoginProtocol;
+import org.keycloak.protocol.oidc.endpoints.AuthorizationEndpointChecker;
 import org.keycloak.protocol.oidc.endpoints.LogoutEndpoint;
+import org.keycloak.protocol.oidc.endpoints.request.AuthorizationEndpointRequest;
 import org.keycloak.protocol.oidc.utils.LogoutUtil;
 import org.keycloak.protocol.oidc.utils.OIDCRedirectUriBuilder;
 import org.keycloak.protocol.oidc.utils.OIDCResponseMode;
@@ -362,12 +364,23 @@ public class OIDCLoginProtocol implements LoginProtocol {
     }
 
     @Override
-    public Response sendError(ClientData clientData, Error error) {
-        // TODO:mposolda handle device authz (See other "sendError" method)
-        ClientModel client = session.getContext().getClient();
-        if (client == null) {
-            throw new IllegalStateException("Client is not set in context"); // TODO:mposolda figure if more appropriate error message should be added? Or just remove this check if it is possible to sure that client is in context for all callers
+    public Response sendError(ClientModel client, ClientData clientData, Error error) {
+        // Should check if clientData are valid for current client
+        AuthorizationEndpointRequest req = AuthorizationEndpointRequest.fromClientData(clientData);
+        AuthorizationEndpointChecker checker = new AuthorizationEndpointChecker()
+                .event(event)
+                .client(client)
+                .realm(realm)
+                .request(req)
+                .session(session);
+        try {
+            checker.checkResponseType();
+            checker.checkRedirectUri();
+        } catch (AuthorizationEndpointChecker.AuthorizationCheckException ex) {
+            ex.throwAsErrorPageException(null);
         }
+
+        // TODO:mposolda handle device authz (See other "sendError" method)
 
         setupResponseTypeAndMode(clientData.getResponseType(), clientData.getResponseMode());
         OIDCRedirectUriBuilder redirectUri = buildErrorRedirectUri(clientData.getRedirectUri(), clientData.getState(), error);

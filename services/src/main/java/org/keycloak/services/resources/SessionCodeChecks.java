@@ -196,29 +196,12 @@ public class SessionCodeChecks {
                 response = null;
 
                 if (client != null && clientData != null) {
-
-                    AuthorizationEndpointRequest req = AuthorizationEndpointRequest.fromClientData(clientData);
-                    // Check it (TODO:mposolda should check like this work also for SAML?)
-                    AuthorizationEndpointChecker checker = new AuthorizationEndpointChecker()
-                            .event(event)
-                            .client(client)
-                            .realm(realm)
-                            .request(req)
-                            .session(session);
-                    try {
-                        checker.checkResponseType();
-                        checker.checkRedirectUri();
-                    } catch (AuthorizationEndpointChecker.AuthorizationCheckException ex) {
-                        // TODO:mposolda verify if error event is needed for this case?
-                        ex.throwAsErrorPageException(null);
-                    }
-
                     LoginProtocol protocol = session.getProvider(LoginProtocol.class, client.getProtocol());
                     protocol.setRealm(realm)
                             .setHttpHeaders(session.getContext().getRequestHeaders())
                             .setUriInfo(session.getContext().getUri())
                             .setEventBuilder(event);
-                    response = protocol.sendError(clientData, LoginProtocol.Error.ALREADY_LOGGED_IN);
+                    response = protocol.sendError(client, clientData, LoginProtocol.Error.ALREADY_LOGGED_IN);
                     event.detail(Details.REDIRECTED_TO_CLIENT, "true");
                 }
 
