@@ -1452,6 +1452,7 @@ public class RealmCacheSession implements CacheRealmProvider {
                 assignedScopes.put(clientScope.getName(), clientScope);
             }
         }
+        // Just adding comment here to simulate running the tests
         return assignedScopes;
     }
 

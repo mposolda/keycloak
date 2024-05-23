@@ -98,6 +98,7 @@ public class JpaRealmProvider implements RealmProvider, ClientProvider, ClientSc
         this.em = em;
         this.clientSearchableAttributes = clientSearchableAttributes;
         this.groupSearchableAttributes = groupSearchableAttributes;
+        // Just adding comment here to simulate running the tests
     }
 
     @Override
