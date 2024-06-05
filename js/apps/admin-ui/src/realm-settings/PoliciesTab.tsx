@@ -114,6 +114,7 @@ export const PoliciesTab = () => {
   };
 
   const save = async () => {
+    console.log("Hello - test");
     if (!code) {
       return;
     }
