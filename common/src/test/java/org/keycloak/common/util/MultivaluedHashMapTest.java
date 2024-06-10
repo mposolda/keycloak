@@ -23,6 +23,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
+ * TODO:mposolda move to keycloak-client-common
  *
  * @author tkyjovsk
  */
