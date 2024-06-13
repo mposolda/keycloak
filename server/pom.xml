@@ -1637,7 +1637,7 @@
                             </goals>
                             <configuration>
                                 <arguments>install --prefer-offline --frozen-lockfile --ignore-scripts</arguments>
-                                <workingDirectory>${maven.multiModuleProjectDirectory}</workingDirectory>
+                                <workingDirectory>${maven.multiModuleProjectDirectory}/server</workingDirectory>
                             </configuration>
                         </execution>
                         <execution>
@@ -1653,7 +1653,7 @@
                     <configuration>
                         <nodeVersion>${node.version}</nodeVersion>
                         <pnpmVersion>${pnpm.version}</pnpmVersion>
-                        <installDirectory>${maven.multiModuleProjectDirectory}</installDirectory>
+                        <installDirectory>${maven.multiModuleProjectDirectory}/server</installDirectory>
                         <pnpmInheritsProxyConfigFromMaven>false</pnpmInheritsProxyConfigFromMaven>
                     </configuration>
                 </plugin>
