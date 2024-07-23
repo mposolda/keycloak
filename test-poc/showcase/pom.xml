@@ -35,7 +35,13 @@
         <dependency>
             <groupId>org.keycloak.test</groupId>
             <artifactId>keycloak-test-junit5-framework</artifactId>
-            <version>999.0.0-SNAPSHOT</version>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.keycloak.test</groupId>
+            <artifactId>keycloak-test-junit5-framework-servers</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>

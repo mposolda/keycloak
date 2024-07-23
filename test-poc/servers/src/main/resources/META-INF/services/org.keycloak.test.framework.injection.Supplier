@@ -1,0 +1,3 @@
+org.keycloak.test.framework.server.EmbeddedKeycloakTestServerSupplier
+org.keycloak.test.framework.server.DistributionKeycloakTestServerSupplier
+org.keycloak.test.framework.server.RemoteKeycloakTestServerSupplier

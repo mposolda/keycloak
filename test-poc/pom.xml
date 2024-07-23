@@ -34,6 +34,7 @@
 
     <modules>
         <module>framework</module>
+        <module>servers</module>
         <module>examples</module>
         <module>showcase</module>
     </modules>
