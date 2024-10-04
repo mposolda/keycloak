@@ -85,7 +85,7 @@ jobs:
           for i in {1..20}
             do
               echo "====================================================================> ${i}"
-              ./mvnw test -Pauth-server-quarkus -Dtest=org.keycloak.testsuite.forms.LoginTest -Dbrowser=${{ matrix.browser }} "-Dwebdriver.chrome.driver=$CHROMEWEBDRIVER/chromedriver" "-Dwebdriver.gecko.driver=$GECKOWEBDRIVER/geckodriver" -pl testsuite/integration-arquillian/tests/base
+              ./mvnw test -Pauth-server-quarkus -Dtest=org.keycloak.testsuite.forms.ResetPasswordTest -Dbrowser=${{ matrix.browser }} "-Dwebdriver.chrome.driver=$CHROMEWEBDRIVER/chromedriver" "-Dwebdriver.gecko.driver=$GECKOWEBDRIVER/geckodriver" -pl testsuite/integration-arquillian/tests/base
               if [ $? -ne 0 ]
               then
                 break
