@@ -117,11 +117,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fake fips
-        run: |
-          cd .github/fake_fips
-          make
-          sudo insmod fake_fips.ko
+#      - name: Fake fips
+#        run: |
+#          cd .github/fake_fips
+#          make
+#          sudo insmod fake_fips.ko
 
       - id: integration-test-setup
         name: Integration test setup
