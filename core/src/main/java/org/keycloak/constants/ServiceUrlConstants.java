@@ -18,6 +18,8 @@
 package org.keycloak.constants;
 
 /**
+ * Some dummy change TODO:mposolda
+ * 
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
  * @version $Revision: 1 $
  */
