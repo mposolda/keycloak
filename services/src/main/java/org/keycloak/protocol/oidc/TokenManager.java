@@ -617,16 +617,30 @@ public class TokenManager {
         clientSession.setRedirectUri(authSession.getRedirectUri());
         clientSession.setProtocol(authSession.getProtocol());
 
-        String scopeParam = authSession.getClientNote(OAuth2Constants.SCOPE);
         Set<ClientScopeModel> clientScopes;
 
-        if (Profile.isFeatureEnabled(Profile.Feature.DYNAMIC_SCOPES)) {
-            session.getContext().setClient(client);
-            clientScopes = AuthorizationContextUtil.getClientScopesStreamFromAuthorizationRequestContextWithClient(session, scopeParam)
+        if (authSession.getClientScopes() != null) {
+            // TODO:mposolda handle dynamic scopes...
+            clientScopes = authSession.getClientScopes().stream()
+                    .map(clientScopeId -> {
+                            ClientScopeModel clientScope = realm.getClientScopeById(clientScopeId);
+                            if (clientScope == null) {
+                                clientScope = realm.getClientById(clientScopeId);
+                            }
+                            return clientScope;
+                    })
                     .collect(Collectors.toSet());
         } else {
-            clientScopes = getRequestedClientScopes(session, scopeParam, client, userSession.getUser())
-                    .collect(Collectors.toSet());
+            // TODO:mposolda is else branch needed? Are not always scopes set in authSession at this stage?
+            String scopeParam = authSession.getClientNote(OAuth2Constants.SCOPE);
+            if (Profile.isFeatureEnabled(Profile.Feature.DYNAMIC_SCOPES)) {
+                session.getContext().setClient(client);
+                clientScopes = AuthorizationContextUtil.getClientScopesStreamFromAuthorizationRequestContextWithClient(session, scopeParam)
+                        .collect(Collectors.toSet());
+            } else {
+                clientScopes = getRequestedClientScopes(session, scopeParam, client, userSession.getUser())
+                        .collect(Collectors.toSet());
+            }
         }
 
         Map<String, String> transferredNotes = authSession.getClientNotes();
@@ -682,7 +696,8 @@ public class TokenManager {
                     return clientScope.getScopeMappingsStream();
                 });
             }
-            scopeMappings = Stream.concat(scopeMappings, clientScopesMappings);
+            // TODO:mposolda not needed explicitly add "scopeMappings" as client should be typically in the "clientScopes" list already
+            scopeMappings = clientScopesMappings; // Stream.concat(scopeMappings, clientScopesMappings);
 
             // 3 - Expand scope mappings
             scopeMappings = RoleUtils.expandCompositeRolesStream(scopeMappings);
