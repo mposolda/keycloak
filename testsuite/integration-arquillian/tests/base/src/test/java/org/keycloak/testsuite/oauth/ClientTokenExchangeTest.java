@@ -270,6 +270,9 @@ public class ClientTokenExchangeTest extends AbstractKeycloakTest {
         UserModel bad = session.users().addUser(realm, "bad-impersonator");
         bad.setEnabled(true);
         bad.credentialManager().updateCredential(UserCredentialModel.password("password"));
+
+        addTargetClient(session, realm, "target1", clientRep);
+        addTargetClient(session, realm, "target2", clientRep);
     }
 
     public static void setUpUserImpersonatePermissions(KeycloakSession session) {
@@ -1128,6 +1131,48 @@ public class ClientTokenExchangeTest extends AbstractKeycloakTest {
         Assert.assertEquals(sid, token.getSessionId());
     }
 
+    @Test
+    public void testExchangeForDifferentClientWithMoreAudiences() throws Exception {
+        testingClient.server().run(ClientTokenExchangeTest::setupRealm);
+
+        // generate the first token for a public client
+        oauth.realm(TEST);
+        oauth.clientId("direct-public");
+        OAuthClient.AccessTokenResponse response = oauth.doGrantAccessTokenRequest("secret", "user", "password");
+        String accessToken = response.getAccessToken();
+        TokenVerifier<AccessToken> accessTokenVerifier = TokenVerifier.create(accessToken, AccessToken.class);
+        AccessToken token = accessTokenVerifier.parse().getToken();
+        Assert.assertEquals(token.getPreferredUsername(), "user");
+        assertTrue(token.getRealmAccess() == null || !token.getRealmAccess().isUserInRole("example"));
+        Assert.assertNotNull(token.getSessionId());
+        String sid = token.getSessionId();
+        // TODO:mposolda doublecheck...
+        Assert.assertNames(Arrays.asList(token.getAudience()), "client-exchanger");
+
+        // perform token exchange with client-exchanger simulating it received the previous token
+        response = oauth.doTokenExchange(TEST, accessToken, "target1", "client-exchanger", "secret", Map.of(OAuth2Constants.AUDIENCE, "target2"));
+        assertEquals(Response.Status.OK.getStatusCode(), response.getStatusCode());
+        accessToken = response.getAccessToken();
+        accessTokenVerifier = TokenVerifier.create(accessToken, AccessToken.class);
+        token = accessTokenVerifier.parse().getToken();
+        Assert.assertEquals("client-exchanger", token.getIssuedFor());
+        Assert.assertNames(Arrays.asList(token.getAudience()), "target1", "target2");
+        Assert.assertEquals(token.getPreferredUsername(), "user");
+        Assert.assertEquals(sid, token.getSessionId());
+        // TODO:mposolda should test roles etc?
+
+        // perform a second token exchange just to check everything is OK
+        response = oauth.doTokenExchange(TEST, accessToken, "target1", "client-exchanger", "secret", Map.of(OAuth2Constants.AUDIENCE, "target2"));
+        assertEquals(Response.Status.OK.getStatusCode(), response.getStatusCode());
+        accessToken = response.getAccessToken();
+        accessTokenVerifier = TokenVerifier.create(accessToken, AccessToken.class);
+        token = accessTokenVerifier.parse().getToken();
+        Assert.assertEquals("client-exchanger", token.getIssuedFor());
+        Assert.assertNames(Arrays.asList(token.getAudience()), "target1", "target2");
+        Assert.assertEquals(token.getPreferredUsername(), "user");
+        Assert.assertEquals(sid, token.getSessionId());
+    }
+
     private static void addDirectExchanger(KeycloakSession session) {
         RealmModel realm = session.realms().getRealmByName(TEST);
         RoleModel exampleRole = realm.addRole("example");
@@ -1171,6 +1216,36 @@ public class ClientTokenExchangeTest extends AbstractKeycloakTest {
         impersonatedUser.credentialManager().updateCredential(UserCredentialModel.password("password"));
         impersonatedUser.grantRole(exampleRole);
     }
+
+    private static void addTargetClient(KeycloakSession session, RealmModel realm, String clientId, ClientPolicyRepresentation clientPolicyRep) {
+        ClientModel target = realm.addClient(clientId);
+        target.setName(clientId);
+        target.setClientId(clientId);
+        target.setDirectAccessGrantsEnabled(true);
+        target.setEnabled(true);
+        target.setSecret("secret");
+        target.setProtocol(OIDCLoginProtocol.LOGIN_PROTOCOL);
+        target.setFullScopeAllowed(false);
+
+        RoleModel clientRole = target.addRole("client-role");
+
+        UserModel user = session.users().getUserByUsername(realm, "user");
+        user.grantRole(clientRole);
+
+        ClientModel client = realm.getClientByClientId("client-exchanger");
+        client.addScopeMapping(clientRole);
+
+        clientPolicyRep.setId(null);
+        clientPolicyRep.setName("to-" + clientId);
+
+        AdminPermissionManagement management = AdminPermissions.management(session, realm);
+        management.clients().setPermissionsEnabled(target, true);
+
+        ResourceServer server = management.realmResourceServer();
+        Policy clientPolicy = management.authz().getStoreFactory().getPolicyStore().create(server, clientPolicyRep);
+        management.clients().exchangeToPermission(target).addAssociatedPolicy(clientPolicy);
+    }
+
 
     private static void removeDirectExchanger(KeycloakSession session) {
         RealmModel realm = session.realms().getRealmByName(TEST);
