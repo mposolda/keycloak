@@ -1,20 +1,23 @@
 /*
  * Copyright 2024 Red Hat, Inc. and/or its affiliates
- * and other contributors as indicated by the @author tags.
+ *  and other contributors as indicated by the @author tags.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *  http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
  */
-package org.keycloak.authorization.policy.provider.time;
+
+package org.keycloak.authorization.policy.provider.te;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -26,6 +29,7 @@ import org.keycloak.authorization.AuthorizationProvider;
 import org.keycloak.authorization.model.Policy;
 import org.keycloak.authorization.policy.provider.PolicyProvider;
 import org.keycloak.authorization.policy.provider.PolicyProviderFactory;
+import org.keycloak.authorization.policy.provider.time.TimePolicyProvider;
 import org.keycloak.authorization.policy.provider.util.PolicyValidationException;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
@@ -33,21 +37,20 @@ import org.keycloak.representations.idm.authorization.PolicyRepresentation;
 import org.keycloak.representations.idm.authorization.TimePolicyRepresentation;
 
 /**
- * @author <a href="mailto:psilva@redhat.com">Pedro Igor</a>
+ * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
-public class TimePolicyProviderFactory implements PolicyProviderFactory<TimePolicyRepresentation> {
+public class TokenExchangeProviderFactory implements PolicyProviderFactory<TimePolicyRepresentation> {
 
     private TimePolicyProvider provider = new TimePolicyProvider();
 
-    // TODO:mposolda
     @Override
     public String getName() {
-        return "Timee";
+        return "Token exchange";
     }
 
     @Override
     public String getGroup() {
-        return "Time Based";
+        return "Token exchange";
     }
 
     @Override
@@ -127,8 +130,7 @@ public class TimePolicyProviderFactory implements PolicyProviderFactory<TimePoli
 
     @Override
     public String getId() {
-        // TODO:mposolda
-        return "timee";
+        return "token-exchange";
     }
 
     private void updatePolicy(Policy policy, TimePolicyRepresentation representation) {

@@ -35,9 +35,11 @@ public class TimePolicyProvider implements PolicyProvider {
 
     private static final Logger logger = Logger.getLogger(TimePolicyProvider.class);
 
-    static String DEFAULT_DATE_PATTERN = "yyyy-MM-dd HH:mm:ss";
+    // TODO:mposolda
+    public static String DEFAULT_DATE_PATTERN = "yyyy-MM-dd HH:mm:ss";
 
-    static String CONTEXT_TIME_ENTRY = "kc.time.date_time";
+    // TODO:mposolda
+    public static String CONTEXT_TIME_ENTRY = "kc.time.date_time";
 
     @Override
     public void evaluate(Evaluation evaluation) {
@@ -116,7 +118,8 @@ public class TimePolicyProvider implements PolicyProvider {
         return false;
     }
 
-    static String format(String notBefore) {
+    // TODO:mposolda
+    public static String format(String notBefore) {
         String trimmed = notBefore.trim();
 
         if (trimmed.length() == 10) {
