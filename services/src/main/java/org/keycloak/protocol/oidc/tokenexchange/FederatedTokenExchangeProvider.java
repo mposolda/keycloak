@@ -84,25 +84,10 @@ public class FederatedTokenExchangeProvider extends AbstractTokenExchangeProvide
 
             tokenUser = authResult.getUser();
             tokenSession = authResult.getSession();
-            token = authResult.getToken();
         }
 
         String requestedIssuer = context.getFormParams().getFirst(OAuth2Constants.REQUESTED_ISSUER);
-        if (requestedIssuer == null) {
-            return exchangeClientToClient(tokenUser, tokenSession, token, true);
-        } else {
-            try {
-                return exchangeToIdentityProvider(tokenUser, tokenSession, requestedIssuer);
-            } finally {
-                if (subjectToken == null) { // we are naked! So need to clean up user session
-                    try {
-                        session.sessions().removeUserSession(context.getRealm(), tokenSession);
-                    } catch (Exception ignore) {
-
-                    }
-                }
-            }
-        }
+        return exchangeToIdentityProvider(tokenUser, tokenSession, requestedIssuer);
     }
 
 }
