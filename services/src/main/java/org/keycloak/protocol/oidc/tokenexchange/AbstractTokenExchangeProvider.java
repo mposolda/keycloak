@@ -118,7 +118,7 @@ public abstract class AbstractTokenExchangeProvider implements TokenExchangeProv
     private HttpHeaders headers;
     private TokenManager tokenManager;
     private Map<String, String> clientAuthAttributes;
-    private TokenExchangeContext context;
+    protected TokenExchangeContext context;
 
     @Override
     public Response exchange(TokenExchangeContext context) {
@@ -243,7 +243,7 @@ public abstract class AbstractTokenExchangeProvider implements TokenExchangeProv
                     }
                 }
             }
-         }
+        }
     }
 
     /**
@@ -278,8 +278,8 @@ public abstract class AbstractTokenExchangeProvider implements TokenExchangeProv
                 JsonWebToken jwt = jws.readJsonContent(JsonWebToken.class);
                 return jwt.getIssuer();
             } catch (JWSInputException e) {
-                event.detail(Details.REASON, "unable to parse jwt subject_token");
-                event.error(Errors.INVALID_TOKEN);
+                context.getEvent().detail(Details.REASON, "unable to parse jwt subject_token");
+                context.getEvent().error(Errors.INVALID_TOKEN);
                 throw new CorsErrorResponseException(context.getCors(), OAuthErrorException.INVALID_REQUEST, "Invalid token type, must be access token", Response.Status.BAD_REQUEST);
             }
         } else {
