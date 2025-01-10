@@ -17,19 +17,15 @@
  *
  */
 
-package org.keycloak.protocol.oidc.tokenexchange;
+package org.keycloak.testsuite.broker;
 
-import org.keycloak.protocol.oidc.TokenExchangeContext;
+import org.keycloak.common.Profile;
+import org.keycloak.testsuite.arquillian.annotation.EnableFeature;
+import org.keycloak.testsuite.arquillian.annotation.EnableFeatures;
 
 /**
- * Default token exchange implementation
- *
- * @author <a href="mailto:dmitryt@backbase.com">Dmitry Telegin</a>
+ * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
-public class DefaultTokenExchangeProvider extends AbstractTokenExchangeProvider {
-
-    @Override
-    public boolean supports(TokenExchangeContext context) {
-        return true;
-    }
+@EnableFeatures({@EnableFeature(Profile.Feature.TOKEN_EXCHANGE_FEDERATED_V2), @EnableFeature(Profile.Feature.ADMIN_FINE_GRAINED_AUTHZ)})
+public class KcOidcBrokerTokenExchangeFederatedTest extends KcOidcBrokerTokenExchangeTest {
 }

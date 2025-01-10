@@ -150,7 +150,7 @@ public abstract class AbstractTokenExchangeProvider implements TokenExchangeProv
         if (subjectToken != null) {
             String subjectTokenType = formParams.getFirst(OAuth2Constants.SUBJECT_TOKEN_TYPE);
             if (isExternalInternalTokenExchangeRequest(this.context)) {
-                String subjectIssuer = getSubjectIssuer(subjectToken, subjectTokenType);
+                String subjectIssuer = getSubjectIssuer(this.context, subjectToken, subjectTokenType);
                 return exchangeExternalToken(subjectIssuer, subjectToken);
             }
 
@@ -258,7 +258,7 @@ public abstract class AbstractTokenExchangeProvider implements TokenExchangeProv
         if (subjectToken != null) {
             String subjectTokenType = context.getParams().getSubjectTokenType();
             String realmIssuerUrl = Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName());
-            String subjectIssuer = getSubjectIssuer(subjectToken, subjectTokenType);
+            String subjectIssuer = getSubjectIssuer(context, subjectToken, subjectTokenType);
 
             if (subjectIssuer != null && !realmIssuerUrl.equals(subjectIssuer)) {
                 event.detail(OAuth2Constants.SUBJECT_ISSUER, subjectIssuer);
@@ -268,7 +268,7 @@ public abstract class AbstractTokenExchangeProvider implements TokenExchangeProv
         return false;
     }
 
-    protected String getSubjectIssuer(String subjectToken, String subjectTokenType) {
+    protected String getSubjectIssuer(TokenExchangeContext context, String subjectToken, String subjectTokenType) {
         String subjectIssuer = context.getFormParams().getFirst(OAuth2Constants.SUBJECT_ISSUER);
         if (subjectIssuer != null) return subjectIssuer;
 

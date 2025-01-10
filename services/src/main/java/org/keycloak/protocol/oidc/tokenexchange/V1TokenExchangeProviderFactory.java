@@ -27,15 +27,15 @@ import org.keycloak.protocol.oidc.TokenExchangeProviderFactory;
 import org.keycloak.provider.EnvironmentDependentProviderFactory;
 
 /**
- * Default token exchange provider factory
+ * V1 token exchange provider factory. Supports all token exchange types (standard, federated, subject impersonation)
  *
  * @author <a href="mailto:dmitryt@backbase.com">Dmitry Telegin</a>
  */
-public class DefaultTokenExchangeProviderFactory implements TokenExchangeProviderFactory, EnvironmentDependentProviderFactory {
+public class V1TokenExchangeProviderFactory implements TokenExchangeProviderFactory, EnvironmentDependentProviderFactory {
 
     @Override
     public TokenExchangeProvider create(KeycloakSession session) {
-        return new DefaultTokenExchangeProvider();
+        return new V1TokenExchangeProvider();
     }
 
     @Override

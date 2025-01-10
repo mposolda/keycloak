@@ -64,7 +64,7 @@ public class FederatedTokenExchangeProvider extends AbstractTokenExchangeProvide
         if (subjectToken != null) {
             String subjectTokenType = context.getParams().getSubjectTokenType();
             if (isExternalInternalTokenExchangeRequest(context)) {
-                String subjectIssuer = getSubjectIssuer(subjectToken, subjectTokenType);
+                String subjectIssuer = getSubjectIssuer(context, subjectToken, subjectTokenType);
                 return exchangeExternalToken(subjectIssuer, subjectToken);
             }
 
