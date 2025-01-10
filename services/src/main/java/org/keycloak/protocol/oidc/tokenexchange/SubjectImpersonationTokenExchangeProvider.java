@@ -22,9 +22,6 @@ package org.keycloak.protocol.oidc.tokenexchange;
 import jakarta.ws.rs.core.Response;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.protocol.oidc.TokenExchangeContext;
-import org.keycloak.protocol.oidc.TokenExchangeProvider;
-import org.keycloak.protocol.oidc.TokenExchangeProviderFactory;
-import org.keycloak.provider.EnvironmentDependentProviderFactory;
 
 /**
  * Provider for token-exchange subject impersonation where subject of the token is changed.
@@ -34,7 +31,7 @@ import org.keycloak.provider.EnvironmentDependentProviderFactory;
  *
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
-public class SubjectImpersonationTokenExchangeProvider implements TokenExchangeProvider {
+public class SubjectImpersonationTokenExchangeProvider extends AbstractTokenExchangeProvider {
 
     @Override
     public boolean supports(TokenExchangeContext context) {
@@ -43,13 +40,7 @@ public class SubjectImpersonationTokenExchangeProvider implements TokenExchangeP
     }
 
     @Override
-    public Response exchange(TokenExchangeContext context) {
-        // TODO:mposolda implement ...
-        return null;
-    }
-
-    @Override
-    public void close() {
-
+    protected Response tokenExchange() {
+        // TODO:mposolda implement
     }
 }

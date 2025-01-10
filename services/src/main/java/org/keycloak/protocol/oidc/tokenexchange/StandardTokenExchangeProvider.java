@@ -21,14 +21,13 @@ package org.keycloak.protocol.oidc.tokenexchange;
 
 import jakarta.ws.rs.core.Response;
 import org.keycloak.protocol.oidc.TokenExchangeContext;
-import org.keycloak.protocol.oidc.TokenExchangeProvider;
 
 /**
  * Provider for internal-internal token exchange, which is compliant with the token exchange specification https://datatracker.ietf.org/doc/html/rfc8693
  *
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
-public class StandardTokenExchangeProvider implements TokenExchangeProvider {
+public class StandardTokenExchangeProvider extends AbstractTokenExchangeProvider {
 
     @Override
     public boolean supports(TokenExchangeContext context) {
@@ -36,13 +35,7 @@ public class StandardTokenExchangeProvider implements TokenExchangeProvider {
     }
 
     @Override
-    public Response exchange(TokenExchangeContext context) {
+    protected Response tokenExchange() {
         // TODO:mposolda implement
-        return null;
-    }
-
-    @Override
-    public void close() {
-
     }
 }
