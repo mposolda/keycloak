@@ -68,6 +68,9 @@ import org.keycloak.testsuite.util.AdminClientUtil;
 import org.keycloak.testsuite.util.OAuthClient;
 import org.keycloak.util.BasicAuthHelper;
 
+/**
+ * Test for identity-provider token exchange scenarios. Base for tests of token-exchange V1 as well as token-exchange-federated V2
+ */
 public abstract class KcOidcBrokerTokenExchangeTest extends AbstractInitializedBaseBrokerTest {
 
     @Override

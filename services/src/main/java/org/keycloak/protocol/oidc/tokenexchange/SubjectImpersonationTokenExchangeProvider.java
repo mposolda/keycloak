@@ -151,6 +151,7 @@ public class SubjectImpersonationTokenExchangeProvider extends AbstractTokenExch
             return exchangeClientToClient(tokenUser, userSession, token, disallowOnHolderOfTokenMismatch);
         } else {
             try {
+                // Subject impersonation supports "internal to external" exchange as well for now
                 return exchangeToIdentityProvider(tokenUser, userSession, requestedIssuer);
             } finally {
                 if (subjectToken == null) { // we are naked! So need to clean up user session
