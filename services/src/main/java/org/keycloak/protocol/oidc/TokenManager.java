@@ -861,9 +861,9 @@ public class TokenManager {
                         return ((OIDCAccessTokenMapper) mapper.getValue()).transformAccessToken(token, mapper.getKey(), session, userSession, clientSessionCtx);
                     }
                 });
-        final ClientModel[] requestedAucienceClients = clientSessionCtx.getAttribute(Constants.REQUESTED_AUDIENCE_CLIENTS, ClientModel[].class);
-        if (requestedAucienceClients != null) {
-            restrictRequestedAudience(accessToken, Arrays.stream(requestedAucienceClients)
+        final ClientModel[] requestedAudienceClients = clientSessionCtx.getAttribute(Constants.REQUESTED_AUDIENCE_CLIENTS, ClientModel[].class);
+        if (requestedAudienceClients != null) {
+            restrictRequestedAudience(accessToken, Arrays.stream(requestedAudienceClients)
                     .map(ClientModel::getClientId)
                     .collect(Collectors.toSet()));
         }
