@@ -34,6 +34,8 @@ import org.keycloak.provider.EnvironmentDependentProviderFactory;
  */
 public class CibaGrantTypeFactory implements OAuth2GrantTypeFactory, EnvironmentDependentProviderFactory {
 
+    public static final String GRANT_SHORTCUT = "ci";
+
     @Override
     public String getId() {
         return OAuth2Constants.CIBA_GRANT_TYPE;
@@ -41,7 +43,7 @@ public class CibaGrantTypeFactory implements OAuth2GrantTypeFactory, Environment
 
     @Override
     public String getShortcut() {
-        return "ci";
+        return GRANT_SHORTCUT;
     }
 
     @Override

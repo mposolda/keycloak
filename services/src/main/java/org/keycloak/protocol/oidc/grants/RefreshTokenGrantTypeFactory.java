@@ -30,6 +30,8 @@ import org.keycloak.models.KeycloakSessionFactory;
  */
 public class RefreshTokenGrantTypeFactory implements OAuth2GrantTypeFactory {
 
+    public static final String GRANT_SHORTCUT = "rt";
+
     @Override
     public String getId() {
         return OAuth2Constants.REFRESH_TOKEN;
@@ -37,7 +39,7 @@ public class RefreshTokenGrantTypeFactory implements OAuth2GrantTypeFactory {
 
     @Override
     public String getShortcut() {
-        return "rt";
+        return GRANT_SHORTCUT;
     }
 
     @Override
