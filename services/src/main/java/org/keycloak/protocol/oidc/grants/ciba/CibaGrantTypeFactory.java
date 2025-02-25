@@ -40,6 +40,11 @@ public class CibaGrantTypeFactory implements OAuth2GrantTypeFactory, Environment
     }
 
     @Override
+    public String getShortcut() {
+        return "ci";
+    }
+
+    @Override
     public OAuth2GrantType create(KeycloakSession session) {
         return new CibaGrantType();
     }

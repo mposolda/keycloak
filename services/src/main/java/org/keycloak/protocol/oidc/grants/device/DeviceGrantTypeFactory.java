@@ -40,6 +40,11 @@ public class DeviceGrantTypeFactory implements OAuth2GrantTypeFactory, Environme
     }
 
     @Override
+    public String getShortcut() {
+        return "dg";
+    }
+
+    @Override
     public OAuth2GrantType create(KeycloakSession session) {
         return new DeviceGrantType();
     }

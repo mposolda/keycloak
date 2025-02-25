@@ -35,6 +35,11 @@ public class AuthorizationCodeGrantTypeFactory implements OAuth2GrantTypeFactory
     }
 
     @Override
+    public String getShortcut() {
+        return "ac";
+    }
+
+    @Override
     public OAuth2GrantType create(KeycloakSession session) {
         return new AuthorizationCodeGrantType();
     }

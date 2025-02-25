@@ -36,6 +36,11 @@ public class RefreshTokenGrantTypeFactory implements OAuth2GrantTypeFactory {
     }
 
     @Override
+    public String getShortcut() {
+        return "rt";
+    }
+
+    @Override
     public OAuth2GrantType create(KeycloakSession session) {
         return new RefreshTokenGrantType();
     }
