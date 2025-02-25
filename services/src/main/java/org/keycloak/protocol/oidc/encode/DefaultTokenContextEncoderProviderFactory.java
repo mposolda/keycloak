@@ -72,6 +72,8 @@ public class DefaultTokenContextEncoderProviderFactory implements TokenContextEn
                     grantsByShortcuts.put(grantShortcut, grantName);
                     grantsToShortcuts.put(grantName, grantShortcut);
                 });
+        grantsByShortcuts.put(DefaultTokenContextEncoderProvider.UNKNOWN, DefaultTokenContextEncoderProvider.UNKNOWN);
+        grantsToShortcuts.put(DefaultTokenContextEncoderProvider.UNKNOWN, DefaultTokenContextEncoderProvider.UNKNOWN);
 
         // Validation if there are not duplicated shortcuts (for example when introducing new grant impl...)
         if (grantsByShortcuts.size() != grantsToShortcuts.size()) {

@@ -42,6 +42,7 @@ public class DefaultTokenContextEncoderProviderTest {
         factory.grantsByShortcuts = new HashMap<>();
         factory.grantsByShortcuts.put("ro", OAuth2Constants.PASSWORD);
         factory.grantsByShortcuts.put("cc", OAuth2Constants.CLIENT_CREDENTIALS);
+        factory.grantsByShortcuts.put(DefaultTokenContextEncoderProvider.UNKNOWN, DefaultTokenContextEncoderProvider.UNKNOWN);
         factory.grantsToShortcuts = factory.grantsByShortcuts.entrySet()
                 .stream()
                 .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
@@ -84,6 +85,18 @@ public class DefaultTokenContextEncoderProviderTest {
     }
 
     @Test
+    public void testUnknownGrantType() {
+        String tokenId = "st.on_tt.rt_gt.na:5678";
+        AccessTokenContext ctx = provider.getTokenContextFromTokenId(tokenId);
+        Assert.assertEquals(ctx.getSessionType(), AccessTokenContext.SessionType.ONLINE);
+        Assert.assertEquals(ctx.getTokenType(), AccessTokenContext.TokenType.REGULAR);
+        Assert.assertEquals(ctx.getGrantType(), DefaultTokenContextEncoderProvider.UNKNOWN);
+        Assert.assertEquals(ctx.getRawTokenId(), "5678");
+
+        Assert.assertEquals(tokenId, provider.encodeTokenId(ctx));
+    }
+
+    @Test
     public void testOldToken() {
         AccessTokenContext ctx = provider.getTokenContextFromTokenId("1234");
         Assert.assertEquals(ctx.getSessionType(), AccessTokenContext.SessionType.UNKNOWN);
@@ -98,6 +111,4 @@ public class DefaultTokenContextEncoderProviderTest {
             // ignore
         }
     }
-
-    // TODO:mposolda more tests...
 }

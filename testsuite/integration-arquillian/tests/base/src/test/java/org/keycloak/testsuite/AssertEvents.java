@@ -138,7 +138,7 @@ public class AssertEvents implements TestRule {
     public ExpectedEvent expectCodeToToken(String codeId, String sessionId) {
         return expect(EventType.CODE_TO_TOKEN)
                 .detail(Details.CODE_ID, codeId)
-                .detail(Details.TOKEN_ID, isUUID())
+                .detail(Details.TOKEN_ID, isAccessTokenId())
                 .detail(Details.REFRESH_TOKEN_ID, isUUID())
                 .detail(Details.REFRESH_TOKEN_TYPE, TokenUtil.TOKEN_TYPE_REFRESH)
                 .detail(Details.CLIENT_AUTH_METHOD, ClientIdAndSecretAuthenticator.PROVIDER_ID)
@@ -166,7 +166,7 @@ public class AssertEvents implements TestRule {
                 .client(clientId)
                 .user(userId)
                 .detail(Details.CODE_ID, codeId)
-                .detail(Details.TOKEN_ID, isUUID())
+                .detail(Details.TOKEN_ID, isAccessTokenId())
                 .detail(Details.REFRESH_TOKEN_ID, isUUID())
                 .detail(Details.REFRESH_TOKEN_TYPE, TokenUtil.TOKEN_TYPE_REFRESH)
                 .detail(Details.CLIENT_AUTH_METHOD, ClientIdAndSecretAuthenticator.PROVIDER_ID)
@@ -175,7 +175,7 @@ public class AssertEvents implements TestRule {
 
     public ExpectedEvent expectRefresh(String refreshTokenId, String sessionId) {
         return expect(EventType.REFRESH_TOKEN)
-                .detail(Details.TOKEN_ID, isUUID())
+                .detail(Details.TOKEN_ID, isAccessTokenId())
                 .detail(Details.REFRESH_TOKEN_ID, refreshTokenId)
                 .detail(Details.REFRESH_TOKEN_TYPE, TokenUtil.TOKEN_TYPE_REFRESH)
                 .detail(Details.UPDATED_REFRESH_TOKEN_ID, isUUID())
@@ -237,7 +237,7 @@ public class AssertEvents implements TestRule {
     public ExpectedEvent expectAuthReqIdToToken(String codeId, String sessionId) {
         return expect(EventType.AUTHREQID_TO_TOKEN)
                 .detail(Details.CODE_ID, codeId)
-                .detail(Details.TOKEN_ID, isUUID())
+                .detail(Details.TOKEN_ID, isAccessTokenId())
                 .detail(Details.REFRESH_TOKEN_ID, isUUID())
                 .detail(Details.REFRESH_TOKEN_TYPE, TokenUtil.TOKEN_TYPE_REFRESH)
                 .detail(Details.CLIENT_AUTH_METHOD, ClientIdAndSecretAuthenticator.PROVIDER_ID)
@@ -465,6 +465,23 @@ public class AssertEvents implements TestRule {
             @Override
             public void describeTo(Description description) {
                 description.appendText("Not an UUID");
+            }
+        };
+    }
+
+    public static Matcher<String> isAccessTokenId() {
+        return new TypeSafeMatcher<String>() {
+            @Override
+            protected boolean matchesSafely(String item) {
+                if (item.indexOf(':') != -1) {
+                    item = item.substring(item.indexOf(':') + 1);
+                }
+                return isUUID().matches(item);
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText("Not a Token ID");
             }
         };
     }

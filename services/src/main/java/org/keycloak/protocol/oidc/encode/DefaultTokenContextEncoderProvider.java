@@ -22,6 +22,7 @@ package org.keycloak.protocol.oidc.encode;
 import java.util.Map;
 
 import org.keycloak.models.ClientSessionContext;
+import org.keycloak.models.Constants;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.protocol.oidc.mappers.AbstractOIDCProtocolMapper;
@@ -31,7 +32,7 @@ import org.keycloak.protocol.oidc.mappers.AbstractOIDCProtocolMapper;
  */
 public class DefaultTokenContextEncoderProvider implements TokenContextEncoderProvider {
 
-    public static final String UNKNOWN = "un";
+    public static final String UNKNOWN = "na";
 
     public static final String SESSION_TYPE_PREFIX = "st";
     public static final String TOKEN_TYPE_PREFIX = "tt";
@@ -68,8 +69,10 @@ public class DefaultTokenContextEncoderProvider implements TokenContextEncoderPr
         boolean useLightweightToken = AbstractOIDCProtocolMapper.getShouldUseLightweightToken(session);
         AccessTokenContext.TokenType tokenType = useLightweightToken ? AccessTokenContext.TokenType.LIGHTWEIGHT : AccessTokenContext.TokenType.REGULAR;
 
-        // TODO:mposolda implement grant type...
-        String grantType = null;
+        String grantType = clientSessionContext.getAttribute(Constants.GRANT_TYPE, String.class);
+        if (grantType == null) {
+            grantType = UNKNOWN;
+        }
 
         return new AccessTokenContext(sessionType, tokenType, grantType, rawTokenId);
     }
@@ -129,9 +132,6 @@ public class DefaultTokenContextEncoderProvider implements TokenContextEncoderPr
         }
         if (tokenContext.getTokenType() == AccessTokenContext.TokenType.UNKNOWN) {
             throw new IllegalStateException("Cannot encode token with unknown tokenType");
-        }
-        if (UNKNOWN.equals(tokenContext.getGrantType())) {
-            throw new IllegalStateException("Cannot encode token with unknown grantType");
         }
 
         String grantShort = grantsToShortcuts.get(tokenContext.getGrantType());
