@@ -254,18 +254,6 @@ public class TokenManager {
     }
 
     /**
-     * Checks if the token is valid.
-     *
-     * @param session
-     * @param realm
-     * @param token
-     * @return
-     */
-    public AccessToken checkTokenValidForIntrospection(KeycloakSession session, RealmModel realm, AccessToken token, EventBuilder eventBuilder) {
-        return getValidUserSessionIfTokenIsValid(session, realm, token, eventBuilder) != null ? token : null;
-    }
-
-    /**
      * Checks if the token is valid and return a valid user session.
      *
      * @param session

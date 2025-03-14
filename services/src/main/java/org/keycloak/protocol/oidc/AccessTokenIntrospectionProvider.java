@@ -39,6 +39,7 @@ import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.services.Urls;
+import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.util.DefaultClientSessionContext;
 import org.keycloak.tracing.TracingAttributes;
 import org.keycloak.tracing.TracingProvider;
@@ -67,8 +68,9 @@ public class AccessTokenIntrospectionProvider implements TokenIntrospectionProvi
     public Response introspect(String token, EventBuilder eventBuilder) {
         AccessToken accessToken = null;
         try {
-            accessToken = verifyAccessToken(token, eventBuilder, false);
-            UserSessionModel userSession = tokenManager.getValidUserSessionIfTokenIsValid(session, realm, accessToken, eventBuilder);
+            AuthenticationManager.AuthResult auth = verifyTokenAndSession(token, eventBuilder);
+            accessToken = auth.getToken();
+            UserSessionModel userSession = auth.getSession();
 
             ClientModel client = session.getContext().getClient();
 
@@ -165,8 +167,7 @@ public class AccessTokenIntrospectionProvider implements TokenIntrospectionProvi
         return newToken;
     }
 
-    protected AccessToken verifyAccessToken(String token, EventBuilder eventBuilder, boolean validateSession) {
-
+    protected AuthenticationManager.AuthResult verifyTokenAndSession(String token, EventBuilder eventBuilder) {
         try {
             TokenVerifier<AccessToken> verifier = TokenVerifier.create(token, AccessToken.class)
                     .realmUrl(Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName()));
@@ -184,11 +185,8 @@ public class AccessTokenIntrospectionProvider implements TokenIntrospectionProvi
                 span.setAttribute(TracingAttributes.TOKEN_ID, accessToken.getId());
             }
 
-            if (validateSession) {
-                return tokenManager.checkTokenValidForIntrospection(session, realm, verifier.verify().getToken(), eventBuilder);
-            }
-
-            return accessToken;
+            UserSessionModel userSession = tokenManager.getValidUserSessionIfTokenIsValid(session, realm, accessToken, eventBuilder);
+            return new AuthenticationManager.AuthResult(null, userSession, accessToken, null); // TODO:mposolda using null in constructors not so nice...
         } catch (VerificationException e) {
             logger.debugf("Introspection access token : JWT check failed: %s", e.getMessage());
             eventBuilder.detail(Details.REASON,"Access token JWT check failed");

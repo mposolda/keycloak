@@ -36,6 +36,7 @@ import org.keycloak.protocol.oidc.AccessTokenIntrospectionProvider;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.representations.AccessToken.Authorization;
 import org.keycloak.representations.idm.authorization.Permission;
+import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.util.JsonSerialization;
 
 /**
@@ -55,10 +56,11 @@ public class RPTIntrospectionProvider extends AccessTokenIntrospectionProvider {
     public Response introspect(String token, EventBuilder eventBuilder) {
         LOGGER.debug("Introspecting requesting party token");
         try {
-            AccessToken accessToken = verifyAccessToken(token, eventBuilder, true);
+            AuthenticationManager.AuthResult auth = verifyTokenAndSession(token, eventBuilder);
+            AccessToken accessToken = auth.getToken();
             ObjectNode tokenMetadata;
 
-            if (accessToken != null) {
+            if (accessToken != null && auth.getSession() != null) {
                 AccessToken metadata = new AccessToken();
 
                 metadata.id(accessToken.getId());
