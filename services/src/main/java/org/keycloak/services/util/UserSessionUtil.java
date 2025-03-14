@@ -9,6 +9,7 @@ import org.keycloak.events.Errors;
 import org.keycloak.events.EventBuilder;
 import org.keycloak.models.AuthenticatedClientSessionModel;
 import org.keycloak.models.ClientModel;
+import org.keycloak.models.Constants;
 import org.keycloak.models.ImpersonationSessionNote;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
@@ -93,10 +94,18 @@ public class UserSessionUtil {
     }
 
     public static UserSessionModel createTransientUserSession(KeycloakSession session, UserSessionModel userSession) {
+        if (userSession.getPersistenceState() == UserSessionModel.SessionPersistenceState.TRANSIENT) {
+            throw new IllegalArgumentException("Not expected to invoke this method with the transient session");
+        }
+
         UserSessionModel transientSession = new UserSessionManager(session).createUserSession(userSession.getId(), userSession.getRealm(),
                 userSession.getUser(), userSession.getLoginUsername(), userSession.getIpAddress(), userSession.getAuthMethod(), userSession.isRememberMe(),
                 userSession.getBrokerSessionId(), userSession.getBrokerUserId(), UserSessionModel.SessionPersistenceState.TRANSIENT);
         userSession.getNotes().entrySet().forEach(e -> transientSession.setNote(e.getKey(), e.getValue()));
+
+        String noteValue = userSession.isOffline() ? Constants.CREATED_FROM_PERSISTENT_OFFLINE : Constants.CREATED_FROM_PERSISTENT_ONLINE;
+        transientSession.setNote(Constants.CREATED_FROM_PERSISTENT, noteValue);
+
         return transientSession;
     }
 

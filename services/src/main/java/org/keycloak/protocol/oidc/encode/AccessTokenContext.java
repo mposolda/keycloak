@@ -37,9 +37,11 @@ public class AccessTokenContext {
     private final String rawTokenId;
 
     public enum SessionType {
-        ONLINE("on"),
-        OFFLINE("of"),
-        TRANSIENT("tr"),
+        ONLINE("on"), // Regular online user session with valid client session
+        OFFLINE("of"), // Regular offline user session with valid client session
+        TRANSIENT("tr"), // Transient user session
+        ONLINE_TRANSIENT_CLIENT("nt"), // Regular online user session with transient client session (Client session may not need to exist)
+        OFFLINE_TRANSIENT_CLIENT("ft"), // Regular offline user session with transient client session (Client session may not need to exist)
         UNKNOWN("un");
 
         private final String shortcut;
@@ -51,6 +53,8 @@ public class AccessTokenContext {
         public String getShortcut() {
             return shortcut;
         }
+
+        // TODO:mposolda directly methods here (Like "shouldLookupUserSession" , "shouldLookupClientSession" etc)?
     }
 
     public enum TokenType {

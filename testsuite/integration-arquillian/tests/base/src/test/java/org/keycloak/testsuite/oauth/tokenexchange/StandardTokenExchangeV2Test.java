@@ -350,7 +350,7 @@ public class StandardTokenExchangeV2Test extends AbstractClientPoliciesTest {
         final AccessToken exchangedToken = TokenVerifier.create(exchangedTokenString, AccessToken.class).parse().getToken();
         assertEquals(getSessionIdFromToken(accessToken), exchangedToken.getSessionId());
         assertEquals("requester-client", exchangedToken.getIssuedFor());
-        assertAccessTokenContext(exchangedToken.getId(), AccessTokenContext.SessionType.TRANSIENT,
+        assertAccessTokenContext(exchangedToken.getId(), AccessTokenContext.SessionType.ONLINE_TRANSIENT_CLIENT,
                 AccessTokenContext.TokenType.REGULAR, OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE);
 
         // assert instrospection and user-info works
@@ -443,6 +443,8 @@ public class StandardTokenExchangeV2Test extends AbstractClientPoliciesTest {
                     .auth(response.getAccessToken()).acceptJson().asResponse().getStatus());
         }
     }
+
+    // TODO:mposolda Test with offline-token login and then exchange for access token. Then test introspection, maybe also admin-endpoint etc. The sessionType should be
 
     @Test
     public void testExchangeRequestAccessTokenType() throws Exception {
