@@ -20,7 +20,11 @@
 package org.keycloak.services.util;
 
 /**
+ * TODO:mposolda Not 100% sure if I need new class...
+ *
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
 public class UserSessionValidator {
+
+
 }

@@ -21,11 +21,13 @@ import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.protocol.oidc.encode.AccessTokenContext;
 import org.keycloak.protocol.oidc.encode.TokenContextEncoderProvider;
 import org.keycloak.representations.AccessToken;
+import org.keycloak.representations.RefreshToken;
 import org.keycloak.services.Urls;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.UserSessionManager;
 import org.keycloak.sessions.AuthenticationSessionModel;
 import org.keycloak.sessions.RootAuthenticationSessionModel;
+import org.keycloak.util.TokenUtil;
 import org.keycloak.utils.OAuth2Error;
 
 public class UserSessionUtil {
@@ -39,6 +41,9 @@ public class UserSessionUtil {
 
     public static UserSessionModel findValidSession(KeycloakSession session, RealmModel realm,
             AccessToken token, EventBuilder event, ClientModel client, OAuth2Error error) {
+        AccessTokenContext.SessionType sessionType = getSessionType(session, token);
+        // TODO:mposolda implement and refactor this based on retrieved sessionType... Probably add methods like "getValidSessionFromRefreshToken" and "getValidSessionFromAccessToken" or something like that?
+
         if (token.getSessionId() == null) {
             return createTransientSessionForClient(session, realm, token, client, event);
         }
@@ -91,6 +96,16 @@ public class UserSessionUtil {
         logger.debug("Session expired");
         event.error(Errors.SESSION_EXPIRED);
         throw error.invalidToken("Session expired");
+    }
+
+    private static AccessTokenContext.SessionType getSessionType(KeycloakSession session, AccessToken token) {
+        if (token instanceof RefreshToken) {
+            // TODO:mposolda test introspection of refresh token
+            return TokenUtil.TOKEN_TYPE_OFFLINE.equals(token.getType()) ? AccessTokenContext.SessionType.OFFLINE : AccessTokenContext.SessionType.ONLINE;
+        } else {
+            AccessTokenContext accessTokenContext = session.getProvider(TokenContextEncoderProvider.class).getTokenContextFromTokenId(token.getId());
+            return accessTokenContext.getSessionType();
+        }
     }
 
     public static UserSessionModel createTransientUserSession(KeycloakSession session, UserSessionModel userSession) {
