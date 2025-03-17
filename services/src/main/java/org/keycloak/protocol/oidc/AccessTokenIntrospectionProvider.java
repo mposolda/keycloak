@@ -93,6 +93,7 @@ public class AccessTokenIntrospectionProvider implements TokenIntrospectionProvi
                         UserModel userModel = userSession.getUser();
                         if (userModel != null) {
                             tokenMetadata.put("username", userModel.getUsername());
+                            eventBuilder.user(userModel);
                         }
                     }
                 }
