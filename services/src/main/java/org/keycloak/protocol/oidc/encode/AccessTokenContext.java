@@ -37,24 +37,57 @@ public class AccessTokenContext {
     private final String rawTokenId;
 
     public enum SessionType {
-        ONLINE("on"), // Regular online user session with valid client session
-        OFFLINE("of"), // Regular offline user session with valid client session
-        TRANSIENT("tr"), // Transient user session
-        ONLINE_TRANSIENT_CLIENT("nt"), // Regular online user session with transient client session (Client session may not need to exist)
-        OFFLINE_TRANSIENT_CLIENT("ft"), // Regular offline user session with transient client session (Client session may not need to exist)
-        UNKNOWN("un");
+        // Regular online user session with valid client session
+        ONLINE("on", false, true, false, false),
+
+        // Regular offline user session with valid client session
+        OFFLINE("of", false, false, true, false),
+
+        // Transient user session TODO:mposolda not sure if last one should be false?
+        TRANSIENT("tr", true, false, false, false),
+
+        // Regular online user session with transient client session (Client session may not need to exist)
+        ONLINE_TRANSIENT_CLIENT("nt", false, true, false, true),
+
+        // Regular offline user session with transient client session (Client session may not need to exist)
+        OFFLINE_TRANSIENT_CLIENT("ft", false, false, true, true),
+
+        // Unknown type. Perhaps token coming from older Keycloak version than 26.2.0. No need to support transientClientSession as this was added in 26.2 with standard token-exchange
+        UNKNOWN("un", true, true, true, false);
 
         private final String shortcut;
+        private final boolean supportsTransientUserSession;
+        private final boolean supportsLookupOnlineUserSession;
+        private final boolean supportsLookupOfflineUserSession;
+        private final boolean supportsTransientClientSession;
 
-        SessionType(String shortcut) {
+        SessionType(String shortcut, boolean supportsTransientUserSession, boolean supportsLookupOnlineUserSession, boolean supportsLookupOfflineUserSession, boolean supportsTransientClientSession) {
             this.shortcut = shortcut;
+            this.supportsTransientUserSession = supportsTransientUserSession;
+            this.supportsLookupOnlineUserSession = supportsLookupOnlineUserSession;
+            this.supportsLookupOfflineUserSession = supportsLookupOfflineUserSession;
+            this.supportsTransientClientSession = supportsTransientClientSession;
         }
 
         public String getShortcut() {
             return shortcut;
         }
 
-        // TODO:mposolda directly methods here (Like "shouldLookupUserSession" , "shouldLookupClientSession" etc)?
+        public boolean isSupportsTransientUserSession() {
+            return supportsTransientUserSession;
+        }
+
+        public boolean isSupportsLookupOnlineUserSession() {
+            return supportsLookupOnlineUserSession;
+        }
+
+        public boolean isSupportsLookupOfflineUserSession() {
+            return supportsLookupOfflineUserSession;
+        }
+
+        public boolean isSupportsTransientClientSession() {
+            return supportsTransientClientSession;
+        }
     }
 
     public enum TokenType {
