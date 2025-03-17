@@ -56,37 +56,37 @@ public class AccessTokenContext {
         UNKNOWN("un", true, true, true, false);
 
         private final String shortcut;
-        private final boolean supportsTransientUserSession;
-        private final boolean supportsLookupOnlineUserSession;
-        private final boolean supportsLookupOfflineUserSession;
-        private final boolean supportsTransientClientSession;
+        private final boolean allowTransientUserSession;
+        private final boolean allowLookupOnlineUserSession;
+        private final boolean allowLookupOfflineUserSession;
+        private final boolean allowTransientClientSession;
 
-        SessionType(String shortcut, boolean supportsTransientUserSession, boolean supportsLookupOnlineUserSession, boolean supportsLookupOfflineUserSession, boolean supportsTransientClientSession) {
+        SessionType(String shortcut, boolean allowTransientUserSession, boolean allowLookupOnlineUserSession, boolean allowLookupOfflineUserSession, boolean allowTransientClientSession) {
             this.shortcut = shortcut;
-            this.supportsTransientUserSession = supportsTransientUserSession;
-            this.supportsLookupOnlineUserSession = supportsLookupOnlineUserSession;
-            this.supportsLookupOfflineUserSession = supportsLookupOfflineUserSession;
-            this.supportsTransientClientSession = supportsTransientClientSession;
+            this.allowTransientUserSession = allowTransientUserSession;
+            this.allowLookupOnlineUserSession = allowLookupOnlineUserSession;
+            this.allowLookupOfflineUserSession = allowLookupOfflineUserSession;
+            this.allowTransientClientSession = allowTransientClientSession;
         }
 
         public String getShortcut() {
             return shortcut;
         }
 
-        public boolean isSupportsTransientUserSession() {
-            return supportsTransientUserSession;
+        public boolean isAllowTransientUserSession() {
+            return allowTransientUserSession;
         }
 
-        public boolean isSupportsLookupOnlineUserSession() {
-            return supportsLookupOnlineUserSession;
+        public boolean isAllowLookupOnlineUserSession() {
+            return allowLookupOnlineUserSession;
         }
 
-        public boolean isSupportsLookupOfflineUserSession() {
-            return supportsLookupOfflineUserSession;
+        public boolean isAllowLookupOfflineUserSession() {
+            return allowLookupOfflineUserSession;
         }
 
-        public boolean isSupportsTransientClientSession() {
-            return supportsTransientClientSession;
+        public boolean isAllowTransientClientSession() {
+            return allowTransientClientSession;
         }
     }
 

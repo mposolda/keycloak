@@ -122,6 +122,7 @@ public class AccountLoader {
 
         AccessToken accessToken = authResult.getToken();
 
+        // TODO:mposolda maybe remove this...
         UserSessionUtil.checkTokenIssuedAt(client.getRealm(), accessToken, authResult.getSession(), event, authResult.getClient());
 
         if (accessToken.getAudience() == null || accessToken.getResourceAccess(client.getClientId()) == null) {

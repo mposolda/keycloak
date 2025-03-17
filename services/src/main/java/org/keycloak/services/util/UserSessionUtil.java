@@ -4,6 +4,7 @@ import java.util.Objects;
 
 import org.jboss.logging.Logger;
 import org.keycloak.common.ClientConnection;
+import org.keycloak.common.Profile;
 import org.keycloak.common.constants.ServiceAccountConstants;
 import org.keycloak.events.Errors;
 import org.keycloak.events.EventBuilder;
@@ -21,92 +22,152 @@ import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.protocol.oidc.encode.AccessTokenContext;
 import org.keycloak.protocol.oidc.encode.TokenContextEncoderProvider;
 import org.keycloak.representations.AccessToken;
-import org.keycloak.representations.RefreshToken;
 import org.keycloak.services.Urls;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.UserSessionManager;
 import org.keycloak.sessions.AuthenticationSessionModel;
 import org.keycloak.sessions.RootAuthenticationSessionModel;
 import org.keycloak.util.TokenUtil;
-import org.keycloak.utils.OAuth2Error;
 
 public class UserSessionUtil {
 
     private static final Logger logger = Logger.getLogger(UserSessionUtil.class);
 
-    public static UserSessionModel findValidSession(KeycloakSession session, RealmModel realm, AccessToken token, EventBuilder event, ClientModel client) {
-        OAuth2Error error = new OAuth2Error().json(false).realm(realm);
-        return findValidSession(session, realm, token, event, client, error);
+    public static UserSessionValidationResult findValidSessionForIdentityCookie(KeycloakSession session, RealmModel realm, AccessToken token, EventBuilder event) {
+        return findValidSession(session, realm, token, event, null, AccessTokenContext.SessionType.ONLINE, false, true);
     }
 
-    public static UserSessionModel findValidSession(KeycloakSession session, RealmModel realm,
-            AccessToken token, EventBuilder event, ClientModel client, OAuth2Error error) {
-        AccessTokenContext.SessionType sessionType = getSessionType(session, token);
-        // TODO:mposolda implement and refactor this based on retrieved sessionType... Probably add methods like "getValidSessionFromRefreshToken" and "getValidSessionFromAccessToken" or something like that?
+    // TODO:mposolda could the token argument be refreshToken?
+    public static UserSessionValidationResult findValidSessionForRefreshToken(KeycloakSession session, RealmModel realm, AccessToken token, EventBuilder event, ClientModel client) {
+        AccessTokenContext.SessionType sessionType;
+        if (TokenUtil.TOKEN_TYPE_OFFLINE.equals(token.getType())) {
+            sessionType = AccessTokenContext.SessionType.OFFLINE;
+        } else if (TokenUtil.TOKEN_TYPE_REFRESH.equals(token.getType())) {
+            sessionType = AccessTokenContext.SessionType.ONLINE;
+        } else {
+            return UserSessionValidationResult.error(Errors.INVALID_TOKEN_TYPE);
+        }
 
+        return findValidSession(session, realm, token, event, client, sessionType, Profile.isFeatureEnabled(Profile.Feature.TOKEN_EXCHANGE), false);
+    }
+
+
+    public static UserSessionValidationResult findValidSessionForAccessToken(KeycloakSession session, RealmModel realm, AccessToken token, EventBuilder event, ClientModel client) {
+        AccessTokenContext accessTokenContext = session.getProvider(TokenContextEncoderProvider.class).getTokenContextFromTokenId(token.getId());
+        AccessTokenContext.SessionType sessionType = accessTokenContext.getSessionType();
+        return findValidSession(session, realm, token, event, client, sessionType, Profile.isFeatureEnabled(Profile.Feature.TOKEN_EXCHANGE), false);
+    }
+
+    /**
+     * Find valid user session (online or offline according to which one is allowed) and performs all the needed checks on it. Like checking if the userSession is valid and if clientSession is attached to it and
+     * if userSession (and clientSession) are started earlier than the token.
+     *
+     * User session will be set to KeycloakContext if successfully found and verified
+     *
+     * @param session must be not null
+     * @param realm must be not null
+     * @param token must be not null
+     * @param event must be not null. This method is NOT supposed to throw the error event in case that userSession not found or invalid. It is the responsibility of the caller
+     * @param client must be not null unless "skipCheckClient" is true
+     * @param sessionType sessionType from the token. It allows to hint whether session can be looked-up as "online" session or as offline session. Also whether it is allowed to have transient user session or "link" transient client session to the found userSession
+     * @param allowImpersonationFallback If true, it is possible to have impersonationCallback in which case the client is not required to be present in the userSession as long as the userSession was involved in impersonation
+     * @param skipCheckClient whether the method should skip lookup of clientSession from userSession. Usually when the passed token is not linked to any client (EG. identity cookie)
+     * @return userSession with all the successful validations OR error
+     */
+    private static UserSessionValidationResult findValidSession(KeycloakSession session, RealmModel realm,
+                                                    AccessToken token, EventBuilder event, ClientModel client,
+                                                    AccessTokenContext.SessionType sessionType, boolean allowImpersonationFallback, boolean skipCheckClient) {
+        logger.tracef("Lookup user session with the sessionType '%s'. Token session id: %s", sessionType, token.getSessionId());
         if (token.getSessionId() == null) {
-            return createTransientSessionForClient(session, realm, token, client, event);
+            if (sessionType.isAllowTransientUserSession()) {
+                return createTransientSessionForClient(session, realm, token, client, event);
+            } else {
+                return UserSessionValidationResult.error(Errors.USER_SESSION_NOT_FOUND);
+            }
         }
 
         var userSessionProvider = session.sessions();
 
-        AccessTokenContext accessTokenContext = session.getProvider(TokenContextEncoderProvider.class).getTokenContextFromTokenId(token.getId());
-        if (accessTokenContext.getSessionType() == AccessTokenContext.SessionType.TRANSIENT) {
-            UserSessionModel userSession = userSessionProvider.getUserSession(realm, token.getSessionId());
-
-            if (AuthenticationManager.isSessionValid(realm, userSession)) {
-                checkTokenIssuedAt(realm, token, userSession, event, client);
-                return createTransientSessionForClient(session, userSession, client);
+        UserSessionModel userSession = null;
+        if (sessionType.isAllowLookupOnlineUserSession()) {
+            AuthenticatedClientSessionModel clientSession = null;
+            if (skipCheckClient || sessionType.isAllowTransientClientSession()) {
+                userSession = userSessionProvider.getUserSession(realm, token.getSessionId());
+            } else {
+                userSession = userSessionProvider.getUserSessionIfClientExists(realm, token.getSessionId(), false, client.getId());
+                if (userSession != null) {
+                    event.session(userSession);
+                    clientSession = userSession.getAuthenticatedClientSessionByClient(client.getId());
+                    if (!checkTokenIssuedAt(token, clientSession)) {
+                        return UserSessionValidationResult.error(Errors.INVALID_TOKEN);
+                    }
+                }
+                if (userSession == null && allowImpersonationFallback) {
+                    // also try to resolve sessions created during token exchange when the user is impersonated
+                    userSession = getUserSessionWithImpersonatorClient(session, realm, token.getSessionId(), false, client.getId());
+                }
             }
 
-            logger.debug("User session not found or expired for transient token");
             event.session(userSession);
-            event.error(userSession == null? Errors.USER_SESSION_NOT_FOUND : Errors.SESSION_EXPIRED);
-            throw error.invalidToken(userSession == null? "Session not found" : "Session expired");
+
+            if (AuthenticationManager.isSessionValid(realm, userSession)) {
+                if (!checkTokenIssuedAt(token, userSession)) {
+                    return UserSessionValidationResult.error(Errors.INVALID_TOKEN);
+                }
+
+                if (sessionType.isAllowTransientClientSession()) {
+                    userSession = createTransientSessionForClient(session, userSession, client);
+                    return UserSessionValidationResult.validSession(session, userSession);
+                } else {
+                    return UserSessionValidationResult.validSession(session, userSession);
+                }
+
+            }
         }
 
-        UserSessionModel userSession = userSessionProvider.getUserSessionIfClientExists(realm, token.getSessionId(), false, client.getId());
-        if (userSession == null) {
-            // also try to resolve sessions created during token exchange when the user is impersonated
-            userSession = getUserSessionWithImpersonatorClient(session, realm, token.getSessionId(), false, client.getId());
-        }
+        UserSessionModel offlineUserSession = null;
+        if (sessionType.isAllowLookupOfflineUserSession()) {
+            AuthenticatedClientSessionModel offlineClientSession = null;
+            if (sessionType.isAllowTransientClientSession()) {
+                offlineUserSession = userSessionProvider.getOfflineUserSession(realm, token.getSessionId());
+            } else {
+                offlineUserSession = userSessionProvider.getUserSessionIfClientExists(realm, token.getSessionId(), true, client.getId());
+                if (offlineUserSession != null) {
+                    event.session(offlineUserSession);
+                    offlineClientSession = offlineUserSession.getAuthenticatedClientSessionByClient(client.getId());
+                    if (!checkTokenIssuedAt(token, offlineClientSession)) {
+                        return UserSessionValidationResult.error(Errors.INVALID_TOKEN);
+                    }
+                }
+            }
 
-        UserSessionModel offlineUserSession;
-        if (AuthenticationManager.isSessionValid(realm, userSession)) {
-            checkTokenIssuedAt(realm, token, userSession, event, client);
-            event.session(userSession);
-            return userSession;
-        } else {
-            offlineUserSession = userSessionProvider.getUserSessionIfClientExists(realm, token.getSessionId(), true, client.getId());
+            event.session(offlineUserSession);
+
             if (AuthenticationManager.isSessionValid(realm, offlineUserSession)) {
-                checkTokenIssuedAt(realm, token, offlineUserSession, event, client);
-                event.session(offlineUserSession);
-                return offlineUserSession;
+                if (!checkTokenIssuedAt(token, offlineUserSession)) {
+                    return UserSessionValidationResult.error(Errors.INVALID_TOKEN);
+                }
+
+                if (sessionType.isAllowTransientClientSession()) {
+                    offlineUserSession = createTransientSessionForClient(session, offlineUserSession, client);
+                    return UserSessionValidationResult.validSession(session, offlineUserSession);
+                } else {
+                    return UserSessionValidationResult.validSession(session, offlineUserSession);
+                }
             }
         }
 
         if (userSession == null && offlineUserSession == null) {
-            logger.debug("User session not found or doesn't have client attached on it");
-            event.error(Errors.USER_SESSION_NOT_FOUND);
-            throw error.invalidToken("User session not found or doesn't have client attached on it");
+            logger.debugf("User session '%s' not found or doesn't have client attached on it", token.getSessionId());
+            return UserSessionValidationResult.error(Errors.USER_SESSION_NOT_FOUND);
         }
 
         event.session(Objects.requireNonNullElse(userSession, offlineUserSession));
 
-        logger.debug("Session expired");
-        event.error(Errors.SESSION_EXPIRED);
-        throw error.invalidToken("Session expired");
+        logger.debugf("Session '%s' expired", token.getSessionId());
+        return UserSessionValidationResult.error(Errors.SESSION_EXPIRED);
     }
 
-    private static AccessTokenContext.SessionType getSessionType(KeycloakSession session, AccessToken token) {
-        if (token instanceof RefreshToken) {
-            // TODO:mposolda test introspection of refresh token
-            return TokenUtil.TOKEN_TYPE_OFFLINE.equals(token.getType()) ? AccessTokenContext.SessionType.OFFLINE : AccessTokenContext.SessionType.ONLINE;
-        } else {
-            AccessTokenContext accessTokenContext = session.getProvider(TokenContextEncoderProvider.class).getTokenContextFromTokenId(token.getId());
-            return accessTokenContext.getSessionType();
-        }
-    }
 
     public static UserSessionModel createTransientUserSession(KeycloakSession session, UserSessionModel userSession) {
         if (userSession.getPersistenceState() == UserSessionModel.SessionPersistenceState.TRANSIENT) {
@@ -124,7 +185,7 @@ public class UserSessionUtil {
         return transientSession;
     }
 
-    private static UserSessionModel attachAuthenticationSession(KeycloakSession session, UserSessionModel userSession, ClientModel client) {
+    private static void attachAuthenticationSession(KeycloakSession session, UserSessionModel userSession, ClientModel client) {
         RootAuthenticationSessionModel rootAuthSession = session.authenticationSessions().createRootAuthenticationSession(userSession.getRealm());
         AuthenticationSessionModel authSession = rootAuthSession.createAuthenticationSession(client);
         authSession.setAuthenticatedUser(userSession.getUser());
@@ -132,7 +193,6 @@ public class UserSessionUtil {
         authSession.setClientNote(OIDCLoginProtocol.ISSUER, Urls.realmIssuer(session.getContext().getUri().getBaseUri(), userSession.getRealm().getName()));
         AuthenticationManager.setClientScopesInSession(session, authSession);
         TokenManager.attachAuthenticationSession(session, userSession, authSession);
-        return userSession;
     }
 
     private static UserSessionModel createTransientSessionForClient(KeycloakSession session, UserSessionModel userSession, ClientModel client) {
@@ -141,40 +201,74 @@ public class UserSessionUtil {
         return transientSession;
     }
 
-    private static UserSessionModel createTransientSessionForClient(KeycloakSession session, RealmModel realm, AccessToken token, ClientModel client, EventBuilder event) {
-        OAuth2Error error = new OAuth2Error().json(false).realm(realm);
+    private static UserSessionValidationResult createTransientSessionForClient(KeycloakSession session, RealmModel realm, AccessToken token, ClientModel client, EventBuilder event) {
         // create a transient session
         UserModel user = TokenManager.lookupUserFromStatelessToken(session, realm, token);
         if (user == null) {
             logger.debug("Transient User not found");
-            event.error(Errors.USER_NOT_FOUND);
-            throw error.invalidToken("User not found");
+            return UserSessionValidationResult.error(Errors.USER_NOT_FOUND);
         }
+        if (!user.isEnabled()) {
+            logger.debugf("User '%s' disabled", user.getUsername());
+            return UserSessionValidationResult.error(Errors.USER_DISABLED);
+        }
+
         ClientConnection clientConnection = session.getContext().getConnection();
         UserSessionModel userSession = new UserSessionManager(session).createUserSession(KeycloakModelUtils.generateId(), realm, user, user.getUsername(), clientConnection.getRemoteAddr(),
                 ServiceAccountConstants.CLIENT_AUTH, false, null, null, UserSessionModel.SessionPersistenceState.TRANSIENT);
         // attach an auth session for the client
         attachAuthenticationSession(session, userSession, client);
-        return userSession;
+        return UserSessionValidationResult.validSession(session, userSession);
     }
 
-    public static void checkTokenIssuedAt(RealmModel realm, AccessToken token, UserSessionModel userSession, EventBuilder event, ClientModel client) {
-        OAuth2Error error = new OAuth2Error().json(false).realm(realm);
+    private static boolean checkTokenIssuedAt(AccessToken token, UserSessionModel userSession) {
         if (token.isIssuedBeforeSessionStart(userSession.getStarted())) {
             logger.debug("Stale token for user session");
-            event.error(Errors.INVALID_TOKEN);
-            throw error.invalidToken("Stale token");
+            return false;
+        } else {
+            return true;
         }
+    }
 
-        AuthenticatedClientSessionModel clientSession = userSession.getAuthenticatedClientSessionByClient(client.getId());
-        if (clientSession != null && token.isIssuedBeforeSessionStart(clientSession.getStarted())) {
+    private static boolean checkTokenIssuedAt(AccessToken token, AuthenticatedClientSessionModel clientSession) {
+        if (token.isIssuedBeforeSessionStart(clientSession.getStarted())) {
             logger.debug("Stale token for client session");
-            event.error(Errors.INVALID_TOKEN);
-            throw error.invalidToken("Stale token");
+            return false;
+        } else {
+            return true;
         }
     }
 
     public static UserSessionModel getUserSessionWithImpersonatorClient(KeycloakSession session, RealmModel realm, String userSessionId, boolean offline, String clientUUID) {
         return session.sessions().getUserSessionWithPredicate(realm, userSessionId, offline, userSession -> Objects.equals(clientUUID, userSession.getNote(ImpersonationSessionNote.IMPERSONATOR_CLIENT.toString())));
+    }
+
+
+    public static class UserSessionValidationResult {
+        private final UserSessionModel userSession;
+        private final String error;
+
+        private static UserSessionValidationResult validSession(KeycloakSession session, UserSessionModel userSession) {
+            session.getContext().setUserSession(userSession);
+            return new UserSessionValidationResult(userSession, null);
+        }
+
+        private static UserSessionValidationResult error(String error) {
+            return new UserSessionValidationResult(null, error);
+        }
+
+        // Should be only called by static creators
+        private UserSessionValidationResult(UserSessionModel userSession, String error) {
+            this.userSession = userSession;
+            this.error = error;
+        }
+
+        public UserSessionModel getUserSession() {
+            return userSession;
+        }
+
+        public String getError() {
+            return error;
+        }
     }
 }
