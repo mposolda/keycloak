@@ -951,6 +951,39 @@ public class StandardTokenExchangeV2Test extends AbstractClientPoliciesTest {
     }
 
     @Test
+    public void testIntrospectionWithExchangedTokenAfterSSOLoginOfRequesterClient() throws Exception {
+        final RealmResource realm = adminClient.realm(TEST);
+        final UserResource mikeRes = ApiUtil.findUserByUsernameId(realm, "mike");
+        final UserRepresentation mike = mikeRes.toRepresentation();
+
+        // Login with "subject-client" and create SSO session
+        try (ClientAttributeUpdater clientUpdater = ClientAttributeUpdater.forClient(adminClient, TEST, "subject-client")
+                .setConsentRequired(Boolean.TRUE)
+                .update()) {
+            String accessToken = loginWithConsents(mike, "password", "subject-client", "secret");
+
+            // Token exchange access-token for "Requester-client" . No client session yet for "requester-client" at this stage
+            AccessTokenResponse response = tokenExchange(accessToken, "requester-client", "secret",  null, null);
+            String exchangedToken = response.getAccessToken();
+            Assert.assertNotNull(exchangedToken);
+
+            // Set time offset
+            setTimeOffset(10);
+
+            // SSO login to "requester-client". Will create client session for "requester-client"
+            oauth.client("requester-client", "secret").openLoginForm();
+            assertNotNull(oauth.parseLoginResponse().getCode());
+            response = oauth.doAccessTokenRequest(oauth.parseLoginResponse().getCode());
+            assertEquals(Response.Status.OK.getStatusCode(), response.getStatusCode());
+            String requesterClientToken = response.getAccessToken();
+
+            // Token introspection with the previously exchanged token should success. Also with the new token should success
+            assertIntrospectSuccess(exchangedToken, "requester-client", "secret", mike.getId());
+            assertIntrospectSuccess(requesterClientToken, "requester-client", "secret", mike.getId());
+        }
+    }
+
+    @Test
     public void testClientPolicies() throws Exception {
 
         String json = (new ClientPoliciesUtil.ClientProfilesBuilder()).addProfile(
