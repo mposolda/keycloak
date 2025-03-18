@@ -1627,7 +1627,7 @@ public class AuthenticationManager {
             //get user session
             EventBuilder event = new EventBuilder(realm, session);
             event.event(EventType.INTROSPECT_TOKEN);
-            UserSessionModel userSession = UserSessionUtil.findValidSession(session,realm, accessToken, event, client);
+            UserSessionModel userSession = UserSessionUtil.findValidSessionForAccessToken(session,realm, accessToken, event, client).getUserSession();
 
             if (userSession != null) {
                 //get client session

@@ -36,7 +36,6 @@ import org.keycloak.protocol.oidc.AccessTokenIntrospectionProvider;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.representations.AccessToken.Authorization;
 import org.keycloak.representations.idm.authorization.Permission;
-import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.util.JsonSerialization;
 
 /**
@@ -44,7 +43,7 @@ import org.keycloak.util.JsonSerialization;
  *
  * @author <a href="mailto:psilva@redhat.com">Pedro Igor</a>
  */
-public class RPTIntrospectionProvider extends AccessTokenIntrospectionProvider {
+public class RPTIntrospectionProvider extends AccessTokenIntrospectionProvider<AccessToken> {
 
     protected static final Logger LOGGER = Logger.getLogger(RPTIntrospectionProvider.class);
 
@@ -53,14 +52,12 @@ public class RPTIntrospectionProvider extends AccessTokenIntrospectionProvider {
     }
 
     @Override
-    public Response introspect(String token, EventBuilder eventBuilder) {
+    public Response introspect(String tokenStr, EventBuilder eventBuilder) {
         LOGGER.debug("Introspecting requesting party token");
         try {
-            AuthenticationManager.AuthResult auth = verifyTokenAndSession(token, eventBuilder);
-            AccessToken accessToken = auth.getToken();
             ObjectNode tokenMetadata;
-
-            if (accessToken != null && auth.getSession() != null) {
+            if (introspectionChecks(tokenStr)) {
+                AccessToken accessToken = this.token;
                 AccessToken metadata = new AccessToken();
 
                 metadata.id(accessToken.getId());
@@ -87,12 +84,12 @@ public class RPTIntrospectionProvider extends AccessTokenIntrospectionProvider {
 
                     tokenMetadata.putPOJO("permissions", permissions);
                 }
+                tokenMetadata.put("active", true);
+                eventBuilder.success();
             } else {
                 tokenMetadata = JsonSerialization.createObjectNode();
-                eventBuilder.error(Errors.TOKEN_INTROSPECTION_FAILED);
+                tokenMetadata.put("active", false);
             }
-
-            tokenMetadata.put("active", accessToken != null);
 
             return Response.ok(JsonSerialization.writeValueAsBytes(tokenMetadata)).type(MediaType.APPLICATION_JSON_TYPE).build();
         } catch (Exception e) {

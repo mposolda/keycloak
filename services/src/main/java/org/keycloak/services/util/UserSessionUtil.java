@@ -22,6 +22,7 @@ import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.protocol.oidc.encode.AccessTokenContext;
 import org.keycloak.protocol.oidc.encode.TokenContextEncoderProvider;
 import org.keycloak.representations.AccessToken;
+import org.keycloak.representations.RefreshToken;
 import org.keycloak.services.Urls;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.UserSessionManager;
@@ -37,8 +38,8 @@ public class UserSessionUtil {
         return findValidSession(session, realm, token, event, null, AccessTokenContext.SessionType.ONLINE, false, true);
     }
 
-    // TODO:mposolda could the token argument be refreshToken?
-    public static UserSessionValidationResult findValidSessionForRefreshToken(KeycloakSession session, RealmModel realm, AccessToken token, EventBuilder event, ClientModel client) {
+
+    public static UserSessionValidationResult findValidSessionForRefreshToken(KeycloakSession session, RealmModel realm, RefreshToken token, EventBuilder event, ClientModel client) {
         AccessTokenContext.SessionType sessionType;
         if (TokenUtil.TOKEN_TYPE_OFFLINE.equals(token.getType())) {
             sessionType = AccessTokenContext.SessionType.OFFLINE;
