@@ -45,7 +45,7 @@ public class RefreshTokenIntrospectionProvider extends AccessTokenIntrospectionP
 
     @Override
     protected UserSessionUtil.UserSessionValidationResult verifyUserSession() {
-        return UserSessionUtil.findValidSessionForRefreshToken(session, realm, token, client, eventBuilder::session);
+        return UserSessionUtil.findValidSessionForRefreshToken(session, realm, token, client, (invalidUserSession -> {}));
     }
 
     @Override

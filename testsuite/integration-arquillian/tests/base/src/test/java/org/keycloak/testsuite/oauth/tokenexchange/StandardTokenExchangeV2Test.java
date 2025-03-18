@@ -365,7 +365,7 @@ public class StandardTokenExchangeV2Test extends AbstractClientPoliciesTest {
         // assert introspection and user-info fails with session deleted
         realm.deleteSession(exchangedToken.getSessionId(), false);
         assertIntrospectError(exchangedTokenString, "requester-client", "secret");
-        assertUserInfoError(exchangedTokenString, "requester-client", "secret", "invalid_token", "Session not found");
+        assertUserInfoError(exchangedTokenString, "requester-client", "secret", "invalid_token", Errors.USER_SESSION_NOT_FOUND);
     }
 
     @Test
@@ -403,7 +403,7 @@ public class StandardTokenExchangeV2Test extends AbstractClientPoliciesTest {
             // assert introspection and user-info fails with offline session deleted
             realm.deleteSession(getSessionIdFromToken(accessToken), true);
             assertIntrospectError(exchangedTokenString, "requester-client", "secret");
-            assertUserInfoError(exchangedTokenString, "requester-client", "secret", "invalid_token", "Session not found");
+            assertUserInfoError(exchangedTokenString, "requester-client", "secret", "invalid_token", Errors.USER_SESSION_NOT_FOUND);
         }
     }
 

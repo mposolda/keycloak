@@ -230,14 +230,13 @@ public class UserInfoEndpoint {
         }
 
         event.session(token.getSessionId());
-        UserSessionUtil.UserSessionValidationResult userSessionValidation = UserSessionUtil.findValidSessionForAccessToken(session, realm, token, clientModel, event::session);
+        UserSessionUtil.UserSessionValidationResult userSessionValidation = UserSessionUtil.findValidSessionForAccessToken(session, realm, token, clientModel, (invalidUserSession -> {}));
         if (userSessionValidation.getError() != null) {
             event.error(userSessionValidation.getError());
             throw error.invalidToken(userSessionValidation.getError());
         }
 
         UserSessionModel userSession = userSessionValidation.getUserSession();
-        event.session(userSession);
 
         UserModel userModel = userSession.getUser();
         if (userModel == null) {

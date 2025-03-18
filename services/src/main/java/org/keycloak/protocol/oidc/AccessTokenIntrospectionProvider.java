@@ -185,6 +185,7 @@ public class AccessTokenIntrospectionProvider<T extends AccessToken> implements 
             return false;
         }
 
+        eventBuilder.session(this.token.getSessionId());
         UserSessionUtil.UserSessionValidationResult result = verifyUserSession();
         if (result.getError() != null) {
             logger.debugf( "Introspection access token for " + token.getIssuedFor() + " client: " + result.getError());
@@ -193,10 +194,9 @@ public class AccessTokenIntrospectionProvider<T extends AccessToken> implements 
             return false;
         } else {
             this.userSession = result.getUserSession();
-            eventBuilder.session(this.userSession);
         }
 
-        user = userSession.getUser();
+        this.user = userSession.getUser();
         eventBuilder.user(user);
         if (!TokenManager.isUserValid(session, realm, token, userSession.getUser())) {
             logger.debugf("Could not find valid user from user session " + userSession.getId());
@@ -222,6 +222,7 @@ public class AccessTokenIntrospectionProvider<T extends AccessToken> implements 
 
             this.token = verifier.verify().getToken();
             eventBuilder.detail(Details.TOKEN_ID, token.getId());
+            eventBuilder.detail(Details.TOKEN_TYPE, token.getType());
 
             var tracing = session.getProvider(TracingProvider.class);
             var span = tracing.getCurrentSpan();
@@ -246,6 +247,7 @@ public class AccessTokenIntrospectionProvider<T extends AccessToken> implements 
     }
 
     protected boolean verifyClient() {
+        eventBuilder.detail(Details.TOKEN_ISSUED_FOR, token.getIssuedFor());
         ClientModel client = realm.getClientByClientId(token.getIssuedFor());
         if (client == null) {
             logger.debugf("Introspection access token : client with clientId %s does not exist", token.getIssuedFor() );
@@ -253,7 +255,6 @@ public class AccessTokenIntrospectionProvider<T extends AccessToken> implements 
             eventBuilder.error(Errors.CLIENT_NOT_FOUND);
             return false;
         } else {
-            eventBuilder.client(client);
             if (!client.isEnabled()) {
                 logger.debugf("Introspection access token : client with clientId %s is disabled", token.getIssuedFor() );
                 eventBuilder.detail(Details.REASON, String.format("Client with clientId %s is disabled", token.getIssuedFor()));
@@ -265,6 +266,7 @@ public class AccessTokenIntrospectionProvider<T extends AccessToken> implements 
                     TokenVerifier.createWithoutSignature(token)
                             .withChecks(TokenManager.NotBeforeCheck.forModel(client), TokenVerifier.IS_ACTIVE, new TokenManager.TokenRevocationCheck(session))
                             .verify();
+                    this.client = client;
                     return true;
                 } catch (VerificationException e) {
                     logger.debugf("Introspection access token for %s client: JWT check failed: %s", token.getIssuedFor(), e.getMessage());
@@ -278,7 +280,7 @@ public class AccessTokenIntrospectionProvider<T extends AccessToken> implements 
 
 
     protected UserSessionUtil.UserSessionValidationResult verifyUserSession() {
-        return UserSessionUtil.findValidSessionForAccessToken(session, realm, token, client, eventBuilder::session);
+        return UserSessionUtil.findValidSessionForAccessToken(session, realm, token, client, (invalidUserSession -> {}));
     }
 
 
