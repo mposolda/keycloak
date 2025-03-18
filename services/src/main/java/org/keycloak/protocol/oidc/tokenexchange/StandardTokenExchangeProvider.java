@@ -206,6 +206,7 @@ public class StandardTokenExchangeProvider extends AbstractTokenExchangeProvider
                                                   List<ClientModel> targetAudienceClients, String scope, AccessToken subjectToken) {
         RootAuthenticationSessionModel rootAuthSession = new AuthenticationSessionManager(session).createAuthenticationSession(realm, false);
         AuthenticationSessionModel authSession = createSessionModel(targetUserSession, rootAuthSession, targetUser, client, scope);
+        boolean isOfflineSession = targetUserSession != null && targetUserSession.isOffline();
 
         if (targetUserSession == null || targetUserSession.isOffline()) {
             // if no session is associated with the subject_token or it is offline, check no online session is needed
@@ -215,10 +216,16 @@ public class StandardTokenExchangeProvider extends AbstractTokenExchangeProvider
                 throw new CorsErrorResponseException(cors, OAuthErrorException.INVALID_REQUEST,
                         "Refresh token not valid as requested_token_type because creating a new session is needed", Response.Status.BAD_REQUEST);
             }
+
+            String transientSessionId = isOfflineSession ? targetUserSession.getId() : authSession.getParentSession().getId();
             // create a transient session now for the token exchange
-            targetUserSession = new UserSessionManager(session).createUserSession(authSession.getParentSession().getId(), realm, targetUser, targetUser.getUsername(),
+            targetUserSession = new UserSessionManager(session).createUserSession(transientSessionId, realm, targetUser, targetUser.getUsername(),
                     clientConnection.getRemoteAddr(), ServiceAccountConstants.CLIENT_AUTH, false, null, null,
                     UserSessionModel.SessionPersistenceState.TRANSIENT);
+
+            if (isOfflineSession) {
+                targetUserSession.setNote(Constants.CREATED_FROM_PERSISTENT, Constants.CREATED_FROM_PERSISTENT_OFFLINE);
+            }
         }
 
         final boolean newClientSessionCreated = targetUserSession.getPersistenceState() != UserSessionModel.SessionPersistenceState.TRANSIENT
@@ -271,7 +278,7 @@ public class StandardTokenExchangeProvider extends AbstractTokenExchangeProvider
 
             checkRequestedAudiences(responseBuilder);
 
-            if (targetUserSession.getPersistenceState() == UserSessionModel.SessionPersistenceState.TRANSIENT) {
+            if (targetUserSession.getPersistenceState() == UserSessionModel.SessionPersistenceState.TRANSIENT && !isOfflineSession) {
                 responseBuilder.getAccessToken().setSessionId(null);
                 event.session((String) null);
             }

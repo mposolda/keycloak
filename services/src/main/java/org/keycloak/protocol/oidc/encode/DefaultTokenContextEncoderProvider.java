@@ -53,8 +53,7 @@ public class DefaultTokenContextEncoderProvider implements TokenContextEncoderPr
                 sessionType = AccessTokenContext.SessionType.TRANSIENT;
             }
         } else {
-            // TODO:mposolda I've changed this as I think that previously when it used "clientSessionContext.isOfflineTokenRequested()" it was not correct... But need to doublecheck more scenarios and maybe test...
-            sessionType = userSession.isOffline() ? AccessTokenContext.SessionType.OFFLINE : AccessTokenContext.SessionType.ONLINE;
+            sessionType = clientSessionContext.isOfflineTokenRequested() ? AccessTokenContext.SessionType.OFFLINE : AccessTokenContext.SessionType.ONLINE;
         }
 
         boolean useLightweightToken = AbstractOIDCProtocolMapper.getShouldUseLightweightToken(session);
