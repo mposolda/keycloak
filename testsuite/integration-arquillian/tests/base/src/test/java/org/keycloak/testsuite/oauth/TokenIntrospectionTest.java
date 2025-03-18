@@ -420,7 +420,7 @@ public class TokenIntrospectionTest extends AbstractTestRealmKeycloakTest {
         events.expect(EventType.INTROSPECT_TOKEN_ERROR)
                 .client("confidential-cli")
                 .user(Matchers.nullValue(String.class))
-                .session(Matchers.nullValue(String.class))
+                .session(accessTokenResponse.getSessionState())
                 .error(Errors.USER_SESSION_NOT_FOUND)
                 .assertEvent();
         events.assertEmpty();

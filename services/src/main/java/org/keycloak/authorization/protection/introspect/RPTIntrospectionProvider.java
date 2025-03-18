@@ -53,6 +53,7 @@ public class RPTIntrospectionProvider extends AccessTokenIntrospectionProvider<A
 
     @Override
     public Response introspect(String tokenStr, EventBuilder eventBuilder) {
+        this.eventBuilder = eventBuilder;
         LOGGER.debug("Introspecting requesting party token");
         try {
             ObjectNode tokenMetadata;

@@ -555,7 +555,7 @@ public class UserInfoTest extends AbstractKeycloakTest {
             events.expect(EventType.USER_INFO_REQUEST_ERROR)
                     .error(Errors.USER_SESSION_NOT_FOUND)
                     .user(Matchers.nullValue(String.class))
-                    .session(Matchers.nullValue(String.class))
+                    .session(accessTokenResponse.getSessionState())
                     .detail(Details.AUTH_METHOD, Details.VALIDATE_ACCESS_TOKEN)
                     .assertEvent();
             events.assertEmpty();
