@@ -483,8 +483,6 @@ public class StandardTokenExchangeV2Test extends AbstractClientPoliciesTest {
         }
     }
 
-    // TODO:mposolda Test with offline-token login and then exchange for access token. Then test introspection, maybe also admin-endpoint etc. The sessionType should be
-
     @Test
     public void testExchangeRequestAccessTokenType() throws Exception {
         oauth.realm(TEST);

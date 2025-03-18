@@ -43,7 +43,7 @@ public class AccessTokenContext {
         // Regular offline user session with valid client session
         OFFLINE("of", false, false, true, false),
 
-        // Transient user session TODO:mposolda not sure if last one should be false?
+        // Transient user session
         TRANSIENT("tr", true, false, false, false),
 
         // Regular online user session with transient client session (Client session may not need to exist)

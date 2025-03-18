@@ -1550,7 +1550,7 @@ public class AuthenticationManager {
                     return null;
                 }
                 userSession = validationResult.getUserSession();
-                if (!isClientValid(session, userSession, client, token)) {
+                if (!isClientValid(userSession, client, token)) {
                     return null;
                 }
             }
@@ -1574,7 +1574,7 @@ public class AuthenticationManager {
     }
 
     // Verify client and whether clientSession exists
-    private static boolean isClientValid(KeycloakSession session, UserSessionModel userSession, ClientModel client, AccessToken token) {
+    private static boolean isClientValid(UserSessionModel userSession, ClientModel client, AccessToken token) {
         if (client == null || !client.isEnabled()) {
             logger.debugf("Identity token issued for unknown or disabled client '%s'", token.getIssuedFor());
             return false;
@@ -1589,9 +1589,7 @@ public class AuthenticationManager {
         if (userSession == null) return true;
 
         AuthenticatedClientSessionModel clientSession = userSession.getAuthenticatedClientSessionByClient(client.getId());
-        AccessTokenContext accessTokenContext = session.getProvider(TokenContextEncoderProvider.class)
-                    .getTokenContextFromTokenId(token.getId());
-        if (clientSession == null && accessTokenContext.getSessionType() != AccessTokenContext.SessionType.TRANSIENT) {
+        if (clientSession == null) {
             logger.debugf("Client session for client '%s' not present in user session '%s'", client.getClientId(), userSession.getId());
             return false;
         }
