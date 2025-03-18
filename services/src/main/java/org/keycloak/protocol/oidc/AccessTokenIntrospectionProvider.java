@@ -278,7 +278,7 @@ public class AccessTokenIntrospectionProvider<T extends AccessToken> implements 
 
 
     protected UserSessionUtil.UserSessionValidationResult verifyUserSession() {
-        return UserSessionUtil.findValidSessionForAccessToken(session, realm, token, eventBuilder, client);
+        return UserSessionUtil.findValidSessionForAccessToken(session, realm, token, client, eventBuilder::session);
     }
 
 

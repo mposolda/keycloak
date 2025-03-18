@@ -118,6 +118,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -1513,72 +1514,56 @@ public class AuthenticationManager {
                 }
             }
 
-            UserSessionModel userSession = null;
-            UserModel user = null;
-            if (token.getSessionState() == null) {
-                user = TokenManager.lookupUserFromStatelessToken(session, realm, token);
-                if (!TokenManager.isUserValid(session, realm, token, user)) {
-                    return null;
-                }
-            } else {
-                userSession = session.sessions().getUserSession(realm, token.getSessionState());
-                if (userSession != null) {
-                    user = userSession.getUser();
-                    if (!TokenManager.isUserValid(session, realm, token, user)) {
-                        return null;
-                    }
-                }
-            }
-
             KeycloakContext context = session.getContext();
+            Consumer<UserSessionModel> invalidUserSessionCallback = (userSession) -> {
+                // Ignored for offline session for now?
+                if (userSession.isOffline()) return;
 
-            if (token.getSessionState() != null && !isSessionValid(realm, userSession)) {
-                // Check if accessToken was for the offline session.
-                if (!isCookie) {
-                    UserSessionModel offlineUserSession = session.sessions().getOfflineUserSession(realm, token.getSessionState());
-                    if (isSessionValid(realm, offlineUserSession)) {
-                        user = offlineUserSession.getUser();
-                        ClientModel client = realm.getClientByClientId(token.getIssuedFor());
-                        if (!isClientValid(session, offlineUserSession, client, token)) {
-                            return null;
-                        }
-                        context.setUserSession(offlineUserSession);
-                        context.setClient(client);
-                        context.setBearerToken(token);
-                        return new AuthResult(user, offlineUserSession, token, client);
-                    }
-                }
+                String userSessionId = userSession.getId();
+                KeycloakModelUtils.runJobInTransaction(session.getKeycloakSessionFactory(), context, newSession -> {
+                    RealmModel realmModel = newSession.realms().getRealm(realm.getId());
+                    UserSessionModel userSessionModel = newSession.sessions().getUserSession(realmModel, userSessionId);
+                    backchannelLogout(newSession, realmModel, userSessionModel, uriInfo, connection, headers, true);
+                });
+                // remove the user session here so that the external persistent session tx becomes aware of the removal that happened
+                // during the backchannel logout.
+                session.sessions().removeUserSession(realm, userSession);
+            };
 
-
-                if (userSession != null) {
-                    String userSessionId = userSession.getId();
-                    KeycloakModelUtils.runJobInTransaction(session.getKeycloakSessionFactory(), context, newSession -> {
-                        RealmModel realmModel = newSession.realms().getRealm(realm.getId());
-                        UserSessionModel userSessionModel = newSession.sessions().getUserSession(realmModel, userSessionId);
-                        backchannelLogout(newSession, realmModel, userSessionModel, uriInfo, connection, headers, true);
-                    });
-                    // remove the user session here so that the external persistent session tx becomes aware of the removal that happened
-                    // during the backchannel logout.
-                    session.sessions().removeUserSession(realm, userSession);
-                }
-                logger.debug("User session not active");
-                return null;
-            }
-
+            UserSessionModel userSession = null;
+            ClientModel client = null;
             session.setAttribute("state_checker", token.getOtherClaims().get("state_checker"));
 
-            ClientModel client;
             if (isCookie) {
-                client = null;
+                UserSessionUtil.UserSessionValidationResult validationResult = UserSessionUtil.findValidSessionForIdentityCookie(session, realm, token, invalidUserSessionCallback);
+                if (validationResult.getError() != null) {
+                    return null;
+                }
+                userSession = validationResult.getUserSession();
             } else {
                 client = realm.getClientByClientId(token.getIssuedFor());
+                if (client == null) {
+                    return null;
+                }
+                UserSessionUtil.UserSessionValidationResult validationResult = UserSessionUtil.findValidSessionForAccessToken(session, realm, token, client, invalidUserSessionCallback);
+                if (validationResult.getError() != null) {
+                    return null;
+                }
+                userSession = validationResult.getUserSession();
                 if (!isClientValid(session, userSession, client, token)) {
                     return null;
                 }
+            }
+
+            UserModel user = userSession.getUser();
+            if (!TokenManager.isUserValid(session, realm, token, user)) {
+                return null;
+            }
+
+            if (!isCookie) {
                 context.setClient(client);
                 context.setBearerToken(token);
             }
-
             context.setUserSession(userSession);
 
             return new AuthResult(user, userSession, token, client);
@@ -1625,9 +1610,7 @@ public class AuthenticationManager {
         boolean isAccessTokenLightweight = AccessTokenContext.TokenType.LIGHTWEIGHT.equals(subjectTokenContext.getTokenType());
         if (isAccessTokenLightweight || accessToken.getSubject() == null || (accessToken.getSessionId() == null && accessToken.getResourceAccess().isEmpty() && accessToken.getRealmAccess() == null)) {
             //get user session
-            EventBuilder event = new EventBuilder(realm, session);
-            event.event(EventType.INTROSPECT_TOKEN);
-            UserSessionModel userSession = UserSessionUtil.findValidSessionForAccessToken(session,realm, accessToken, event, client).getUserSession();
+            UserSessionModel userSession = UserSessionUtil.findValidSessionForAccessToken(session,realm, accessToken, client, (invalidUserSession -> {})).getUserSession();
 
             if (userSession != null) {
                 //get client session

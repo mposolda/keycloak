@@ -1,13 +1,13 @@
 package org.keycloak.services.util;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 
 import org.jboss.logging.Logger;
 import org.keycloak.common.ClientConnection;
 import org.keycloak.common.Profile;
 import org.keycloak.common.constants.ServiceAccountConstants;
 import org.keycloak.events.Errors;
-import org.keycloak.events.EventBuilder;
 import org.keycloak.models.AuthenticatedClientSessionModel;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.Constants;
@@ -34,12 +34,12 @@ public class UserSessionUtil {
 
     private static final Logger logger = Logger.getLogger(UserSessionUtil.class);
 
-    public static UserSessionValidationResult findValidSessionForIdentityCookie(KeycloakSession session, RealmModel realm, AccessToken token, EventBuilder event) {
-        return findValidSession(session, realm, token, event, null, AccessTokenContext.SessionType.ONLINE, false, true);
+    public static UserSessionValidationResult findValidSessionForIdentityCookie(KeycloakSession session, RealmModel realm, AccessToken token, Consumer<UserSessionModel> invalidSessionCallback) {
+        return findValidSession(session, realm, token,  null, AccessTokenContext.SessionType.ONLINE, false, true, invalidSessionCallback);
     }
 
 
-    public static UserSessionValidationResult findValidSessionForRefreshToken(KeycloakSession session, RealmModel realm, RefreshToken token, EventBuilder event, ClientModel client) {
+    public static UserSessionValidationResult findValidSessionForRefreshToken(KeycloakSession session, RealmModel realm, RefreshToken token, ClientModel client, Consumer<UserSessionModel> invalidSessionCallback) {
         AccessTokenContext.SessionType sessionType;
         if (TokenUtil.TOKEN_TYPE_OFFLINE.equals(token.getType())) {
             sessionType = AccessTokenContext.SessionType.OFFLINE;
@@ -49,14 +49,14 @@ public class UserSessionUtil {
             return UserSessionValidationResult.error(Errors.INVALID_TOKEN_TYPE);
         }
 
-        return findValidSession(session, realm, token, event, client, sessionType, Profile.isFeatureEnabled(Profile.Feature.TOKEN_EXCHANGE), false);
+        return findValidSession(session, realm, token, client, sessionType, Profile.isFeatureEnabled(Profile.Feature.TOKEN_EXCHANGE), false, invalidSessionCallback);
     }
 
 
-    public static UserSessionValidationResult findValidSessionForAccessToken(KeycloakSession session, RealmModel realm, AccessToken token, EventBuilder event, ClientModel client) {
+    public static UserSessionValidationResult findValidSessionForAccessToken(KeycloakSession session, RealmModel realm, AccessToken token, ClientModel client, Consumer<UserSessionModel> invalidSessionCallback) {
         AccessTokenContext accessTokenContext = session.getProvider(TokenContextEncoderProvider.class).getTokenContextFromTokenId(token.getId());
         AccessTokenContext.SessionType sessionType = accessTokenContext.getSessionType();
-        return findValidSession(session, realm, token, event, client, sessionType, Profile.isFeatureEnabled(Profile.Feature.TOKEN_EXCHANGE), false);
+        return findValidSession(session, realm, token, client, sessionType, Profile.isFeatureEnabled(Profile.Feature.TOKEN_EXCHANGE), false, invalidSessionCallback);
     }
 
     /**
@@ -68,20 +68,20 @@ public class UserSessionUtil {
      * @param session must be not null
      * @param realm must be not null
      * @param token must be not null
-     * @param event must be not null. This method is NOT supposed to throw the error event in case that userSession not found or invalid. It is the responsibility of the caller
      * @param client must be not null unless "skipCheckClient" is true
      * @param sessionType sessionType from the token. It allows to hint whether session can be looked-up as "online" session or as offline session. Also whether it is allowed to have transient user session or "link" transient client session to the found userSession
      * @param allowImpersonationFallback If true, it is possible to have impersonationCallback in which case the client is not required to be present in the userSession as long as the userSession was involved in impersonation
      * @param skipCheckClient whether the method should skip lookup of clientSession from userSession. Usually when the passed token is not linked to any client (EG. identity cookie)
-     * @return userSession with all the successful validations OR error
+     * @param invalidSessionCallback Callback, which is invoked when user session is found, but validation of this userSession failed. Callback not called when userSession not found or when all valiation successful
+     * @return userSession with all the successful validations OR error. Result should never contain both session and error. The error contains the error code from {@link Errors}, so it can be directly used in the error event
      */
     private static UserSessionValidationResult findValidSession(KeycloakSession session, RealmModel realm,
-                                                    AccessToken token, EventBuilder event, ClientModel client,
-                                                    AccessTokenContext.SessionType sessionType, boolean allowImpersonationFallback, boolean skipCheckClient) {
+                                                    AccessToken token, ClientModel client,
+                                                    AccessTokenContext.SessionType sessionType, boolean allowImpersonationFallback, boolean skipCheckClient, Consumer<UserSessionModel> invalidSessionCallback) {
         logger.tracef("Lookup user session with the sessionType '%s'. Token session id: %s", sessionType, token.getSessionId());
         if (token.getSessionId() == null) {
             if (sessionType.isAllowTransientUserSession()) {
-                return createTransientSessionForClient(session, realm, token, client, event);
+                return createTransientSessionForClient(session, realm, token, client);
             } else {
                 return UserSessionValidationResult.error(Errors.USER_SESSION_NOT_FOUND);
             }
@@ -97,10 +97,9 @@ public class UserSessionUtil {
             } else {
                 userSession = userSessionProvider.getUserSessionIfClientExists(realm, token.getSessionId(), false, client.getId());
                 if (userSession != null) {
-                    event.session(userSession);
                     clientSession = userSession.getAuthenticatedClientSessionByClient(client.getId());
                     if (!checkTokenIssuedAt(token, clientSession)) {
-                        return UserSessionValidationResult.error(Errors.INVALID_TOKEN);
+                        return UserSessionValidationResult.error(Errors.INVALID_TOKEN, userSession, invalidSessionCallback);
                     }
                 }
                 if (userSession == null && allowImpersonationFallback) {
@@ -109,11 +108,9 @@ public class UserSessionUtil {
                 }
             }
 
-            event.session(userSession);
-
             if (AuthenticationManager.isSessionValid(realm, userSession)) {
                 if (!checkTokenIssuedAt(token, userSession)) {
-                    return UserSessionValidationResult.error(Errors.INVALID_TOKEN);
+                    return UserSessionValidationResult.error(Errors.INVALID_TOKEN, userSession, invalidSessionCallback);
                 }
 
                 if (sessionType.isAllowTransientClientSession()) {
@@ -134,19 +131,16 @@ public class UserSessionUtil {
             } else {
                 offlineUserSession = userSessionProvider.getUserSessionIfClientExists(realm, token.getSessionId(), true, client.getId());
                 if (offlineUserSession != null) {
-                    event.session(offlineUserSession);
                     offlineClientSession = offlineUserSession.getAuthenticatedClientSessionByClient(client.getId());
                     if (!checkTokenIssuedAt(token, offlineClientSession)) {
-                        return UserSessionValidationResult.error(Errors.INVALID_TOKEN);
+                        return UserSessionValidationResult.error(Errors.INVALID_TOKEN, offlineUserSession, invalidSessionCallback);
                     }
                 }
             }
 
-            event.session(offlineUserSession);
-
             if (AuthenticationManager.isSessionValid(realm, offlineUserSession)) {
                 if (!checkTokenIssuedAt(token, offlineUserSession)) {
-                    return UserSessionValidationResult.error(Errors.INVALID_TOKEN);
+                    return UserSessionValidationResult.error(Errors.INVALID_TOKEN, offlineUserSession, invalidSessionCallback);
                 }
 
                 if (sessionType.isAllowTransientClientSession()) {
@@ -163,10 +157,8 @@ public class UserSessionUtil {
             return UserSessionValidationResult.error(Errors.USER_SESSION_NOT_FOUND);
         }
 
-        event.session(Objects.requireNonNullElse(userSession, offlineUserSession));
-
         logger.debugf("Session '%s' expired", token.getSessionId());
-        return UserSessionValidationResult.error(Errors.SESSION_EXPIRED);
+        return UserSessionValidationResult.error(Errors.SESSION_EXPIRED, userSession != null ? userSession : offlineUserSession, invalidSessionCallback);
     }
 
 
@@ -202,7 +194,7 @@ public class UserSessionUtil {
         return transientSession;
     }
 
-    private static UserSessionValidationResult createTransientSessionForClient(KeycloakSession session, RealmModel realm, AccessToken token, ClientModel client, EventBuilder event) {
+    private static UserSessionValidationResult createTransientSessionForClient(KeycloakSession session, RealmModel realm, AccessToken token, ClientModel client) {
         // create a transient session
         UserModel user = TokenManager.lookupUserFromStatelessToken(session, realm, token);
         if (user == null) {
@@ -255,6 +247,11 @@ public class UserSessionUtil {
         }
 
         private static UserSessionValidationResult error(String error) {
+            return new UserSessionValidationResult(null, error);
+        }
+
+        private static UserSessionValidationResult error(String error, UserSessionModel invalidUserSession, Consumer<UserSessionModel> invalidSessionCallback) {
+            invalidSessionCallback.accept(invalidUserSession);
             return new UserSessionValidationResult(null, error);
         }
 
