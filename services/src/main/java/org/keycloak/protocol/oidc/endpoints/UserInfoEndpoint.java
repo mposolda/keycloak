@@ -229,7 +229,13 @@ public class UserInfoEndpoint {
             throw error.invalidToken("Client disabled");
         }
 
-        UserSessionModel userSession = UserSessionUtil.findValidSession(session, realm, token, event, clientModel, error);
+        UserSessionUtil.UserSessionValidationResult userSessionValidation = UserSessionUtil.findValidSessionForAccessToken(session, realm, token, event, clientModel);
+        if (userSessionValidation.getError() != null) {
+            event.error(userSessionValidation.getError());
+            throw error.invalidToken(userSessionValidation.getError());
+        }
+
+        UserSessionModel userSession = userSessionValidation.getUserSession();
 
         UserModel userModel = userSession.getUser();
         if (userModel == null) {
