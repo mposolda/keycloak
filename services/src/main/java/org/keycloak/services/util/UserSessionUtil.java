@@ -1,5 +1,7 @@
 package org.keycloak.services.util;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -17,6 +19,7 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
+import org.keycloak.models.utils.UserSessionModelDelegate;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.protocol.oidc.encode.AccessTokenContext;
@@ -175,7 +178,15 @@ public class UserSessionUtil {
         String noteValue = userSession.isOffline() ? Constants.CREATED_FROM_PERSISTENT_OFFLINE : Constants.CREATED_FROM_PERSISTENT_ONLINE;
         transientSession.setNote(Constants.CREATED_FROM_PERSISTENT, noteValue);
 
-        return transientSession;
+        // Use "started" time from the original session
+        return new UserSessionModelDelegate(transientSession) {
+
+            @Override
+            public int getStarted() {
+                return userSession.getStarted();
+            }
+
+        };
     }
 
     private static void attachAuthenticationSession(KeycloakSession session, UserSessionModel userSession, ClientModel client) {

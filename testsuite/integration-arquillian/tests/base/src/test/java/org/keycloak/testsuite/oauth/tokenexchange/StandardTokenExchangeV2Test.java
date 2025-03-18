@@ -433,7 +433,7 @@ public class StandardTokenExchangeV2Test extends AbstractClientPoliciesTest {
             final AccessTokenResponse response = tokenExchange(accessToken, "requester-client", "secret", List.of(Constants.REALM_MANAGEMENT_CLIENT_ID), null);
             assertAudiencesAndScopes(response, john, List.of(Constants.REALM_MANAGEMENT_CLIENT_ID), List.of("realm-management-view-scope"));
             final AccessToken exchangedToken = TokenVerifier.create(response.getAccessToken(), AccessToken.class).parse().getToken();
-            assertAccessTokenContext(exchangedToken.getId(), AccessTokenContext.SessionType.TRANSIENT,
+            assertAccessTokenContext(exchangedToken.getId(), AccessTokenContext.SessionType.ONLINE_TRANSIENT_CLIENT,
                     AccessTokenContext.TokenType.REGULAR, OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE);
 
             try (Keycloak keycloak = Keycloak.getInstance(ServerURLs.getAuthServerContextRoot() + "/auth",
@@ -468,7 +468,7 @@ public class StandardTokenExchangeV2Test extends AbstractClientPoliciesTest {
             final AccessTokenResponse response = tokenExchange(accessToken, "requester-client", "secret", List.of(Constants.ACCOUNT_MANAGEMENT_CLIENT_ID), null);
             assertAudiencesAndScopes(response, john, List.of(Constants.ACCOUNT_MANAGEMENT_CLIENT_ID), List.of("account-view-profile-scope"));
             final AccessToken exchangedToken = TokenVerifier.create(response.getAccessToken(), AccessToken.class).parse().getToken();
-            assertAccessTokenContext(exchangedToken.getId(), AccessTokenContext.SessionType.TRANSIENT,
+            assertAccessTokenContext(exchangedToken.getId(), AccessTokenContext.SessionType.ONLINE_TRANSIENT_CLIENT,
                     AccessTokenContext.TokenType.REGULAR, OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE);
 
             final String accountUrl = ServerURLs.getAuthServerContextRoot() + "/auth/realms/test/account";
@@ -898,7 +898,7 @@ public class StandardTokenExchangeV2Test extends AbstractClientPoliciesTest {
             oauth.scope(null);
             AccessTokenResponse response = tokenExchange(accessToken, "requester-client", "secret", List.of("target-client1"), null);
             AccessToken exchangedToken = assertAudiencesAndScopes(response, mike, List.of("target-client1"), List.of("default-scope1"));
-            assertNull(exchangedToken.getSessionId());
+            assertEquals(originalToken.getSessionId(), exchangedToken.getSessionId());
 
             // Refresh token-exchange without "scope=offline_access". Not allowed cos a new new "online" user session is needed (as previous one was offline)
             oauth.scope(null);
