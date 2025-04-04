@@ -13,6 +13,7 @@ import { usePromise } from "../utils/usePromise";
 import { Header } from "./Header";
 import { MenuItem, PageNav } from "./PageNav";
 import { routes } from "../routes";
+import { useAccountAlerts } from "../utils/useAccountAlerts";
 
 function mapRoutes(content: MenuItem[]): RouteObject[] {
   return content
@@ -33,6 +34,7 @@ function mapRoutes(content: MenuItem[]): RouteObject[] {
 
 export const Root = () => {
   const context = useEnvironment<Environment>();
+  const { addAlert, addError } = useAccountAlerts();
   const [content, setContent] = useState<RouteObject[]>();
 
   usePromise(
@@ -52,6 +54,8 @@ export const Root = () => {
           children: mapRoutes(content),
         },
       ]);
+      console.log("Page was loaded!!!");
+      addError("unLinkError", "foo bar error");
     },
   );
 

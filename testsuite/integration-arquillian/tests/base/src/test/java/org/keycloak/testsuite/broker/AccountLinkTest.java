@@ -58,6 +58,7 @@ import static org.keycloak.testsuite.admin.ApiUtil.createUserWithAdminClient;
 import org.keycloak.testsuite.runonserver.RunOnServer;
 import org.keycloak.testsuite.util.AccountHelper;
 import org.keycloak.testsuite.util.FederatedIdentityBuilder;
+import org.keycloak.testsuite.util.WaitUtils;
 
 /**
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
@@ -135,6 +136,8 @@ public class AccountLinkTest extends AbstractKeycloakTest {
     @Test
     public void testAccountLink() {
         String childUsername = "child";
+
+        WaitUtils.pause(50000000);
 
         testAccountLink(childUsername);
     }

@@ -101,6 +101,9 @@ public final class Constants {
     public static final String AUTHENTICATION_EXECUTION = "authenticationExecution";
     public static final String CREDENTIAL_ID = "credentialId";
 
+    // Parameter used when there is an error during IDP linking, which should be sent back to the client, which started client-initiated account linking
+    public static final String IDP_CLIENT_LINK_ERROR_PARAM = "error";
+
     public static final String SKIP_LINK = "skipLink";
     public static final String TEMPLATE_ATTR_ACTION_URI = "actionUri";
     public static final String TEMPLATE_ATTR_REQUIRED_ACTIONS = "requiredActions";

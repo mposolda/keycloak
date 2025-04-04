@@ -30,3 +30,5 @@ export type Feature = {
 };
 
 export const environment = getInjectedEnvironment<Environment>();
+
+console.log("Hello, I am in the environment");

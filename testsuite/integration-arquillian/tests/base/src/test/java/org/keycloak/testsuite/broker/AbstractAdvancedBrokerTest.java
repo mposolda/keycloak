@@ -24,6 +24,7 @@ import org.keycloak.testsuite.client.KeycloakTestingClient;
 import org.keycloak.testsuite.federation.DummyUserFederationProviderFactory;
 import org.keycloak.testsuite.util.AccountHelper;
 import org.keycloak.testsuite.util.ClientBuilder;
+import org.keycloak.testsuite.util.WaitUtils;
 import org.keycloak.testsuite.util.oauth.AccessTokenResponse;
 import org.keycloak.testsuite.util.RealmBuilder;
 import org.keycloak.testsuite.util.TestAppHelper;
@@ -187,6 +188,7 @@ public abstract class AbstractAdvancedBrokerTest extends AbstractBrokerTest {
 
         identityProviderResource.update(idpRep);
 
+        WaitUtils.pause(500000000);
         oauth.clientId("broker-app");
         loginPage.open(bc.consumerRealmName());
 
