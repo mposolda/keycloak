@@ -8,7 +8,11 @@ import {
   RouterProvider,
 } from "react-router-dom";
 import fetchContentJson from "../content/fetchContent";
-import { Environment, environment } from "../environment";
+import {
+  Environment,
+  KcActionContext,
+  environment,
+} from "../environment";
 import { usePromise } from "../utils/usePromise";
 import { Header } from "./Header";
 import { MenuItem, PageNav } from "./PageNav";
@@ -54,7 +58,9 @@ export const Root = () => {
           children: mapRoutes(content),
         },
       ]);
-      console.log("Page was loaded!!!");
+
+      const kcActionContext: KcActionContext = environment.kcActionContext;
+      console.log("Page was loaded!!! kcContext: " + kcActionContext + " action: " + kcActionContext.kcAction + JSON.stringify(kcActionContext));
       addError("unLinkError", "foo bar error");
     },
   );

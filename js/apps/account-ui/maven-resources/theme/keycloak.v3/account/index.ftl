@@ -152,6 +152,11 @@
         "locale": "${locale}",
         "referrerName": "${referrerName!""}",
         "referrerUrl": "${referrer_uri!""}",
+        "kcActionContext": {
+          "kcAction": "${kcActionContext.kcAction!""}",
+          "kcActionStatus": "${kcActionContext.kcActionStatus!""}",
+          "kcActionErrorDetails": "${kcActionContext.kcActionErrorDetails!""}"
+        },
         "features": {
           "isRegistrationEmailAsUsername": ${realm.registrationEmailAsUsername?c},
           "isEditUserNameAllowed": ${realm.editUsernameAllowed?c},

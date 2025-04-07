@@ -8,6 +8,7 @@ import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import jakarta.ws.rs.core.UriBuilder;
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.NoCache;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.authentication.requiredactions.DeleteAccount;
@@ -19,6 +20,7 @@ import org.keycloak.models.IdentityProviderModel;
 import org.keycloak.models.IdentityProviderStorageProvider;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.utils.PkceUtils;
+import org.keycloak.services.resources.account.bean.KcActionContext;
 import org.keycloak.utils.SecureContextResolver;
 import org.keycloak.models.AccountRoles;
 import org.keycloak.models.ClientModel;
@@ -68,6 +70,8 @@ import java.util.stream.Stream;
  * Created by st on 29/03/17.
  */
 public class AccountConsole implements AccountResourceProvider {
+
+    private static final Logger logger = Logger.getLogger(AccountConsole.class);
 
     // Used when some other context (ie. IdentityBrokerService) wants to forward error to account management and display it here
     public static final String ACCOUNT_MGMT_FORWARDED_ERROR_NOTE = "ACCOUNT_MGMT_FORWARDED_ERROR";
@@ -166,6 +170,8 @@ public class AccountConsole implements AccountResourceProvider {
             map.put("referrerName", referrer[1]);
             map.put("referrer_uri", referrer[2]);
         }
+
+        map.put("kcActionContext", new KcActionContext(session));
 
         UserModel user = null;
         if (auth != null) user = auth.getUser();

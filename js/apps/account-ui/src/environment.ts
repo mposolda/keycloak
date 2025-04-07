@@ -14,6 +14,8 @@ export type Environment = BaseEnvironment & {
   referrerUrl?: string;
   /** Feature flags */
   features: Feature;
+  /** Context of the kcAction containing the parameters, which were used when redirect to the account-console was done from some AIA */
+  kcActionContext: KcActionContext;
 };
 
 export type Feature = {
@@ -27,6 +29,12 @@ export type Feature = {
   isViewGroupsEnabled: boolean;
   isViewOrganizationsEnabled: boolean;
   isOid4VciEnabled: boolean;
+};
+
+export type KcActionContext = {
+  kcAction?: string;
+  kcActionStatus?: string;
+  kcActionErrorDetails?: string;
 };
 
 export const environment = getInjectedEnvironment<Environment>();

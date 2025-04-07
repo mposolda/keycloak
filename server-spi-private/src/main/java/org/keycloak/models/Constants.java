@@ -89,6 +89,7 @@ public final class Constants {
     public static final String KC_ACTION_PARAMETER = "kc_action_parameter";
     public static final String KC_ACTION_STATUS = "kc_action_status";
     public static final String KC_ACTION_EXECUTING = "kc_action_executing";
+    public static final String KC_ACTION_ERROR_DETAILS = "kc_action_error_details"; // TODO:mposolda Document this parameter in the AIA docs
     /**
      * Auth session attribute whether an AIA is enforced, which means it cannot be cancelled.
      * <p>Example use case: the action behind the AIA is also defined on the user (for example, UPDATE_PASSWORD).</p>
