@@ -21,6 +21,7 @@ package org.keycloak.testsuite.broker;
 
 import java.net.URI;
 import java.net.URL;
+import java.util.List;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -28,6 +29,7 @@ import org.junit.Test;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.common.util.UriUtils;
 import org.keycloak.models.Constants;
+import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.testsuite.Assert;
 import org.keycloak.testsuite.AssertEvents;
 import org.keycloak.testsuite.util.AccountHelper;
@@ -44,7 +46,15 @@ import static org.junit.Assert.assertTrue;
  */
 public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitializedBaseBrokerTest {
 
-    private static final BrokerConfiguration BROKER_CONFIG_INSTANCE = new KcOidcBrokerConfiguration();
+    private static final BrokerConfiguration BROKER_CONFIG_INSTANCE = new KcOidcBrokerConfiguration() {
+
+        @Override
+        public List<ClientRepresentation> createProviderClients() {
+            List<ClientRepresentation> providerClients = super.createProviderClients();
+            providerClients.get(0).setConsentRequired(true);
+            return providerClients;
+        }
+    };
 
     @Rule
     public AssertEvents events = new AssertEvents(this);
@@ -76,12 +86,14 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
 
         // Check that user is not linked to the IDP
         assertFalse(AccountHelper.isIdentityProviderLinked(adminClient.realm(bc.consumerRealmName()), "user1", bc.getIDPAlias()));
-        events.clear();
 
         // Redirect to link account on behalf of "broker-app" and login to the IDP
         URI clientInitiatedAccountLinkUri = BrokerUtil.createClientInitiatedLinkURI("broker-app", oauth.getRedirectUri(), bc.getIDPAlias(), bc.consumerRealmName(), userSessionId, new URI(OAuthClient.AUTH_SERVER_ROOT)).getAccountLinkUri();
         driver.navigate().to(clientInitiatedAccountLinkUri.toString());
         loginPage.login(bc.getUserLogin(), bc.getUserPassword());
+
+        grantPage.assertCurrent();
+        grantPage.accept();
 
         appPage.assertCurrent();
         Assert.assertNull(getErrorParameter());
