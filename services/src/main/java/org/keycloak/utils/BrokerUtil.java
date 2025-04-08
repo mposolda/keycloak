@@ -31,6 +31,8 @@ import org.keycloak.representations.account.AccountLinkUriRepresentation;
 import org.keycloak.services.Urls;
 
 /**
+ * TODO:mposolda remove this class and use it just from testsuite?
+ *
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
 public class BrokerUtil {

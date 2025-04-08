@@ -129,6 +129,29 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
 
     }
 
+    @Test
+    public void testAccountLinkingConsentRejected() throws Exception {
+        loginToConsumer();
+
+        // Redirect to link account on behalf of "broker-app" and login to the IDP
+        String kcAction = getKcActionParamForLinkIdp(bc.getIDPAlias());
+        oauth.loginForm().kcAction(kcAction).open();
+        loginPage.login(bc.getUserLogin(), bc.getUserPassword());
+
+        events.clear();
+        grantPage.assertCurrent();
+        grantPage.cancel();
+
+        appPage.assertCurrent();
+        assertKcActionParams(IdpLinkAction.PROVIDER_ID, RequiredActionContext.KcActionStatus.CANCELLED.name().toLowerCase(), null);
+
+        assertProviderEvents();
+        assertConsumerSuccessLinkEvents(); // TODO:mposolda different events should be there
+
+        // Check that user is not linked to the IDP
+        assertFalse(AccountHelper.isIdentityProviderLinked(adminClient.realm(bc.consumerRealmName()), "user1", bc.getIDPAlias()));
+    }
+
     private String loginToConsumer() {
         // Login to "consumer" realm with password
         oauth.clientId("broker-app");
