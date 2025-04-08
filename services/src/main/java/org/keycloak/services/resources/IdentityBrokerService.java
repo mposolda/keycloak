@@ -18,8 +18,13 @@ package org.keycloak.services.resources;
 
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.NoCache;
+import org.keycloak.authentication.RequiredActionContext;
+import org.keycloak.authentication.RequiredActionContextResult;
+import org.keycloak.authentication.RequiredActionFactory;
+import org.keycloak.authentication.RequiredActionProvider;
 import org.keycloak.authentication.authenticators.broker.IdpConfirmOverrideLinkAuthenticator;
 import org.keycloak.broker.provider.ExchangeTokenToIdentityProviderToken;
+import org.keycloak.broker.provider.IdpLinkAction;
 import org.keycloak.http.HttpRequest;
 import org.keycloak.OAuthErrorException;
 import org.keycloak.authentication.AuthenticationProcessor;
@@ -131,7 +136,7 @@ import java.util.stream.Stream;
 public class IdentityBrokerService implements IdentityProvider.AuthenticationCallback {
 
     // Authentication session note, which references identity provider that is currently linked
-    private static final String LINKING_IDENTITY_PROVIDER = "LINKING_IDENTITY_PROVIDER";
+    public static final String LINKING_IDENTITY_PROVIDER = "LINKING_IDENTITY_PROVIDER";
 
     private static final Logger logger = Logger.getLogger(IdentityBrokerService.class);
 
@@ -329,6 +334,10 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
         event.detail(Details.CODE_ID, userSession.getId());
         event.success();
 
+        return performClientInitiatedAccountLogin(providerAlias, clientSessionCode);
+    }
+
+    public Response performClientInitiatedAccountLogin(String providerAlias, ClientSessionCode<AuthenticationSessionModel> clientSessionCode) {
         try {
             IdentityProvider<?> identityProvider = getIdentityProvider(session, providerAlias);
             Response response = identityProvider.performLogin(createAuthenticationRequest(identityProvider, providerAlias, clientSessionCode));
@@ -337,16 +346,16 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
                 if (isDebugEnabled()) {
                     logger.debugf("Identity provider [%s] is going to send a request [%s].", identityProvider, response);
                 }
+
                 return response;
             }
         } catch (IdentityBrokerException e) {
-            return redirectToErrorPage(authSession, Response.Status.INTERNAL_SERVER_ERROR, Messages.COULD_NOT_SEND_AUTHENTICATION_REQUEST, e, providerAlias);
+            return redirectToErrorPage(clientSessionCode.getClientSession(), Response.Status.INTERNAL_SERVER_ERROR, Messages.COULD_NOT_SEND_AUTHENTICATION_REQUEST, e, providerAlias);
         } catch (Exception e) {
-            return redirectToErrorPage(authSession, Response.Status.INTERNAL_SERVER_ERROR, Messages.UNEXPECTED_ERROR_HANDLING_REQUEST, e, providerAlias);
+            return redirectToErrorPage(clientSessionCode.getClientSession(), Response.Status.INTERNAL_SERVER_ERROR, Messages.UNEXPECTED_ERROR_HANDLING_REQUEST, e, providerAlias);
         }
 
-        return redirectToErrorPage(authSession, Response.Status.INTERNAL_SERVER_ERROR, Messages.COULD_NOT_PROCEED_WITH_AUTHENTICATION_REQUEST);
-
+        return redirectToErrorPage(clientSessionCode.getClientSession(), Response.Status.INTERNAL_SERVER_ERROR, Messages.COULD_NOT_PROCEED_WITH_AUTHENTICATION_REQUEST);
     }
 
 
@@ -1000,18 +1009,9 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
 
         context.getIdp().authenticationFinished(authSession, context);
 
-        AuthenticationManager.setClientScopesInSession(session, authSession);
-        TokenManager.attachAuthenticationSession(session, userSession, authSession);
-
         if (isDebugEnabled()) {
             logger.debugf("Linking account [%s] from identity provider [%s] to user [%s].", newModel, context.getIdpConfig().getAlias(), authenticatedUser);
         }
-
-        this.event.user(authenticatedUser)
-                .detail(Details.USERNAME, authenticatedUser.getUsername())
-                .detail(Details.IDENTITY_PROVIDER, newModel.getIdentityProvider())
-                .detail(Details.IDENTITY_PROVIDER_USERNAME, newModel.getUserName())
-                .success();
 
         // we do this to make sure that the parent IDP is logged out when this user session is complete.
         // But for the case when userSession was previously authenticated with broker1 and now is linked to another broker2, we shouldn't override broker1 notes with the broker2 for sure.
@@ -1021,7 +1021,33 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
             userSession.setNote(Details.IDENTITY_PROVIDER_USERNAME, context.getUsername());
         }
 
-        return Response.status(302).location(UriBuilder.fromUri(authSession.getRedirectUri()).build()).build();
+        authSession.setAuthNote(IdpLinkAction.IDP_LINK_STATUS, RequiredActionContext.KcActionStatus.SUCCESS.name());
+        // TODO:mposolda this redirect should be done from some method though?
+        URI redirect;
+        if (Boolean.parseBoolean(authSession.getAuthNote(IdpLinkAction.KC_ACTION_LINKING_IDENTITY_PROVIDER))) {
+            authSession.setAuthNote(Details.IDENTITY_PROVIDER, context.getIdpConfig().getAlias());
+            authSession.setAuthNote(Details.IDENTITY_PROVIDER_USERNAME, context.getUsername());
+            authSession.setAuthNote(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID, context.getBrokerSessionId());
+
+            // Redirect to idp_link action to finish the flow properly
+            authSession.setAction(AuthenticationSessionModel.Action.REQUIRED_ACTIONS.name());
+            RequiredActionFactory factory = (RequiredActionFactory) session.getKeycloakSessionFactory()
+                    .getProviderFactory(RequiredActionProvider.class, authSession.getClientNote(Constants.KC_ACTION));
+            redirect = new RequiredActionContextResult(authSession, realmModel, event, session, request, authenticatedUser, factory).getActionUrl();
+        } else {
+            // Legacy client-initiated account linking
+            AuthenticationManager.setClientScopesInSession(session, authSession);
+            TokenManager.attachAuthenticationSession(session, userSession, authSession);
+
+            this.event.user(authenticatedUser)
+                    .detail(Details.USERNAME, authenticatedUser.getUsername())
+                    .detail(Details.IDENTITY_PROVIDER, newModel.getIdentityProvider())
+                    .detail(Details.IDENTITY_PROVIDER_USERNAME, newModel.getUserName())
+                    .success();
+
+            redirect = UriBuilder.fromUri(authSession.getRedirectUri()).build();
+        }
+        return Response.status(302).location(redirect).build();
     }
 
 

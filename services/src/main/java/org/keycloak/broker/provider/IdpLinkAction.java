@@ -1,0 +1,219 @@
+/*
+ * Copyright 2025 Red Hat, Inc. and/or its affiliates
+ *  and other contributors as indicated by the @author tags.
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */
+
+package org.keycloak.broker.provider;
+
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
+import org.jboss.logging.Logger;
+import org.keycloak.Config;
+import org.keycloak.authentication.InitiatedActionSupport;
+import org.keycloak.authentication.RequiredActionContext;
+import org.keycloak.authentication.RequiredActionFactory;
+import org.keycloak.authentication.RequiredActionProvider;
+import org.keycloak.events.Details;
+import org.keycloak.events.Errors;
+import org.keycloak.events.EventBuilder;
+import org.keycloak.events.EventType;
+import org.keycloak.models.AccountRoles;
+import org.keycloak.models.ClientModel;
+import org.keycloak.models.Constants;
+import org.keycloak.models.IdentityProviderModel;
+import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.KeycloakSessionFactory;
+import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
+import org.keycloak.models.UserModel;
+import org.keycloak.services.managers.AuthenticationManager;
+import org.keycloak.services.managers.ClientSessionCode;
+import org.keycloak.services.resources.IdentityBrokerService;
+import org.keycloak.sessions.AuthenticationSessionModel;
+
+import static org.keycloak.services.resources.IdentityBrokerService.LINKING_IDENTITY_PROVIDER;
+
+/**
+ * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
+ */
+public class IdpLinkAction implements RequiredActionProvider, RequiredActionFactory {
+
+    protected static final Logger logger = Logger.getLogger(IdpLinkAction.class);
+
+    public static final String PROVIDER_ID = "idp_link";
+
+    // Authentication session note indicating that client-initiated account linking was triggered from this action
+    public static final String KC_ACTION_LINKING_IDENTITY_PROVIDER = "kc_action_linking_identity_provider";
+
+    // Authentication session notes with the status of IDP linking and with the error from IDP linking (idp_link_error filled just in case that status is "error")
+    public static final String IDP_LINK_STATUS = "idp_link_status";
+    public static final String IDP_LINK_ERROR = "idp_link_error";
+
+    @Override
+    public RequiredActionProvider create(KeycloakSession session) {
+        return this;
+    }
+
+    @Override
+    public InitiatedActionSupport initiatedActionSupport() {
+        return InitiatedActionSupport.SUPPORTED;
+    }
+
+    @Override
+    public void init(Config.Scope config) {
+
+    }
+
+    @Override
+    public void postInit(KeycloakSessionFactory factory) {
+
+    }
+
+    @Override
+    public String getId() {
+        return PROVIDER_ID;
+    }
+
+
+    @Override
+    public void evaluateTriggers(RequiredActionContext context) {
+
+    }
+
+    @Override
+    public void requiredActionChallenge(RequiredActionContext context) {
+        AuthenticationSessionModel authSession = context.getAuthenticationSession();
+        KeycloakSession session = context.getSession();
+        RealmModel realm = context.getRealm();
+        UserModel user = context.getUser();
+        ClientModel client = authSession.getClient();
+        EventBuilder event = context.getEvent();
+        event.event(EventType.FEDERATED_IDENTITY_LINK);
+
+        AuthenticationManager.AuthResult authResult = AuthenticationManager.authenticateIdentityCookie(context.getSession(),
+                context.getRealm(), true);
+        if (authResult == null) {
+            sendError(context, Errors.NOT_LOGGED_IN);
+            return;
+        }
+
+        String identityProviderAlias = authSession.getClientNote(Constants.KC_ACTION_PARAMETER);
+        event.detail(Details.IDENTITY_PROVIDER, identityProviderAlias);
+
+        // Check role
+        ClientModel accountService = realm.getClientByClientId(Constants.ACCOUNT_MANAGEMENT_CLIENT_ID);
+        RoleModel manageAccountRole = accountService.getRole(AccountRoles.MANAGE_ACCOUNT);
+        if (!user.hasRole(manageAccountRole) || !client.hasScope(manageAccountRole)) {
+            RoleModel linkRole = accountService.getRole(AccountRoles.MANAGE_ACCOUNT_LINKS);
+            if (!user.hasRole(linkRole) || !client.hasScope(linkRole)) {
+                sendError(context, Errors.NOT_ALLOWED);
+                return;
+            }
+        }
+
+        IdentityProviderModel identityProviderModel = session.identityProviders().getByAlias(identityProviderAlias);
+        if (identityProviderModel == null) {
+            sendError(context, Errors.UNKNOWN_IDENTITY_PROVIDER);
+            return;
+        }
+
+        ClientSessionCode<AuthenticationSessionModel> clientSessionCode = new ClientSessionCode<>(session, realm, authSession);
+        clientSessionCode.setAction(AuthenticationSessionModel.Action.AUTHENTICATE.name());
+        String noteValue = authResult.getSession().getId() + client.getClientId() + identityProviderAlias;
+        authSession.setAuthNote(LINKING_IDENTITY_PROVIDER, noteValue);
+        authSession.setAuthNote(KC_ACTION_LINKING_IDENTITY_PROVIDER, "true");
+
+        IdentityBrokerService brokerService = new IdentityBrokerService(session);
+        Response response = brokerService.performClientInitiatedAccountLogin(identityProviderAlias, clientSessionCode);
+        context.challenge(response);
+    }
+
+    @Override
+    public void processAction(RequiredActionContext context) {
+        AuthenticationSessionModel authSession = context.getAuthenticationSession();
+        EventBuilder event = context.getEvent();
+        event.event(EventType.FEDERATED_IDENTITY_LINK)
+                .detail(Details.IDENTITY_PROVIDER, authSession.getAuthNote(Details.IDENTITY_PROVIDER))
+                .detail(Details.IDENTITY_PROVIDER_USERNAME, authSession.getAuthNote(Details.IDENTITY_PROVIDER_USERNAME))
+                .detail(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID, authSession.getAuthNote(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID));
+
+        if (Boolean.parseBoolean(authSession.getAuthNote(IdpLinkAction.KC_ACTION_LINKING_IDENTITY_PROVIDER))) {
+            // Status is supposed to be set by IdentityBrokerService
+            String statusNote = authSession.getAuthNote(IdpLinkAction.IDP_LINK_STATUS);
+            if (statusNote == null) {
+                removeAuthNotes(authSession);
+                logger.warn("Not found IDP_LINK_STATUS even if redirect to IDP was already triggered");
+                context.failure(Errors.INVALID_REQUEST);
+                return;
+            }
+            RequiredActionContext.KcActionStatus status = RequiredActionContext.KcActionStatus.valueOf(statusNote);
+            switch (status) {
+                case SUCCESS:
+                    context.success();
+                    break;
+                case CANCELLED:
+                    context.failure(); // TODO:mposolda is "failure" proper status for the case when authentication was cancelled?
+                    break;
+                case ERROR:
+                    String error = authSession.getAuthNote(IDP_LINK_ERROR);
+                    context.failure(error); // TODO:mposolda doublecheck this... (including error events etc)
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown status in the note idp_link_status: " + status);
+            }
+            removeAuthNotes(authSession);
+        }
+    }
+
+    private void removeAuthNotes(AuthenticationSessionModel authSession) {
+        authSession.removeAuthNote(IdpLinkAction.KC_ACTION_LINKING_IDENTITY_PROVIDER);
+        authSession.removeAuthNote(IdpLinkAction.IDP_LINK_STATUS);
+        authSession.removeAuthNote(IdpLinkAction.IDP_LINK_ERROR);
+        authSession.removeAuthNote(Details.IDENTITY_PROVIDER);
+        authSession.removeAuthNote(Details.IDENTITY_PROVIDER_USERNAME);
+        authSession.removeAuthNote(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID);
+    }
+
+    @Override
+    public String getDisplayText() {
+        return "Linking Identity Provider";
+    }
+
+    @Override
+    public void close() {
+
+    }
+
+    //TODO:mposolda remove this method and work with context instead?
+    private void sendError(RequiredActionContext context, String error) {
+        // TODO:mposolda check if events are triggered from elsewhere or if they need to be triggered
+//        context.getEvent()
+//                .error(error);
+        context.failure(error);
+    }
+
+    // TODO:mposolda should this be done by framework? Likely remove this method...
+    private Response redirectToApplication(String redirectUri, RequiredActionContext.KcActionStatus actionStatus, String errorDetails) {
+        UriBuilder builder = UriBuilder.fromUri(redirectUri)
+                .queryParam(Constants.KC_ACTION, PROVIDER_ID)
+                .queryParam(Constants.KC_ACTION_STATUS, actionStatus.name().toLowerCase());
+        if (errorDetails != null) {
+            builder.queryParam(Constants.KC_ACTION_ERROR_DETAILS, errorDetails);
+        }
+        return Response.status(302).location(builder.build()).build();
+    }
+}
