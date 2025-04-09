@@ -1199,9 +1199,12 @@ public class LoginActionsService {
             response = interruptionResponse(context, authSession, action, Error.CONSENT_DENIED);
         } else if (context.getStatus() == RequiredActionContext.Status.FAILURE_REDIRECT) {
             event.clone().error(context.getErrorMessage());
-            authSession.setAuthNote(Constants.KC_ACTION_ERROR_DETAILS, context.getErrorMessage());
             initLoginEvent(authSession);
             event.event(EventType.LOGIN);
+            AuthenticationManager.setKcActionStatus(factory.getId(), context.getKcActionStatus(), authSession);
+            if (context.getKcActionStatus() == RequiredActionContext.KcActionStatus.ERROR) {
+                authSession.setAuthNote(Constants.KC_ACTION_ERROR_DETAILS, context.getErrorMessage());
+            }
             authSession.removeAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION);
             response = AuthenticationManager.nextActionAfterAuthentication(session, authSession, clientConnection, request, session.getContext().getUri(), event);
         } else {

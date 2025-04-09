@@ -121,6 +121,8 @@ public interface RequiredActionContext {
 
     Status getStatus();
 
+    KcActionStatus getKcActionStatus();
+
     String getErrorMessage();
 
     /**

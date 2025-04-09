@@ -28,7 +28,6 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RequiredActionConfigModel;
 import org.keycloak.models.UserModel;
-import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.ClientSessionCode;
 import org.keycloak.services.resources.LoginActionsService;
 import org.keycloak.sessions.AuthenticationSessionModel;
@@ -47,6 +46,7 @@ public class RequiredActionContextResult implements RequiredActionContext {
     protected EventBuilder eventBuilder;
     protected KeycloakSession session;
     protected Status status;
+    protected KcActionStatus kcActionStatus;
     protected String errorMessage;
     protected Response challenge;
     protected HttpRequest httpRequest;
@@ -123,6 +123,11 @@ public class RequiredActionContextResult implements RequiredActionContext {
     }
 
     @Override
+    public KcActionStatus getKcActionStatus() {
+        return kcActionStatus;
+    }
+
+    @Override
     public String getErrorMessage() {
         return errorMessage;
     }
@@ -142,8 +147,8 @@ public class RequiredActionContextResult implements RequiredActionContext {
 
     @Override
     public void failureRedirect(KcActionStatus status, String errorMessage) {
-        AuthenticationManager.setKcActionStatus(getFactory().getId(), status, authenticationSession);
         this.errorMessage = errorMessage;
+        this.kcActionStatus = status;
         this.status = Status.FAILURE_REDIRECT;
     }
 

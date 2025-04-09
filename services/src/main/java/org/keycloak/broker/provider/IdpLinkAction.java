@@ -20,7 +20,6 @@
 package org.keycloak.broker.provider;
 
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriBuilder;
 import org.jboss.logging.Logger;
 import org.keycloak.Config;
 import org.keycloak.authentication.InitiatedActionSupport;
@@ -107,7 +106,8 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
         AuthenticationManager.AuthResult authResult = AuthenticationManager.authenticateIdentityCookie(context.getSession(),
                 context.getRealm(), true);
         if (authResult == null) {
-            sendError(context, Errors.NOT_LOGGED_IN);
+            // TODO:mposolda test that when "kc_action" is triggered when user is not yet logged-in, it will work as expected...
+            context.failureRedirect(RequiredActionContext.KcActionStatus.ERROR, Errors.NOT_LOGGED_IN);
             return;
         }
 
@@ -120,14 +120,14 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
         if (!user.hasRole(manageAccountRole) || !client.hasScope(manageAccountRole)) {
             RoleModel linkRole = accountService.getRole(AccountRoles.MANAGE_ACCOUNT_LINKS);
             if (!user.hasRole(linkRole) || !client.hasScope(linkRole)) {
-                sendError(context, Errors.NOT_ALLOWED);
+                context.failureRedirect(RequiredActionContext.KcActionStatus.ERROR, Errors.NOT_ALLOWED);
                 return;
             }
         }
 
         IdentityProviderModel identityProviderModel = session.identityProviders().getByAlias(identityProviderAlias);
         if (identityProviderModel == null) {
-            sendError(context, Errors.UNKNOWN_IDENTITY_PROVIDER);
+            context.failureRedirect(RequiredActionContext.KcActionStatus.ERROR, Errors.UNKNOWN_IDENTITY_PROVIDER);
             return;
         }
 
@@ -197,24 +197,5 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
     @Override
     public void close() {
 
-    }
-
-    //TODO:mposolda remove this method and work with context instead?
-    private void sendError(RequiredActionContext context, String error) {
-        // TODO:mposolda check if events are triggered from elsewhere or if they need to be triggered
-//        context.getEvent()
-//                .error(error);
-        context.failure(error);
-    }
-
-    // TODO:mposolda should this be done by framework? Likely remove this method...
-    private Response redirectToApplication(String redirectUri, RequiredActionContext.KcActionStatus actionStatus, String errorDetails) {
-        UriBuilder builder = UriBuilder.fromUri(redirectUri)
-                .queryParam(Constants.KC_ACTION, PROVIDER_ID)
-                .queryParam(Constants.KC_ACTION_STATUS, actionStatus.name().toLowerCase());
-        if (errorDetails != null) {
-            builder.queryParam(Constants.KC_ACTION_ERROR_DETAILS, errorDetails);
-        }
-        return Response.status(302).location(builder.build()).build();
     }
 }

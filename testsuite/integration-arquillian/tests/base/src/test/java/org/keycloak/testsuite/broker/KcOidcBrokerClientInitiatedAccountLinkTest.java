@@ -21,6 +21,7 @@ package org.keycloak.testsuite.broker;
 
 import java.net.URI;
 import java.net.URL;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.ws.rs.core.Response;
@@ -38,6 +39,7 @@ import org.keycloak.events.Errors;
 import org.keycloak.events.EventType;
 import org.keycloak.models.Constants;
 import org.keycloak.representations.idm.ClientRepresentation;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.testsuite.Assert;
 import org.keycloak.testsuite.AssertEvents;
@@ -161,22 +163,7 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
                     .assertEvent();
 
             // Consumer - rejected provider consent screen event propagated
-            events.expect(EventType.FEDERATED_IDENTITY_LINK_ERROR)
-                    .realm(consumerRealmId)
-                    .client("broker-app")
-                    .user(consumerUserId)
-                    .detail(Details.USERNAME, consumerUsername)
-                    .detail(Details.IDENTITY_PROVIDER, IDP_OIDC_ALIAS)
-                    .error(Errors.REJECTED_BY_USER)
-                    .assertEvent();
-
-            events.expect(EventType.LOGIN)
-                    .realm(consumerRealmId)
-                    .client("broker-app")
-                    .user(consumerUserId)
-                    .session(Matchers.any(String.class))
-                    .detail(Details.USERNAME, consumerUsername)
-                    .assertEvent();
+            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Errors.REJECTED_BY_USER);
 
             events.assertEmpty();
         });
@@ -208,33 +195,42 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
 
         assertEvents((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
             assertProviderEventsSuccess(providerRealmId, providerUserId);
-
-            String user2Id = adminClient.realm(bc.consumerRealmName()).users().search("user2").iterator().next().getId();
-
-            events.expect(EventType.FEDERATED_IDENTITY_LINK_ERROR)
-                    .realm(consumerRealmId)
-                    .client("broker-app")
-                    .user(consumerUserId)
-                    .detail(Details.USERNAME, consumerUsername)
-                    .detail(Details.IDENTITY_PROVIDER, IDP_OIDC_ALIAS)
-                    .error(Errors.IDENTITY_PROVIDER_ALREADY_LINKED)
-                    .assertEvent();
-
-            events.expect(EventType.LOGIN)
-                    .realm(consumerRealmId)
-                    .client("broker-app")
-                    .user(consumerUserId)
-                    .session(Matchers.any(String.class))
-                    .detail(Details.USERNAME, consumerUsername)
-                    .assertEvent();
+            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Errors.IDENTITY_PROVIDER_ALREADY_LINKED);
 
             events.assertEmpty();
         });
     }
 
-    // TODO:mposolda Test user does not have roles
+
     @Test
-    public void testAccountLinkingDifferentUserLinked() throws Exception {
+    public void testAccountLinkingUserNotAllowed() throws Exception {
+        // Remove "manage-account" role from user
+        RealmResource consumerRealm = adminClient.realm(bc.consumerRealmName());
+        String user1Id = consumerRealm.users().search("user1").iterator().next().getId();
+
+        RoleRepresentation defaultRoles = consumerRealm.roles().get(Constants.DEFAULT_ROLES_ROLE_PREFIX + "-" + bc.consumerRealmName()).toRepresentation();
+        consumerRealm.users().get(user1Id).roles().realmLevel().remove(Collections.singletonList(defaultRoles));
+
+        // Linking the user "user1" to the IDP not allowed due insufficient permissions
+        loginToConsumer();
+
+        events.clear();
+
+        String kcAction = getKcActionParamForLinkIdp(bc.getIDPAlias());
+        oauth.loginForm().kcAction(kcAction).open();
+
+        // Should be redirected to the application even before being redirected to IDP for authentication
+        appPage.assertCurrent();
+        assertKcActionParams(IdpLinkAction.PROVIDER_ID, RequiredActionContext.KcActionStatus.ERROR.name().toLowerCase(), Errors.NOT_ALLOWED);
+
+        // Check that user is not linked to the IDP
+        assertFalse(AccountHelper.isIdentityProviderLinked(adminClient.realm(bc.consumerRealmName()), "user1", bc.getIDPAlias()));
+
+        assertEvents((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
+            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Errors.NOT_ALLOWED);
+
+            events.assertEmpty();
+        });
 
     }
 
@@ -326,6 +322,27 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
                 .user(consumerUserId)
                 .session(Matchers.any(String.class))
                 .detail(Details.USERNAME, username)
+                .assertEvent();
+
+        events.assertEmpty();
+    }
+
+    private void assertConsumerFailedLinkEvents(String consumerRealmId, String consumerUserId, String consumerUsername, String expectedError) {
+        events.expect(EventType.FEDERATED_IDENTITY_LINK_ERROR)
+                .realm(consumerRealmId)
+                .client("broker-app")
+                .user(consumerUserId)
+                .detail(Details.USERNAME, consumerUsername)
+                .detail(Details.IDENTITY_PROVIDER, IDP_OIDC_ALIAS)
+                .error(expectedError)
+                .assertEvent();
+
+        events.expect(EventType.LOGIN)
+                .realm(consumerRealmId)
+                .client("broker-app")
+                .user(consumerUserId)
+                .session(Matchers.any(String.class))
+                .detail(Details.USERNAME, consumerUsername)
                 .assertEvent();
 
         events.assertEmpty();
