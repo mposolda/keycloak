@@ -145,13 +145,14 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
     @Override
     public void processAction(RequiredActionContext context) {
         AuthenticationSessionModel authSession = context.getAuthenticationSession();
-        EventBuilder event = context.getEvent();
-        event.event(EventType.FEDERATED_IDENTITY_LINK)
-                .detail(Details.IDENTITY_PROVIDER, authSession.getAuthNote(Details.IDENTITY_PROVIDER))
-                .detail(Details.IDENTITY_PROVIDER_USERNAME, authSession.getAuthNote(Details.IDENTITY_PROVIDER_USERNAME))
-                .detail(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID, authSession.getAuthNote(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID));
 
         if (Boolean.parseBoolean(authSession.getAuthNote(IdpLinkAction.KC_ACTION_LINKING_IDENTITY_PROVIDER))) {
+            EventBuilder event = context.getEvent();
+            event.event(EventType.FEDERATED_IDENTITY_LINK)
+                    .detail(Details.IDENTITY_PROVIDER, authSession.getAuthNote(Details.IDENTITY_PROVIDER))
+                    .detail(Details.IDENTITY_PROVIDER_USERNAME, authSession.getAuthNote(Details.IDENTITY_PROVIDER_USERNAME))
+                    .detail(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID, authSession.getAuthNote(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID));
+
             // Status is supposed to be set by IdentityBrokerService
             String statusNote = authSession.getAuthNote(IdpLinkAction.IDP_LINK_STATUS);
             if (statusNote == null) {
@@ -166,11 +167,11 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
                     context.success();
                     break;
                 case CANCELLED:
-                    context.failure(); // TODO:mposolda is "failure" proper status for the case when authentication was cancelled?
+                    context.failureRedirect(RequiredActionContext.KcActionStatus.CANCELLED, Errors.REJECTED_BY_USER); // TODO:mposolda is "failure" proper status for the case when authentication was cancelled?
                     break;
                 case ERROR:
                     String error = authSession.getAuthNote(IDP_LINK_ERROR);
-                    context.failure(error); // TODO:mposolda doublecheck this... (including error events etc)
+                    context.failureRedirect(RequiredActionContext.KcActionStatus.ERROR, error); // TODO:mposolda doublecheck this... (including error events etc)
                     break;
                 default:
                     throw new IllegalStateException("Unknown status in the note idp_link_status: " + status);

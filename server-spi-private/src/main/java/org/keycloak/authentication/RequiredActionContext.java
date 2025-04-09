@@ -42,7 +42,8 @@ public interface RequiredActionContext {
         CHALLENGE,
         SUCCESS,
         IGNORE,
-        FAILURE
+        FAILURE,
+        FAILURE_REDIRECT // TODO:mposolda maybe better name?
     }
 
     enum KcActionStatus {
@@ -134,6 +135,9 @@ public interface RequiredActionContext {
      *
      */
     void failure(String errorMessage);
+
+    // TODO:mposolda javadoc (and maybe rename?)
+    void failureRedirect(KcActionStatus status, String errorMessage);
 
     /**
      * Abort the authentication with an error

@@ -915,12 +915,13 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
     @Override
     public Response cancelled(IdentityProviderModel idpConfig) {
         AuthenticationSessionModel authSession = session.getContext().getAuthenticationSession();
+        event.detail(Details.IDENTITY_PROVIDER, idpConfig.getAlias());
 
         // Check if federatedUser is already authenticated (this means linking social into existing federatedUser account)
         UserSessionModel userSession = new AuthenticationSessionManager(session).getUserSession(authSession);
         if (isDoingAccountLinking(authSession, userSession, true, idpConfig.getAlias())) {
             authSession.setAuthNote(IdpLinkAction.IDP_LINK_STATUS, RequiredActionContext.KcActionStatus.CANCELLED.name());
-            return redirectAfterIDPLinking(authSession);
+            return redirectAfterIDPLinking(authSession, idpConfig);
         }
         String idpDisplayName = KeycloakModelUtils.getIdentityProviderDisplayName(session, idpConfig);
         return browserAuthentication(authSession, Messages.ACCESS_DENIED_WHEN_IDP_AUTH, idpDisplayName);
@@ -929,11 +930,12 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
     @Override
     public Response error(IdentityProviderModel idpConfig, String message) {
         AuthenticationSessionModel authSession = session.getContext().getAuthenticationSession();
+        event.detail(Details.IDENTITY_PROVIDER, idpConfig.getAlias());
 
         // Check if federatedUser is already authenticated (this means linking social into existing federatedUser account)
         UserSessionModel userSession = new AuthenticationSessionManager(session).getUserSession(authSession);
         if (isDoingAccountLinking(authSession, userSession, true, idpConfig.getAlias())) {
-            return redirectToErrorWhenLinkingFailed(authSession, message);
+            return redirectToErrorWhenLinkingFailed(authSession, message, idpConfig);
         }
 
         Response passiveLoginErrorReturned = checkPassiveLoginError(authSession, message);
@@ -984,7 +986,8 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
         authSession.setAuthenticatedUser(authenticatedUser);
 
         if (federatedUser != null && !authenticatedUser.getId().equals(federatedUser.getId())) {
-            return redirectToErrorWhenLinkingFailed(authSession, Errors.IDENTITY_PROVIDER_ALREADY_LINKED);
+            // TODO:mposolda not 100% sure if to rather use Messages.IDENTITY_PROVIDER_ALREADY_LINKED. Doublecheck with account-console etc...
+            return redirectToErrorWhenLinkingFailed(authSession, Errors.IDENTITY_PROVIDER_ALREADY_LINKED, context.getIdpConfig());
         }
 
         if (!authenticatedUser.hasRole(this.realmModel.getClientByClientId(Constants.ACCOUNT_MANAGEMENT_CLIENT_ID).getRole(AccountRoles.MANAGE_ACCOUNT))) {
@@ -992,7 +995,8 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
         }
 
         if (!authenticatedUser.isEnabled()) {
-            return redirectToErrorWhenLinkingFailed(authSession, Errors.USER_DISABLED);
+            // TODO:mposolda not 100% sure if to rather use Messages.ACCOUNT_DISABLED. Same point as above
+            return redirectToErrorWhenLinkingFailed(authSession, Errors.USER_DISABLED, context.getIdpConfig());
         }
 
 
@@ -1046,14 +1050,17 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
                     .detail(Details.IDENTITY_PROVIDER_USERNAME, newModel.getUserName())
                     .success();
         }
-        return redirectAfterIDPLinking(authSession);
+        return redirectAfterIDPLinking(authSession, context.getIdpConfig());
     }
 
-    private Response redirectAfterIDPLinking(AuthenticationSessionModel authSession) {
+    private Response redirectAfterIDPLinking(AuthenticationSessionModel authSession, IdentityProviderModel idpModel) {
         URI redirect;
         if (Boolean.parseBoolean(authSession.getAuthNote(IdpLinkAction.KC_ACTION_LINKING_IDENTITY_PROVIDER))) {
             // Redirect to idp_link action to finish the flow properly
             authSession.setAction(AuthenticationSessionModel.Action.REQUIRED_ACTIONS.name());
+            if (idpModel != null) {
+                authSession.setAuthNote(Details.IDENTITY_PROVIDER, idpModel.getAlias());
+            }
             RequiredActionFactory factory = (RequiredActionFactory) session.getKeycloakSessionFactory()
                     .getProviderFactory(RequiredActionProvider.class, authSession.getClientNote(Constants.KC_ACTION));
             redirect = new RequiredActionContextResult(authSession, realmModel, event, session, request, authSession.getAuthenticatedUser(), factory).getActionUrl();
@@ -1065,10 +1072,10 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
     }
 
 
-    private Response redirectToErrorWhenLinkingFailed(AuthenticationSessionModel authSession, String error) {
+    private Response redirectToErrorWhenLinkingFailed(AuthenticationSessionModel authSession, String error, IdentityProviderModel idpConfig) {
         authSession.setAuthNote(IdpLinkAction.IDP_LINK_STATUS, RequiredActionContext.KcActionStatus.ERROR.name());
         authSession.setAuthNote(IdpLinkAction.IDP_LINK_ERROR, error);
-        return redirectAfterIDPLinking(authSession);
+        return redirectAfterIDPLinking(authSession, idpConfig);
     }
 
 
@@ -1191,7 +1198,7 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
                 // Check if error happened during login or during linking from some application like account console
                 UserSessionModel userSession = new AuthenticationSessionManager(session).getUserSession(authSession);
                 if (isDoingAccountLinking(authSession, userSession, false, null)) {
-                    Response accountManagementFailedLinking = redirectToErrorWhenLinkingFailed(authSession, Messages.STALE_CODE_ACCOUNT);
+                    Response accountManagementFailedLinking = redirectToErrorWhenLinkingFailed(authSession, Messages.STALE_CODE_ACCOUNT, null);
                     throw new WebApplicationException(accountManagementFailedLinking);
                 } else {
                     Response errorResponse = checks.getResponse();

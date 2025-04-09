@@ -1197,6 +1197,12 @@ public class LoginActionsService {
             response = context.getChallenge();
         } else if (context.getStatus() == RequiredActionContext.Status.FAILURE) {
             response = interruptionResponse(context, authSession, action, Error.CONSENT_DENIED);
+        } else if (context.getStatus() == RequiredActionContext.Status.FAILURE_REDIRECT) {
+            event.clone().error(context.getErrorMessage());
+            initLoginEvent(authSession);
+            event.event(EventType.LOGIN);
+            authSession.removeAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION);
+            response = AuthenticationManager.nextActionAfterAuthentication(session, authSession, clientConnection, request, session.getContext().getUri(), event);
         } else {
             throw new RuntimeException("Unreachable");
         }
