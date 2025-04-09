@@ -987,6 +987,7 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
 
         if (federatedUser != null && !authenticatedUser.getId().equals(federatedUser.getId())) {
             // TODO:mposolda not 100% sure if to rather use Messages.IDENTITY_PROVIDER_ALREADY_LINKED. Doublecheck with account-console etc...
+            logger.debugf("Cannot link user '%s' to identity provider '%s' . Other user '%s' already linked with the identity provider", authenticatedUser.getUsername(), context.getIdpConfig().getAlias(), federatedUser.getUsername());
             return redirectToErrorWhenLinkingFailed(authSession, Errors.IDENTITY_PROVIDER_ALREADY_LINKED, context.getIdpConfig());
         }
 

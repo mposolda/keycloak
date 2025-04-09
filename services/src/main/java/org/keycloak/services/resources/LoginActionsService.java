@@ -1199,6 +1199,7 @@ public class LoginActionsService {
             response = interruptionResponse(context, authSession, action, Error.CONSENT_DENIED);
         } else if (context.getStatus() == RequiredActionContext.Status.FAILURE_REDIRECT) {
             event.clone().error(context.getErrorMessage());
+            authSession.setAuthNote(Constants.KC_ACTION_ERROR_DETAILS, context.getErrorMessage());
             initLoginEvent(authSession);
             event.event(EventType.LOGIN);
             authSession.removeAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION);

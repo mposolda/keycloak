@@ -23,6 +23,7 @@ import java.net.URI;
 import java.net.URL;
 import java.util.List;
 
+import jakarta.ws.rs.core.Response;
 import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Rule;
@@ -123,10 +124,10 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
         // Check that user is linked to the IDP
         assertTrue(AccountHelper.isIdentityProviderLinked(adminClient.realm(bc.consumerRealmName()), "user1", bc.getIDPAlias()));
 
-        assertEvents(((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
-            assertProviderEvents(providerRealmId, providerUserId);
+        assertEvents((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
+            assertProviderEventsSuccess(providerRealmId, providerUserId);
             assertConsumerSuccessLinkEvents(consumerRealmId, consumerUserId, consumerUsername);
-        }));
+        });
     }
 
     @Test
@@ -148,7 +149,7 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
         // Check that user is not linked to the IDP
         assertFalse(AccountHelper.isIdentityProviderLinked(adminClient.realm(bc.consumerRealmName()), "user1", bc.getIDPAlias()));
 
-        assertEvents(((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
+        assertEvents((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
             // Provider login - rejected consent screen
             events.expect(EventType.LOGIN_ERROR)
                     .realm(providerRealmId)
@@ -178,12 +179,64 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
                     .assertEvent();
 
             events.assertEmpty();
-        }));
+        });
     }
 
-    // TODO:mposolda Test user already linked to different account
+
+    @Test
+    public void testAccountLinkingDifferentUserLinked() throws Exception {
+        // Link IDP to user "user2"
+        Response response = AccountHelper.addIdentityProvider(adminClient.realm(bc.consumerRealmName()), "user2", adminClient.realm(bc.providerRealmName()), bc.getUserLogin(), bc.getIDPAlias());
+        Assert.assertEquals(204, response.getStatus());
+
+        // Linking the user "user1" to same IDP should fail
+        loginToConsumer();
+
+        String kcAction = getKcActionParamForLinkIdp(bc.getIDPAlias());
+        oauth.loginForm().kcAction(kcAction).open();
+        loginPage.login(bc.getUserLogin(), bc.getUserPassword());
+
+        events.clear();
+        grantPage.assertCurrent();
+        grantPage.accept();
+
+        appPage.assertCurrent();
+        assertKcActionParams(IdpLinkAction.PROVIDER_ID, RequiredActionContext.KcActionStatus.ERROR.name().toLowerCase(), Errors.IDENTITY_PROVIDER_ALREADY_LINKED);
+
+        // Check that user is not linked to the IDP
+        assertFalse(AccountHelper.isIdentityProviderLinked(adminClient.realm(bc.consumerRealmName()), "user1", bc.getIDPAlias()));
+
+        assertEvents((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
+            assertProviderEventsSuccess(providerRealmId, providerUserId);
+
+            String user2Id = adminClient.realm(bc.consumerRealmName()).users().search("user2").iterator().next().getId();
+
+            events.expect(EventType.FEDERATED_IDENTITY_LINK_ERROR)
+                    .realm(consumerRealmId)
+                    .client("broker-app")
+                    .user(consumerUserId)
+                    .detail(Details.USERNAME, consumerUsername)
+                    .detail(Details.IDENTITY_PROVIDER, IDP_OIDC_ALIAS)
+                    .error(Errors.IDENTITY_PROVIDER_ALREADY_LINKED)
+                    .assertEvent();
+
+            events.expect(EventType.LOGIN)
+                    .realm(consumerRealmId)
+                    .client("broker-app")
+                    .user(consumerUserId)
+                    .session(Matchers.any(String.class))
+                    .detail(Details.USERNAME, consumerUsername)
+                    .assertEvent();
+
+            events.assertEmpty();
+        });
+    }
 
     // TODO:mposolda Test user does not have roles
+    @Test
+    public void testAccountLinkingDifferentUserLinked() throws Exception {
+
+    }
 
     // TODO:mposolda test rejected provider consent during regular authentication (or in different test?)
 
@@ -232,7 +285,7 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
         assertImpl.accept(providerRealmId, providerUserId, consumerRealmId, consumerUserId, username);
     }
 
-    private void assertProviderEvents(String providerRealmId, String providerUserId) {
+    private void assertProviderEventsSuccess(String providerRealmId, String providerUserId) {
         events.expect(EventType.LOGIN)
                 .realm(providerRealmId)
                 .user(providerUserId)

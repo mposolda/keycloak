@@ -246,6 +246,11 @@ public class OIDCLoginProtocol implements LoginProtocol {
                 redirectUri.addParam(Constants.KC_ACTION, requiredActionAlias);
             }
             redirectUri.addParam(Constants.KC_ACTION_STATUS, kcActionStatus);
+            String kcActionErrorDetails = authSession.getAuthNote(Constants.KC_ACTION_ERROR_DETAILS);
+            if (kcActionErrorDetails != null) {
+                redirectUri.addParam(Constants.KC_ACTION_ERROR_DETAILS, kcActionErrorDetails);
+                authSession.removeAuthNote(Constants.KC_ACTION_ERROR_DETAILS);
+            }
         }
 
         // Standard or hybrid flow
