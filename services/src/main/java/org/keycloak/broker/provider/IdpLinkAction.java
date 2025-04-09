@@ -106,7 +106,6 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
         AuthenticationManager.AuthResult authResult = AuthenticationManager.authenticateIdentityCookie(context.getSession(),
                 context.getRealm(), true);
         if (authResult == null) {
-            // TODO:mposolda test that when "kc_action" is triggered when user is not yet logged-in, it will work as expected...
             context.failureRedirect(RequiredActionContext.KcActionStatus.ERROR, Errors.NOT_LOGGED_IN);
             return;
         }

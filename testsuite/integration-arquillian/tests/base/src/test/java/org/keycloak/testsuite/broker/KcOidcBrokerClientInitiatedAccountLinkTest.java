@@ -234,7 +234,44 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
 
     }
 
-    // TODO:mposolda test rejected provider consent during regular authentication (or in different test?)
+    @Test
+    public void testConsumerReauthentication() throws Exception {
+        loginToConsumer();
+
+        // Link IDP to user "user1"
+        Response response = AccountHelper.addIdentityProvider(adminClient.realm(bc.consumerRealmName()), "user1", adminClient.realm(bc.providerRealmName()), bc.getUserLogin(), bc.getIDPAlias());
+        Assert.assertEquals(204, response.getStatus());
+
+        setTimeOffset(2);
+
+        // Enforce re-authentication on "consumer" realm. Try to do re-authentication with the use of IDP, but reject consent screen on IDP side
+        oauth.loginForm().maxAge(1).open();
+        loginPage.assertCurrent(bc.consumerRealmName());
+        loginPage.clickSocial(bc.getIDPAlias());
+        loginPage.login(bc.getUserLogin(), bc.getUserPassword());
+
+        events.clear();
+        grantPage.assertCurrent();
+        grantPage.cancel();
+
+        // Should be redirected back to "consumer" login
+        loginPage.assertCurrent(bc.consumerRealmName());
+        Assert.assertEquals("Access denied when authenticating with kc-oidc-idp", loginPage.getError());
+
+        assertEvents((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
+            // Provider login - rejected consent screen
+            events.expect(EventType.LOGIN_ERROR)
+                    .realm(providerRealmId)
+                    .user(providerUserId)
+                    .client(bc.getIDPClientIdInProviderRealm())
+                    .session((String)null)
+                    .detail(Details.USERNAME, bc.getUserLogin())
+                    .error(Errors.REJECTED_BY_USER)
+                    .assertEvent();
+
+            events.assertEmpty();
+        });
+    }
 
     private String loginToConsumer() {
         // Login to "consumer" realm with password
