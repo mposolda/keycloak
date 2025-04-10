@@ -147,10 +147,11 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
 
         if (Boolean.parseBoolean(authSession.getAuthNote(IdpLinkAction.KC_ACTION_LINKING_IDENTITY_PROVIDER))) {
             EventBuilder event = context.getEvent();
-            event.event(EventType.FEDERATED_IDENTITY_LINK)
-                    .detail(Details.IDENTITY_PROVIDER, authSession.getAuthNote(Details.IDENTITY_PROVIDER))
-                    .detail(Details.IDENTITY_PROVIDER_USERNAME, authSession.getAuthNote(Details.IDENTITY_PROVIDER_USERNAME))
-                    .detail(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID, authSession.getAuthNote(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID));
+            event.event(EventType.FEDERATED_IDENTITY_LINK);
+            // TODO:mposolda remove this?
+//                    .detail(Details.IDENTITY_PROVIDER, authSession.getAuthNote(Details.IDENTITY_PROVIDER))
+//                    .detail(Details.IDENTITY_PROVIDER_USERNAME, authSession.getAuthNote(Details.IDENTITY_PROVIDER_USERNAME))
+//                    .detail(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID, authSession.getAuthNote(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID));
 
             // Status is supposed to be set by IdentityBrokerService
             String statusNote = authSession.getAuthNote(IdpLinkAction.IDP_LINK_STATUS);
@@ -180,6 +181,7 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
     }
 
     private void removeAuthNotes(AuthenticationSessionModel authSession) {
+        // TODO:mposolda probably cleanup last 3 notes (not needed probably)
         authSession.removeAuthNote(IdpLinkAction.KC_ACTION_LINKING_IDENTITY_PROVIDER);
         authSession.removeAuthNote(IdpLinkAction.IDP_LINK_STATUS);
         authSession.removeAuthNote(IdpLinkAction.IDP_LINK_ERROR);

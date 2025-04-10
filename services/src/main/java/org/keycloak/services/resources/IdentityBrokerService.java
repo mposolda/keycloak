@@ -1035,12 +1035,7 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
 
         authSession.setAuthNote(IdpLinkAction.IDP_LINK_STATUS, RequiredActionContext.KcActionStatus.SUCCESS.name());
 
-        if (Boolean.parseBoolean(authSession.getAuthNote(IdpLinkAction.KC_ACTION_LINKING_IDENTITY_PROVIDER))) {
-            // Redirect to idp_link action to finish the flow properly
-            authSession.setAuthNote(Details.IDENTITY_PROVIDER, context.getIdpConfig().getAlias());
-            authSession.setAuthNote(Details.IDENTITY_PROVIDER_USERNAME, context.getUsername());
-            authSession.setAuthNote(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID, context.getBrokerSessionId());
-        } else {
+        if (!Boolean.parseBoolean(authSession.getAuthNote(IdpLinkAction.KC_ACTION_LINKING_IDENTITY_PROVIDER))) {
             // Legacy client-initiated account linking
             AuthenticationManager.setClientScopesInSession(session, authSession);
             TokenManager.attachAuthenticationSession(session, userSession, authSession);
@@ -1058,13 +1053,18 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
         URI redirect;
         if (Boolean.parseBoolean(authSession.getAuthNote(IdpLinkAction.KC_ACTION_LINKING_IDENTITY_PROVIDER))) {
             // Redirect to idp_link action to finish the flow properly
+            ClientSessionCode<AuthenticationSessionModel> clientSessionCode = new ClientSessionCode<>(session, realmModel, authSession);
+            clientSessionCode.setAction(AuthenticationSessionModel.Action.REQUIRED_ACTIONS.name());
+            String sessionCode = clientSessionCode.getOrGenerateCode();
+
             authSession.setAction(AuthenticationSessionModel.Action.REQUIRED_ACTIONS.name());
-            if (idpModel != null) {
-                authSession.setAuthNote(Details.IDENTITY_PROVIDER, idpModel.getAlias());
-            }
-            RequiredActionFactory factory = (RequiredActionFactory) session.getKeycloakSessionFactory()
-                    .getProviderFactory(RequiredActionProvider.class, authSession.getClientNote(Constants.KC_ACTION));
-            redirect = new RequiredActionContextResult(authSession, realmModel, event, session, request, authSession.getAuthenticatedUser(), factory).getActionUrl();
+            return new LoginActionsService(session, event).requiredActionPOST(null,
+                    sessionCode,
+                    authSession.getClientNote(Constants.KC_ACTION),
+                    authSession.getClient().getClientId(),
+                    AuthenticationProcessor.getClientData(session, authSession),
+                    authSession.getTabId()
+                    );
         } else {
             // Legacy client-initiated account linking
             redirect = UriBuilder.fromUri(authSession.getRedirectUri()).build();
@@ -1220,6 +1220,7 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
         }
     }
 
+    // TODO:mposolda remove this method
     private Response checkAccountManagementFailedLinking(AuthenticationSessionModel authSession, String error, Object... parameters) {
         UserSessionModel userSession = new AuthenticationSessionManager(session).getUserSession(authSession);
         if (userSession != null && authSession.getClient() != null && authSession.getClient().getClientId().equals(Constants.ACCOUNT_MANAGEMENT_CLIENT_ID)) {
@@ -1303,7 +1304,7 @@ public class IdentityBrokerService implements IdentityProvider.AuthenticationCal
         throw new ErrorPageException(this.session, authSession, status, message, parameters);
     }
 
-    // TODO:mposolda remove this method?
+    // TODO:mposolda remove this method? And maybe remove also ACCOUNT_MGMT_FORWARDED_ERROR_NOTE and related code where it is used
     private Response redirectToAccountErrorPage(AuthenticationSessionModel authSession, String message, Object ... parameters) {
         fireErrorEvent(message);
 
