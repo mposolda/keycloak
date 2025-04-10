@@ -145,17 +145,23 @@ public class RequiredActionContextResult implements RequiredActionContext {
         status = Status.FAILURE;
     }
 
+    // TODO:mposolda remove this method and all the related references?
     @Override
     public void failureRedirect(KcActionStatus status, String errorMessage) {
         this.errorMessage = errorMessage;
         this.kcActionStatus = status;
-        this.status = Status.FAILURE_REDIRECT;
+        // this.status = Status.FAILURE_REDIRECT;
     }
 
     @Override
     public void success() {
         status = Status.SUCCESS;
 
+    }
+
+    @Override
+    public void cancel() {
+        status = Status.CANCELLED;
     }
 
     @Override

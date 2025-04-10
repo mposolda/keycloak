@@ -163,8 +163,8 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
                     context.success();
                     break;
                 case CANCELLED:
-                    AuthenticationManager.setKcActionStatus(PROVIDER_ID, RequiredActionContext.KcActionStatus.CANCELLED, authSession);
-                    context.success();
+                    // AuthenticationManager.setKcActionStatus(PROVIDER_ID, RequiredActionContext.KcActionStatus.CANCELLED, authSession);
+                    context.cancel();
                     //context.failureRedirect(RequiredActionContext.KcActionStatus.CANCELLED, Errors.REJECTED_BY_USER); // TODO:mposolda is "failure" proper status for the case when authentication was cancelled?
                     break;
                 case ERROR:

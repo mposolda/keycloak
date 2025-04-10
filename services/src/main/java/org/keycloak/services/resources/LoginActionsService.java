@@ -1171,12 +1171,10 @@ public class LoginActionsService {
 
         Response response;
 
-        boolean cancelled = false;
         if (isCancelAppInitiatedAction(factory.getId(), authSession, context)) {
             provider.initiatedActionCanceled(session, authSession);
             AuthenticationManager.setKcActionStatus(factory.getId(), RequiredActionContext.KcActionStatus.CANCELLED, authSession);
-            context.success();
-            cancelled = true;
+            context.cancel();
         } else {
             provider.processAction(context);
         }
@@ -1185,12 +1183,15 @@ public class LoginActionsService {
             authSession.setAuthNote(AuthenticationProcessor.LAST_PROCESSED_EXECUTION, action);
         }
 
-        if (context.getStatus() == RequiredActionContext.Status.SUCCESS) {
-            if (cancelled) {
-                event.clone().error(Errors.REJECTED_BY_USER);
-            } else {
-                event.clone().success();
-            }
+        if (context.getStatus() == RequiredActionContext.Status.CANCELLED) {
+            event.clone().error(Errors.REJECTED_BY_USER);
+            initLoginEvent(authSession);
+            event.event(EventType.LOGIN);
+            authSession.removeAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION);
+            AuthenticationManager.setKcActionStatus(factory.getId(), RequiredActionContext.KcActionStatus.CANCELLED, authSession);
+            response = AuthenticationManager.nextActionAfterAuthentication(session, authSession, clientConnection, request, session.getContext().getUri(), event);
+        } else if (context.getStatus() == RequiredActionContext.Status.SUCCESS) {
+            event.clone().success();
             initLoginEvent(authSession);
             event.event(EventType.LOGIN);
             authSession.removeRequiredAction(factory.getId());
@@ -1203,16 +1204,6 @@ public class LoginActionsService {
             response = context.getChallenge();
         } else if (context.getStatus() == RequiredActionContext.Status.FAILURE) {
             response = interruptionResponse(context, authSession, action, Error.CONSENT_DENIED);
-        } else if (context.getStatus() == RequiredActionContext.Status.FAILURE_REDIRECT) {
-            event.clone().error(context.getErrorMessage());
-            initLoginEvent(authSession);
-            event.event(EventType.LOGIN);
-            AuthenticationManager.setKcActionStatus(factory.getId(), context.getKcActionStatus(), authSession);
-            if (context.getKcActionStatus() == RequiredActionContext.KcActionStatus.ERROR) {
-                authSession.setAuthNote(Constants.KC_ACTION_ERROR_DETAILS, context.getErrorMessage());
-            }
-            authSession.removeAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION);
-            response = AuthenticationManager.nextActionAfterAuthentication(session, authSession, clientConnection, request, session.getContext().getUri(), event);
         } else {
             throw new RuntimeException("Unreachable");
         }

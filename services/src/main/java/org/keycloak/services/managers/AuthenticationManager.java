@@ -1316,16 +1316,6 @@ public class AuthenticationManager {
             event.error(Errors.REJECTED_BY_USER);
             return response;
         }
-        else if (context.getStatus() == RequiredActionContext.Status.FAILURE_REDIRECT) {
-            event.clone().error(context.getErrorMessage());
-            event.event(EventType.LOGIN);
-            authSession.setAuthNote(AuthenticationProcessor.LAST_PROCESSED_EXECUTION, context.getFactory().getId()); // So "kc_action" is sent to OIDC client
-            setKcActionStatus(factory.getId(), context.getKcActionStatus(), authSession);
-            if (context.getKcActionStatus() == RequiredActionContext.KcActionStatus.ERROR) {
-                authSession.setAuthNote(Constants.KC_ACTION_ERROR_DETAILS, context.getErrorMessage());
-            }
-            return nextActionAfterAuthentication(session, authSession, session.getContext().getConnection(), request, session.getContext().getUri(), event, ignoredActions);
-        }
         else if (context.getStatus() == RequiredActionContext.Status.CHALLENGE) {
             authSession.setAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION, model.getProviderId());
             return context.getChallenge();
@@ -1462,6 +1452,11 @@ public class AuthenticationManager {
 
             @Override
             public void success() {
+                throw new RuntimeException("Not allowed to call success() within evaluateTriggers()");
+            }
+
+            @Override
+            public void cancel() {
                 throw new RuntimeException("Not allowed to call success() within evaluateTriggers()");
             }
 

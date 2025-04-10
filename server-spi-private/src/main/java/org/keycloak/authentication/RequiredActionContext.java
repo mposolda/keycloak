@@ -41,9 +41,9 @@ public interface RequiredActionContext {
     enum Status {
         CHALLENGE,
         SUCCESS,
+        CANCELLED,
         IGNORE,
         FAILURE,
-        FAILURE_REDIRECT // TODO:mposolda maybe better name?
     }
 
     enum KcActionStatus {
@@ -138,7 +138,7 @@ public interface RequiredActionContext {
      */
     void failure(String errorMessage);
 
-    // TODO:mposolda javadoc (and maybe rename?)
+    // TODO:mposolda remove (maybe?)
     void failureRedirect(KcActionStatus status, String errorMessage);
 
     /**
@@ -154,6 +154,11 @@ public interface RequiredActionContext {
      *
      */
     void success();
+
+    /**
+     * Mark this action as cancelled. Can be only used in AIA
+     */
+    void cancel();
 
     /**
      * Ignore this required action and go onto the next, or complete the flow.
