@@ -106,18 +106,30 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
         RealmModel realm = context.getRealm();
         UserModel user = context.getUser();
         ClientModel client = authSession.getClient();
-        EventBuilder event = context.getEvent();
+        EventBuilder event = context.getEvent().clone();
         event.event(EventType.FEDERATED_IDENTITY_LINK);
 
         AuthenticationManager.AuthResult authResult = AuthenticationManager.authenticateIdentityCookie(context.getSession(),
                 context.getRealm(), true);
         if (authResult == null) {
-            context.failureRedirect(RequiredActionContext.KcActionStatus.ERROR, Errors.NOT_LOGGED_IN);
+            event.error(Errors.NOT_LOGGED_IN);
+            context.ignore();
             return;
         }
 
         String identityProviderAlias = authSession.getClientNote(Constants.KC_ACTION_PARAMETER);
+        if (identityProviderAlias == null) {
+            event.error(Errors.UNKNOWN_IDENTITY_PROVIDER);
+            context.ignore();
+            return;
+        }
         event.detail(Details.IDENTITY_PROVIDER, identityProviderAlias);
+        IdentityProviderModel identityProviderModel = session.identityProviders().getByAlias(identityProviderAlias);
+        if (identityProviderModel == null) {
+            event.error(Errors.UNKNOWN_IDENTITY_PROVIDER);
+            context.ignore();
+            return;
+        }
 
         // Check role
         ClientModel accountService = realm.getClientByClientId(Constants.ACCOUNT_MANAGEMENT_CLIENT_ID);
@@ -125,15 +137,10 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
         if (!user.hasRole(manageAccountRole) || !client.hasScope(manageAccountRole)) {
             RoleModel linkRole = accountService.getRole(AccountRoles.MANAGE_ACCOUNT_LINKS);
             if (!user.hasRole(linkRole) || !client.hasScope(linkRole)) {
-                context.failureRedirect(RequiredActionContext.KcActionStatus.ERROR, Errors.NOT_ALLOWED);
+                event.error(Errors.NOT_ALLOWED);
+                context.ignore();
                 return;
             }
-        }
-
-        IdentityProviderModel identityProviderModel = session.identityProviders().getByAlias(identityProviderAlias);
-        if (identityProviderModel == null) {
-            context.failureRedirect(RequiredActionContext.KcActionStatus.ERROR, Errors.UNKNOWN_IDENTITY_PROVIDER);
-            return;
         }
 
         ClientSessionCode<AuthenticationSessionModel> clientSessionCode = new ClientSessionCode<>(session, realm, authSession);

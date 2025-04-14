@@ -164,7 +164,7 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
                     .assertEvent();
 
             // Consumer - rejected provider consent screen event propagated
-            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Errors.REJECTED_BY_USER);
+            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Errors.REJECTED_BY_USER, true);
 
             events.assertEmpty();
         });
@@ -197,7 +197,7 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
 
         assertEvents((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
             assertProviderEventsSuccess(providerRealmId, providerUserId);
-            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Messages.IDENTITY_PROVIDER_ALREADY_LINKED);
+            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Messages.IDENTITY_PROVIDER_ALREADY_LINKED, false);
 
             events.assertEmpty();
         });
@@ -223,13 +223,12 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
 
         // Should be redirected to the application even before being redirected to IDP for authentication
         appPage.assertCurrent();
-        assertKcActionParams(IdpLinkAction.PROVIDER_ID, RequiredActionContext.KcActionStatus.ERROR.name().toLowerCase(), Errors.NOT_ALLOWED);
 
         // Check that user is not linked to the IDP
         assertFalse(AccountHelper.isIdentityProviderLinked(adminClient.realm(bc.consumerRealmName()), "user1", bc.getIDPAlias()));
 
         assertEvents((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
-            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Errors.NOT_ALLOWED);
+            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Errors.NOT_ALLOWED, true);
 
             events.assertEmpty();
         });
@@ -366,7 +365,7 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
         events.assertEmpty();
     }
 
-    private void assertConsumerFailedLinkEvents(String consumerRealmId, String consumerUserId, String consumerUsername, String expectedError) {
+    private void assertConsumerFailedLinkEvents(String consumerRealmId, String consumerUserId, String consumerUsername, String expectedError, boolean expectLoginEvent) {
         events.expect(EventType.FEDERATED_IDENTITY_LINK_ERROR)
                 .realm(consumerRealmId)
                 .client("broker-app")
@@ -376,14 +375,15 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
                 .error(expectedError)
                 .assertEvent();
 
-        // TODO:mposolda delete
-//        events.expect(EventType.LOGIN)
-//                .realm(consumerRealmId)
-//                .client("broker-app")
-//                .user(consumerUserId)
-//                .session(Matchers.any(String.class))
-//                .detail(Details.USERNAME, consumerUsername)
-//                .assertEvent();
+        if (expectLoginEvent) {
+            events.expect(EventType.LOGIN)
+                    .realm(consumerRealmId)
+                    .client("broker-app")
+                    .user(consumerUserId)
+                    .session(Matchers.any(String.class))
+                    .detail(Details.USERNAME, consumerUsername)
+                    .assertEvent();
+        }
 
         events.assertEmpty();
     }

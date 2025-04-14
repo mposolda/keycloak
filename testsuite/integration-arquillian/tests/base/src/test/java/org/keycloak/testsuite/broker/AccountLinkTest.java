@@ -137,8 +137,6 @@ public class AccountLinkTest extends AbstractKeycloakTest {
     public void testAccountLink() {
         String childUsername = "child";
 
-        WaitUtils.pause(50000000);
-
         testAccountLink(childUsername);
     }
 
