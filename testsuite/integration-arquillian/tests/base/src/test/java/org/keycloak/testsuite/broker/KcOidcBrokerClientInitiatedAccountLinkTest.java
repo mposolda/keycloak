@@ -41,6 +41,7 @@ import org.keycloak.models.Constants;
 import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.keycloak.services.messages.Messages;
 import org.keycloak.testsuite.Assert;
 import org.keycloak.testsuite.AssertEvents;
 import org.keycloak.testsuite.util.AccountHelper;
@@ -187,15 +188,16 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
         grantPage.assertCurrent();
         grantPage.accept();
 
-        appPage.assertCurrent();
-        assertKcActionParams(IdpLinkAction.PROVIDER_ID, RequiredActionContext.KcActionStatus.ERROR.name().toLowerCase(), Errors.IDENTITY_PROVIDER_ALREADY_LINKED);
+        errorPage.assertCurrent();
+        Assert.assertEquals("Federated identity returned by " + bc.getIDPAlias() + " is already linked to another user.", errorPage.getError());
+        Assert.assertEquals(bc.createConsumerClients().get(0).getBaseUrl(), errorPage.getBackToApplicationLink());
 
         // Check that user is not linked to the IDP
         assertFalse(AccountHelper.isIdentityProviderLinked(adminClient.realm(bc.consumerRealmName()), "user1", bc.getIDPAlias()));
 
         assertEvents((providerRealmId, providerUserId, consumerRealmId, consumerUserId, consumerUsername) -> {
             assertProviderEventsSuccess(providerRealmId, providerUserId);
-            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Errors.IDENTITY_PROVIDER_ALREADY_LINKED);
+            assertConsumerFailedLinkEvents(consumerRealmId, consumerUserId, consumerUsername, Messages.IDENTITY_PROVIDER_ALREADY_LINKED);
 
             events.assertEmpty();
         });
@@ -374,13 +376,14 @@ public class KcOidcBrokerClientInitiatedAccountLinkTest extends AbstractInitiali
                 .error(expectedError)
                 .assertEvent();
 
-        events.expect(EventType.LOGIN)
-                .realm(consumerRealmId)
-                .client("broker-app")
-                .user(consumerUserId)
-                .session(Matchers.any(String.class))
-                .detail(Details.USERNAME, consumerUsername)
-                .assertEvent();
+        // TODO:mposolda delete
+//        events.expect(EventType.LOGIN)
+//                .realm(consumerRealmId)
+//                .client("broker-app")
+//                .user(consumerUserId)
+//                .session(Matchers.any(String.class))
+//                .detail(Details.USERNAME, consumerUsername)
+//                .assertEvent();
 
         events.assertEmpty();
     }

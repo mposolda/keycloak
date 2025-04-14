@@ -19,6 +19,9 @@
 
 package org.keycloak.broker.provider;
 
+import java.io.IOException;
+import java.util.Collections;
+
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.keycloak.Config;
@@ -30,6 +33,7 @@ import org.keycloak.events.Details;
 import org.keycloak.events.Errors;
 import org.keycloak.events.EventBuilder;
 import org.keycloak.events.EventType;
+import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.models.AccountRoles;
 import org.keycloak.models.ClientModel;
 import org.keycloak.models.Constants;
@@ -39,10 +43,12 @@ import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.utils.FormMessage;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.ClientSessionCode;
 import org.keycloak.services.resources.IdentityBrokerService;
 import org.keycloak.sessions.AuthenticationSessionModel;
+import org.keycloak.util.JsonSerialization;
 
 import static org.keycloak.services.resources.IdentityBrokerService.LINKING_IDENTITY_PROVIDER;
 
@@ -169,7 +175,7 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
                     break;
                 case ERROR:
                     String error = authSession.getAuthNote(IDP_LINK_ERROR);
-                    context.failureRedirect(RequiredActionContext.KcActionStatus.ERROR, error); // TODO:mposolda doublecheck this... (including error events etc)
+                    errorPage(context, error); // TODO:mposolda doublecheck this... (including error events etc)
                     break;
                 default:
                     throw new IllegalStateException("Unknown status in the note idp_link_status: " + status);
@@ -186,6 +192,22 @@ public class IdpLinkAction implements RequiredActionProvider, RequiredActionFact
         authSession.removeAuthNote(Details.IDENTITY_PROVIDER);
         authSession.removeAuthNote(Details.IDENTITY_PROVIDER_USERNAME);
         authSession.removeAuthNote(Details.IDENTITY_PROVIDER_BROKER_SESSION_ID);
+    }
+
+    private void errorPage(RequiredActionContext context, String serializedError) {
+        FormMessage formMessage;
+        try {
+            formMessage = JsonSerialization.readValue(serializedError, FormMessage.class);
+        } catch (IOException ioe) {
+            throw new RuntimeException("Unexpected error when deserialization of error: " + serializedError);
+        }
+        Response response = context.getSession().getProvider(LoginFormsProvider.class)
+                .setAuthenticationSession(context.getAuthenticationSession())
+                .setUser(context.getUser())
+                .setErrors(Collections.singletonList(formMessage))
+                .createErrorPage(Response.Status.BAD_REQUEST);
+        context.getEvent().error(formMessage.getMessage());
+        context.challenge(response);
     }
 
     @Override
