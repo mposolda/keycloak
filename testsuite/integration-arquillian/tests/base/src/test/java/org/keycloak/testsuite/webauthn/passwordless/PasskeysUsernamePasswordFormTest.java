@@ -32,6 +32,7 @@ import org.keycloak.events.Errors;
 import org.keycloak.events.EventType;
 import org.keycloak.models.Constants;
 import org.keycloak.models.credential.WebAuthnCredentialModel;
+import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.representations.idm.RealmRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.testsuite.admin.AbstractAdminTest;
@@ -202,4 +203,63 @@ public class PasskeysUsernamePasswordFormTest extends AbstractWebAuthnVirtualTes
             logout();
         }
     }
+
+    // Test users is able to authenticate with passkey during re-authentication (for example when OIDC parameter prompt=login is used)
+    @Test
+    public void webauthnLoginWithDiscoverableKey_reauthentication() throws Exception {
+        getVirtualAuthManager().useAuthenticator(DefaultVirtualAuthOptions.PASSKEYS.getOptions());
+
+        // set passwordless policy for discoverable keys
+        try (Closeable c = getWebAuthnRealmUpdater()
+                .setWebAuthnPolicyRpEntityName("localhost")
+                .setWebAuthnPolicyRequireResidentKey(null)
+                .setWebAuthnPolicyUserVerificationRequirement(null)
+                .setWebAuthnPolicyPasskeysEnabled(Boolean.TRUE)
+                .update()) {
+
+            checkWebAuthnConfiguration(Constants.WEBAUTHN_POLICY_OPTION_YES, Constants.WEBAUTHN_POLICY_OPTION_REQUIRED);
+
+            registerDefaultUser();
+
+            UserRepresentation user = userResource().toRepresentation();
+            MatcherAssert.assertThat(user, Matchers.notNullValue());
+
+            logout();
+            events.clear();
+
+            // the user should be automatically logged in using the discoverable key
+            oauth.openLoginForm();
+            WaitUtils.waitForPageToLoad();
+
+            appPage.assertCurrent();
+
+            events.expectLogin()
+                    .user(user.getId())
+                    .detail(Details.USERNAME, user.getUsername())
+                    .detail(Details.CREDENTIAL_TYPE, WebAuthnCredentialModel.TYPE_PASSWORDLESS)
+                    .detail(WebAuthnConstants.USER_VERIFICATION_CHECKED, "true")
+                    .assertEvent();
+
+            // Re-authentication now with prompt=login. Passkeys login should be possible.
+            oauth.loginForm()
+                    .prompt(OIDCLoginProtocol.PROMPT_VALUE_LOGIN)
+                    .open();
+            WaitUtils.waitForPageToLoad();
+
+            appPage.assertCurrent();
+
+            events.expectLogin()
+                    .user(user.getId())
+                    .detail(Details.USERNAME, user.getUsername())
+                    .detail(Details.CREDENTIAL_TYPE, WebAuthnCredentialModel.TYPE_PASSWORDLESS)
+                    .detail(WebAuthnConstants.USER_VERIFICATION_CHECKED, "true")
+                    .assertEvent();
+
+            logout();
+        }
+    }
+
+    // TODO:mposolda test for re-authentication of the user without passkey. Should be still able to re-authenticate with password when even if passkeys are enabled for the realm and username should be hidden
+
+    // TODO:mposolda test for re-authentication of the user with passkey. Testing authentication with password for this user
 }
