@@ -97,19 +97,20 @@ public class WebAuthnAuthenticator implements Authenticator, CredentialValidator
 
         UserModel user = context.getUser();
         boolean isUserIdentified = false;
-        if (user != null) {
-            // in 2 Factor Scenario where the user has already been identified
-            WebAuthnAuthenticatorsBean authenticators = new WebAuthnAuthenticatorsBean(context.getSession(), context.getRealm(), user, getCredentialType());
-            if (authenticators.getAuthenticators().isEmpty()) {
-                // require the user to register webauthn authenticator
-                return null;
-            }
-            isUserIdentified = true;
-            form.setAttribute(WebAuthnConstants.ALLOWED_AUTHENTICATORS, authenticators);
-        } else {
-            // in ID-less & Password-less Scenario
-            // NOP
-        }
+        // TODO:mposolda... uncomment this and figure in more proper way... Why it needs to be commented?
+//        if (user != null) {
+//            // in 2 Factor Scenario where the user has already been identified
+//            WebAuthnAuthenticatorsBean authenticators = new WebAuthnAuthenticatorsBean(context.getSession(), context.getRealm(), user, getCredentialType());
+//            if (authenticators.getAuthenticators().isEmpty()) {
+//                // require the user to register webauthn authenticator
+//                return null;
+//            }
+//            isUserIdentified = true;
+//            form.setAttribute(WebAuthnConstants.ALLOWED_AUTHENTICATORS, authenticators);
+//        } else {
+//            // in ID-less & Password-less Scenario
+//            // NOP
+//        }
         form.setAttribute(WebAuthnConstants.IS_USER_IDENTIFIED, Boolean.toString(isUserIdentified));
 
         // read options from policy

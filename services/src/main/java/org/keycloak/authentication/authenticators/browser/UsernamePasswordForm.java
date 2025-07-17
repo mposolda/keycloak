@@ -89,7 +89,8 @@ public class UsernamePasswordForm extends AbstractUsernameFormAuthenticator impl
 
         String rememberMeUsername = AuthenticationManager.getRememberMeUsername(context.getSession());
 
-        if (context.getUser() != null) {
+        ReauthenticationState reauthState = getReauthenticationState(context);
+        if (reauthState != ReauthenticationState.NEW_AUTHENTICATION) {
             if (alreadyAuthenticatedUsingPasswordlessCredential(context)) {
                 // if already authenticated using passwordless webauthn just success
                 context.success();
@@ -110,7 +111,10 @@ public class UsernamePasswordForm extends AbstractUsernameFormAuthenticator impl
                     formData.add("rememberMe", "on");
                 }
             }
-            // setup webauthn data when the user is not already selected
+        }
+
+        if (shouldSetupWebAuthnData(reauthState)) {
+            // setup webauthn data when the user is not already selected OR when user with passkeys is re-authenticating
             if (webauthnAuth != null && webauthnAuth.isPasskeysEnabled()) {
                 webauthnAuth.fillContextForm(context);
             }
@@ -134,7 +138,8 @@ public class UsernamePasswordForm extends AbstractUsernameFormAuthenticator impl
 
     @Override
     protected Response challenge(AuthenticationFlowContext context, String error, String field) {
-        if (context.getUser() == null && webauthnAuth != null && webauthnAuth.isPasskeysEnabled()) {
+        ReauthenticationState reauthState = getReauthenticationState(context);
+        if (shouldSetupWebAuthnData(reauthState)) {
             // setup webauthn data when the user is not already selected
             webauthnAuth.fillContextForm(context);
         }
@@ -155,6 +160,35 @@ public class UsernamePasswordForm extends AbstractUsernameFormAuthenticator impl
     @Override
     public void close() {
 
+    }
+
+    protected ReauthenticationState getReauthenticationState(AuthenticationFlowContext context) {
+        if (context.getUser() == null) {
+            return ReauthenticationState.NEW_AUTHENTICATION;
+        } else {
+            if (webauthnAuth != null && webauthnAuth.isPasskeysEnabled() && webauthnAuth.configuredFor(context.getSession(), context.getRealm(), context.getUser())) {
+                return ReauthenticationState.REAUTHENTICATION_WITH_PASSKEYS_CREDENTIAL_AVAILABLE;
+            } else {
+                return ReauthenticationState.REAUTHENTICATION_WITHOUT_PASSKEYS_CREDENTIAL_AVAILABLE;
+            }
+        }
+    }
+
+    private boolean shouldSetupWebAuthnData(ReauthenticationState state) {
+        if (state == ReauthenticationState.REAUTHENTICATION_WITH_PASSKEYS_CREDENTIAL_AVAILABLE) {
+            return true;
+        } else if (state == ReauthenticationState.REAUTHENTICATION_WITHOUT_PASSKEYS_CREDENTIAL_AVAILABLE) {
+            return false;
+        } else {
+            return webauthnAuth != null && webauthnAuth.isPasskeysEnabled();
+        }
+    }
+
+    // TODO:mposolda javadoc?
+    protected enum ReauthenticationState {
+        NEW_AUTHENTICATION,
+        REAUTHENTICATION_WITH_PASSKEYS_CREDENTIAL_AVAILABLE,
+        REAUTHENTICATION_WITHOUT_PASSKEYS_CREDENTIAL_AVAILABLE
     }
 
 }

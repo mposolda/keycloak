@@ -354,6 +354,8 @@ public class OrganizationAuthenticator extends IdentityProviderAuthenticator {
         AuthenticationSessionModel authenticationSession = context.getAuthenticationSession();
         UserModel user = context.getUser();
 
+        // TODO:mposolda figure organization authenticator...
+
         if (user == null) {
             // setup webauthn data when the user is not already selected
             if (webauthnAuth.isPasskeysEnabled()) {

@@ -24,6 +24,8 @@ import org.keycloak.common.Profile;
 import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.models.KeycloakSession;
 
+import static org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator.USER_SET_BEFORE_USERNAME_PASSWORD_AUTH;
+
 /**
  *
  * @author rmartinc
@@ -48,6 +50,15 @@ public class WebAuthnConditionalUIAuthenticator extends WebAuthnPasswordlessAuth
         // the passkey failed, show error and maintain passkeys
         context.form().setError(errorCase, "");
         context.form().setAttribute(WebAuthnConstants.ENABLE_WEBAUTHN_CONDITIONAL_UI, Boolean.TRUE);
+
+        // TODO:mposolda better way (maybe pass as a function...)
+        String userSet = context.getAuthenticationSession().getAuthNote(USER_SET_BEFORE_USERNAME_PASSWORD_AUTH);
+        boolean userSetBoolean = Boolean.parseBoolean(userSet);
+        if (userSetBoolean) {
+            LoginFormsProvider form = context.form();
+            form.setAttribute(LoginFormsProvider.USERNAME_HIDDEN, true);
+            form.setAttribute(LoginFormsProvider.REGISTRATION_DISABLED, true);
+        }
         fillContextForm(context);
         return errorChallenge.apply(context);
     }
