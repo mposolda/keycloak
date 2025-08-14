@@ -35,13 +35,16 @@ import org.keycloak.protocol.oidc.utils.OIDCResponseType;
 import org.keycloak.representations.idm.IdentityProviderRepresentation;
 import org.keycloak.testsuite.AssertEvents;
 import org.keycloak.testsuite.updaters.RealmAttributeUpdater;
+import org.keycloak.testsuite.util.AccountHelper;
 import org.keycloak.testsuite.util.BrowserTabUtil;
 import org.keycloak.testsuite.util.InfinispanTestTimeServiceRule;
+import org.keycloak.testsuite.util.WaitUtils;
 import org.keycloak.testsuite.util.oauth.AuthorizationEndpointResponse;
 import org.keycloak.testsuite.util.oauth.OAuthClient;
 
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 import static org.keycloak.testsuite.AssertEvents.DEFAULT_REDIRECT_URI;
 import static org.keycloak.testsuite.broker.BrokerTestConstants.IDP_OIDC_ALIAS;
@@ -345,6 +348,82 @@ public class KcOidcMultipleTabsBrokerTest  extends AbstractInitializedBaseBroker
             AuthorizationEndpointResponse authzResponse = oauth.parseLoginResponse();
             org.keycloak.testsuite.Assert.assertNotNull(authzResponse.getCode());
             org.keycloak.testsuite.Assert.assertNull(authzResponse.getError());
+        }
+    }
+
+
+    @Test
+    public void testAuthenticationInManyBrowserTabs() {
+        assumeFalse("This test only works with real browsers when authChecker.js automatically login the user", driver instanceof HtmlUnitDriver);
+
+        // Update IDP and set invalid credentials there
+        IdentityProviderResource idpResource = adminClient.realm(REALM_CONS_NAME).identityProviders().get(IDP_OIDC_ALIAS);
+        IdentityProviderRepresentation idpRep = idpResource.toRepresentation();
+        String origPrompt = idpRep.getConfig().get("prompt");
+        idpRep.getConfig().remove("prompt");
+        idpResource.update(idpRep);
+
+        try {
+            // Login and link account
+            oauth.clientId("broker-app");
+            loginPage.open(bc.consumerRealmName());
+            getLogger().infof("URL in tab 1: %s", driver.getCurrentUrl());
+
+            //loginPage.clickSocial(bc.getIDPAlias());
+            logInWithBroker(bc);
+
+            waitForPage(driver, "update account information", false);
+            updateAccountInformationPage.assertCurrent();
+            Assert.assertTrue("We must be on consumer realm right now",
+                    driver.getCurrentUrl().contains("/auth/realms/" + bc.consumerRealmName() + "/"));
+            updateAccountInformationPage.updateAccountInformation(bc.getUserLogin(), bc.getUserEmail(), "Firstname", "Lastname");
+            appPage.assertCurrent();
+
+            // Logout
+            AccountHelper.logout(adminClient.realm(bc.consumerRealmName()), bc.getUserLogin());
+
+            try (BrowserTabUtil tabUtil = BrowserTabUtil.getInstanceAndSetEnv(driver)) {
+                oauth.clientId("broker-app");
+                loginPage.open(bc.consumerRealmName());
+                loginPage.clickSocial(bc.getIDPAlias());
+                Assert.assertTrue(loginPage.isCurrent("provider"));
+                getLogger().infof("URL in tab 0: %s", driver.getCurrentUrl());
+
+                int tabsCount = 2;
+
+                // Open multiple tabs
+                for (int i = 1; i < tabsCount; i++) {
+                    tabUtil.newTab(oauth.loginForm().build());
+                    assertThat(tabUtil.getCountOfTabs(), Matchers.equalTo(i + 1));
+                    Assert.assertTrue(loginPage.isCurrent("consumer"));
+                    loginPage.clickSocial(bc.getIDPAlias());
+                    Assert.assertTrue(loginPage.isCurrent("provider"));
+
+                    getLogger().infof("URL in tab%d: %s", i, driver.getCurrentUrl());
+                }
+
+                // Finish login in tab 1
+                tabUtil.switchToTab(0);
+                loginPage.login(bc.getUserLogin(), bc.getUserPassword());
+                appPage.assertCurrent();
+
+                // Check other browser tabs
+                for (int i = 1; i < tabsCount; i++) {
+                    tabUtil.switchToTab(i);
+                    getLogger().infof("Checking tab%d, URL is: %s", i, driver.getCurrentUrl());
+                    WaitUtils.waitForPageToLoad();
+                    appPage.assertCurrent();
+                }
+
+                for (int i = 1; i < tabsCount; i++) {
+                    getLogger().infof("Closing tab %d", i);
+                    tabUtil.closeTab(1);
+                }
+            }
+        } finally {
+            // Revert IDP config
+            idpRep.getConfig().put("prompt", origPrompt);
+            idpResource.update(idpRep);
         }
     }
 
