@@ -25,11 +25,13 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import org.keycloak.common.Profile;
+import org.keycloak.models.ClientScopeModel;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.UserModel;
 
 import static org.keycloak.common.Profile.isFeatureEnabled;
+import static org.keycloak.constants.OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID;
 
 /**
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
@@ -331,6 +333,19 @@ public class DefaultRequiredActions {
             webauthnRegister.setDefaultAction(false);
             webauthnRegister.setPriority(90);
             realm.addRequiredActionProvider(webauthnRegister);
+        }
+    }
+
+    public static void addVerifiableCredentialOfferAction(RealmModel realm, ClientScopeModel clientScope) {
+        if (realm.getRequiredActionProviderByAlias(VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID) == null) {
+            RequiredActionProviderModel vc = new RequiredActionProviderModel();
+            vc.setEnabled(true);
+            vc.setAlias(clientScope.getName());
+            vc.setName("Credential Offer For " + clientScope.getName());
+            vc.setProviderId(VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID);
+            vc.setDefaultAction(false);
+            vc.setPriority(200); // TODO:mposolda Do I need to figure conflict with same priority of all those actions?
+            realm.addRequiredActionProvider(vc);
         }
     }
 

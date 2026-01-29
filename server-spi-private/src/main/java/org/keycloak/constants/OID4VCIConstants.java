@@ -45,6 +45,8 @@ public final class OID4VCIConstants {
     public static final RoleRepresentation CREDENTIAL_OFFER_CREATE =
             new RoleRepresentation("credential-offer-create", "Allow credential offer creation", false);
 
+    public static final String VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID = "verifiable_credential_offer";
+
     private OID4VCIConstants() {
     }
 }

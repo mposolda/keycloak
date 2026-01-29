@@ -32,6 +32,7 @@ import org.keycloak.models.Constants;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RequiredActionConfigModel;
+import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.services.managers.ClientSessionCode;
 import org.keycloak.services.resources.LoginActionsService;
@@ -52,12 +53,13 @@ public class RequiredActionContextResult implements RequiredActionContext {
     protected HttpRequest httpRequest;
     protected UserModel user;
     protected RequiredActionFactory factory;
+    protected RequiredActionProviderModel requiredActionModel;
     protected RequiredActionConfigModel config;
 
     public RequiredActionContextResult(AuthenticationSessionModel authSession,
                                        RealmModel realm, EventBuilder eventBuilder, KeycloakSession session,
                                        HttpRequest httpRequest,
-                                       UserModel user, RequiredActionFactory factory) {
+                                       UserModel user, RequiredActionProviderModel requiredActionModel, RequiredActionFactory factory) {
         this.authenticationSession = authSession;
         this.realm = realm;
         this.eventBuilder = eventBuilder;
@@ -65,7 +67,13 @@ public class RequiredActionContextResult implements RequiredActionContext {
         this.httpRequest = httpRequest;
         this.user = user;
         this.factory = factory;
-        this.config = realm.getRequiredActionConfigByAlias(factory.getId());
+        this.requiredActionModel = requiredActionModel;
+        this.config = realm.getRequiredActionConfigByAlias(factory.getId()); // TODO:mposolda may not work in cases when model points to different than factory...
+    }
+
+    @Override
+    public RequiredActionProviderModel getRequiredActionModel() {
+        return requiredActionModel;
     }
 
     @Override

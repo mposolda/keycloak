@@ -80,6 +80,7 @@ import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.ModelException;
 import org.keycloak.models.ModelIllegalStateException;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.UserConsentModel;
 import org.keycloak.models.UserCredentialModel;
 import org.keycloak.models.UserLoginFailureModel;
@@ -306,9 +307,14 @@ public class UserResource {
         List<String> reqActions = rep.getRequiredActions();
 
         if (reqActions != null) {
-            session.getKeycloakSessionFactory()
+            Stream<String> factoryIds = session.getKeycloakSessionFactory()
                     .getProviderFactoriesStream(RequiredActionProvider.class)
-                    .map(ProviderFactory::getId)
+                    .map(ProviderFactory::getId);
+            Stream<String> reqActionModels = session.getContext().getRealm().getRequiredActionProvidersStream()
+                    .filter(RequiredActionProviderModel::isEnabled)
+                    .map(RequiredActionProviderModel::getAlias); // TODO:mposolda doublecheck all cases (is realm always available? etc) Also figure if possible to filter some factories?
+
+            Stream.concat(factoryIds, reqActionModels)
                     .distinct()
                     .sorted()
                     .forEach(action -> {

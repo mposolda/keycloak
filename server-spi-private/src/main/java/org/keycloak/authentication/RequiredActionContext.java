@@ -29,6 +29,7 @@ import org.keycloak.http.HttpRequest;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RequiredActionConfigModel;
+import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
@@ -105,6 +106,13 @@ public interface RequiredActionContext {
     UriInfo getUriInfo();
     KeycloakSession getSession();
     HttpRequest getHttpRequest();
+
+    /**
+     * The model of the current required action.
+     *
+     * @return
+     */
+    RequiredActionProviderModel getRequiredActionModel();
 
     /**
      * The configuration of the current required action. Returns {@literal null} if the current required action is not configurable.

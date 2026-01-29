@@ -29,12 +29,14 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
+import org.keycloak.constants.OID4VCIConstants;
 import org.keycloak.events.admin.OperationType;
 import org.keycloak.events.admin.ResourceType;
 import org.keycloak.models.ClientScopeModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.utils.DefaultRequiredActions;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.models.utils.RepresentationToModel;
 import org.keycloak.protocol.LoginProtocol;
@@ -132,6 +134,12 @@ public class ClientScopesResource {
             ClientScopeModel clientScope = RepresentationToModel.createClientScope(realm, rep);
 
             adminEvent.operation(OperationType.CREATE).resourcePath(session.getContext().getUri(), clientScope.getId()).representation(rep).success();
+
+            // TODO:mposolda should be pluggable somehow (Workflows? Custom event listener? Or dedicated method on protocol?
+            if (OID4VCIConstants.OID4VC_PROTOCOL.equals(rep.getProtocol())) {
+                logger.infof("Creating required action '%s' in the realm '%s'", clientScope.getName(), realm.getName());
+                DefaultRequiredActions.addVerifiableCredentialOfferAction(realm, clientScope); // TODO:mposolda update client scope...
+            }
 
             return Response.created(session.getContext().getUri().getAbsolutePathBuilder().path(clientScope.getId()).build()).build();
         } catch (ModelDuplicateException e) {

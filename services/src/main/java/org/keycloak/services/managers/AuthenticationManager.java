@@ -1321,7 +1321,7 @@ public class AuthenticationManager {
         if (factory == null) {
             throw new RuntimeException("Unable to find factory for Required Action: " + model.getProviderId() + " did you forget to declare it in a META-INF/services file?");
         }
-        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, user, factory);
+        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, user, model, factory);
         RequiredActionProvider actionProvider = null;
         try {
             actionProvider = createRequiredAction(context);
@@ -1468,17 +1468,21 @@ public class AuthenticationManager {
         // see if any required actions need triggering, i.e. an expired password
         realm.getRequiredActionProvidersStream()
                 .filter(RequiredActionProviderModel::isEnabled)
-                .filter(model -> !ignoredActions.contains(model.getProviderId()))
-                .map(model -> toRequiredActionFactory(session, model, realm))
+                .filter(model -> !ignoredActions.contains(model.getProviderId())) // TODO:mposolda should check this for the correctness if "ignoredActions" work when I use model instead of "factory"
+                .map(model -> {
+                    RequiredActionFactory factory = toRequiredActionFactory(session, model, realm);
+                    return factory == null ? null : Map.entry(model, factory);
+                })
                 .filter(Objects::nonNull)
-                .forEachOrdered(f -> evaluateRequiredAction(session, authSession, request, event, realm, user, f));
+                .forEachOrdered(f -> evaluateRequiredAction(session, authSession, request, event, realm, user,
+                        f.getKey(), f.getValue()));
     }
 
     private static void evaluateRequiredAction(final KeycloakSession session, final AuthenticationSessionModel authSession,
                                         final HttpRequest request, final EventBuilder event, final RealmModel realm,
-                                        final UserModel user, RequiredActionFactory factory) {
+                                        final UserModel user, RequiredActionProviderModel requiredActionModel, RequiredActionFactory factory) {
         RequiredActionProvider provider = factory.create(session);
-        RequiredActionContextResult result = new RequiredActionContextResult(authSession, realm, event, session, request, user, factory) {
+        RequiredActionContextResult result = new RequiredActionContextResult(authSession, realm, event, session, request, user, requiredActionModel, factory) {
             @Override
             public void challenge(Response response) {
                 throw new RuntimeException("Not allowed to call challenge() within evaluateTriggers()");
