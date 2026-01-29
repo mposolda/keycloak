@@ -138,7 +138,7 @@ public class OID4VCAuthorizationDetailsProcessor implements AuthorizationDetails
                     // Use a reasonable expiration time (e.g., 1 hour)
                     int expiration = Time.currentTime() + 3600;
                     CredentialOfferStorage.CredentialOfferState offerState = new CredentialOfferStorage.CredentialOfferState(
-                            credOffer, client.getClientId(), user.getId(), expiration);
+                            credOffer, client.getClientId(), user.getId(), expiration, false);
                     offerState.setAuthorizationDetails(oid4vcDetail);
 
                     offerStorage.putOfferState(session, offerState);

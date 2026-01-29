@@ -25,11 +25,13 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import org.keycloak.common.Profile;
+import org.keycloak.models.ClientScopeModel;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.UserModel;
 
 import static org.keycloak.common.Profile.isFeatureEnabled;
+import static org.keycloak.constants.OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID;
 
 /**
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
@@ -84,7 +86,8 @@ public class DefaultRequiredActions {
         WEBAUTHN_REGISTER("webauthn-register", DefaultRequiredActions::addWebAuthnRegisterAction, () -> isFeatureEnabled(Profile.Feature.WEB_AUTHN)),
         WEBAUTHN_PASSWORDLESS_REGISTER("webauthn-register-passwordless", DefaultRequiredActions::addWebAuthnPasswordlessRegisterAction, () -> isFeatureEnabled(Profile.Feature.WEB_AUTHN)),
         VERIFY_USER_PROFILE(UserModel.RequiredAction.VERIFY_PROFILE.name(), DefaultRequiredActions::addVerifyProfile),
-        IDP_LINK_ACCOUNT("idp_link", DefaultRequiredActions::addIdpLink);
+        IDP_LINK_ACCOUNT("idp_link", DefaultRequiredActions::addIdpLink),
+        VERIFIABLE_CREDENTIAL_OFFER(VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID, DefaultRequiredActions::addVerifiableCredentialOfferAction, () -> isFeatureEnabled(Profile.Feature.OID4VC_VCI));
 
         private final String alias;
         private final Consumer<RealmModel> addAction;
@@ -334,6 +337,32 @@ public class DefaultRequiredActions {
         }
     }
 
+    public static void addVerifiableCredentialOfferAction(RealmModel realm) {
+        if (realm.getRequiredActionProviderByAlias(VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID) == null) {
+            RequiredActionProviderModel vc = new RequiredActionProviderModel();
+            vc.setEnabled(true);
+            vc.setAlias(VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID);
+            vc.setName("Verifiable Credential Offer");
+            vc.setProviderId(VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID);
+            vc.setDefaultAction(false);
+            vc.setPriority(200);
+            realm.addRequiredActionProvider(vc);
+        }
+    }
+
+    public static void addVerifiableCredentialOfferAction(RealmModel realm, ClientScopeModel clientScope) {
+        if (realm.getRequiredActionProviderByAlias(clientScope.getName()) == null) {
+            RequiredActionProviderModel vc = new RequiredActionProviderModel();
+            vc.setEnabled(true);
+            vc.setAlias(clientScope.getName());
+            vc.setName("Credential Offer For " + clientScope.getName());
+            vc.setProviderId(VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID);
+            vc.setDefaultAction(false);
+            vc.setPriority(200); // TODO:mposolda Do I need to figure conflict with same priority of all those actions?
+            realm.addRequiredActionProvider(vc);
+        }
+    }
+
     private static final HashSet<String> REQUIRED_ACTIONS = new HashSet<>();
     static {
         for (UserModel.RequiredAction value : UserModel.RequiredAction.values()) {
@@ -356,7 +385,7 @@ public class DefaultRequiredActions {
         if (providerId == null) {
             return null;
         }
-        String upperCase = providerId.toUpperCase();
+        String upperCase = KeycloakModelUtils.getRequiredActionFactoryFromAlias(providerId).toUpperCase();
         if (REQUIRED_ACTIONS.contains(upperCase)) {
             return upperCase;
         }

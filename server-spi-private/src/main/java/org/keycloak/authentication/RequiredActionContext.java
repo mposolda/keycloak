@@ -107,6 +107,13 @@ public interface RequiredActionContext {
     HttpRequest getHttpRequest();
 
     /**
+     * The user config of the current required action.
+     *
+     * @return user configuration for the case when required-action is configurable per user. Null otherwise
+     */
+    RequiredActionUserConfig getUserConfig();
+
+    /**
      * The configuration of the current required action. Returns {@literal null} if the current required action is not configurable.
      * @return
      */

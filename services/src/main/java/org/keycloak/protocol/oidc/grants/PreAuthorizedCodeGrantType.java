@@ -39,6 +39,7 @@ import org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerWellKnownProvider;
 import org.keycloak.protocol.oid4vc.issuance.credentialoffer.CredentialOfferStorage;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.TokenManager.AccessTokenResponseBuilder;
+import org.keycloak.protocol.oidc.utils.AuthorizeClientUtil;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.representations.AccessTokenResponse;
 import org.keycloak.representations.AuthorizationDetailsJSONRepresentation;
@@ -82,7 +83,7 @@ public class PreAuthorizedCodeGrantType extends OAuth2GrantTypeBase {
         }
 
         var offerStorage = session.getProvider(CredentialOfferStorage.class);
-        var offerState = offerStorage.findOfferStateByCode(session, code);
+        CredentialOfferStorage.CredentialOfferState offerState = offerStorage.findOfferStateByCode(session, code);
         if (offerState == null) {
             var errorMessage = "No credential offer state for code: " + code;
             event.detail(Details.REASON, errorMessage).error(Errors.INVALID_CODE);
@@ -112,14 +113,7 @@ public class PreAuthorizedCodeGrantType extends OAuth2GrantTypeBase {
                     errorMessage, Response.Status.BAD_REQUEST);
         }
 
-        var appClientId = offerState.getClientId();
-        ClientModel clientModel = realm.getClientByClientId(appClientId);
-        if (clientModel == null) {
-            var errorMessage = "No client model for: " + appClientId;
-            event.detail(Details.REASON, errorMessage).error(Errors.INVALID_CODE);
-            throw new CorsErrorResponseException(cors, OAuthErrorException.INVALID_REQUEST,
-                    errorMessage, Response.Status.BAD_REQUEST);
-        }
+        ClientModel clientModel = lookupClient(offerState);
 
         UserSessionModel userSession = session.sessions().createUserSession(null, realm, userModel, userModel.getUsername(),
                 null, "pre-authorized-code", false, null,
@@ -211,6 +205,32 @@ public class PreAuthorizedCodeGrantType extends OAuth2GrantTypeBase {
 
         event.success();
         return cors.allowAllOrigins().add(Response.ok(tokenResponse).type(MediaType.APPLICATION_JSON_TYPE));
+    }
+
+    private ClientModel lookupClient(CredentialOfferStorage.CredentialOfferState offerState) {
+        if (offerState.isAction()) {
+            // For action requests, client is not available in the credential-offer. Would require client authentication
+            AuthorizeClientUtil.ClientAuthResult clientAuth = AuthorizeClientUtil.authorizeClient(session, event, cors);
+            client = clientAuth.getClient();
+            cors.allowedOrigins(session, client);
+            return client;
+        } else {
+            String appClientId = offerState.getClientId();
+            ClientModel clientModel = realm.getClientByClientId(appClientId);
+            if (clientModel == null || !clientModel.isEnabled()) {
+                var errorMessage = "No client model for: " + appClientId;
+                event.detail(Details.REASON, errorMessage).error(Errors.INVALID_CODE);
+                throw new CorsErrorResponseException(cors, OAuthErrorException.INVALID_REQUEST,
+                        errorMessage, Response.Status.BAD_REQUEST);
+            }
+            if (!clientModel.isEnabled()) {
+                var errorMessage = "Client " + appClientId + " disabled";
+                event.detail(Details.REASON, errorMessage).error(Errors.INVALID_CODE);
+                throw new CorsErrorResponseException(cors, OAuthErrorException.INVALID_REQUEST,
+                        errorMessage, Response.Status.BAD_REQUEST);
+            }
+            return clientModel;
+        }
     }
 
     @Override

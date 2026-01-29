@@ -246,6 +246,8 @@ export const UserForm = ({
           name="requiredActions"
           label="requiredUserActions"
           help="requiredUserActionsHelp"
+          user={user}
+          refresh={refresh}
         />
         {user?.federationLink && canViewFederationLink && (
           <FormGroup

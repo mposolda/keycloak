@@ -49,6 +49,7 @@ export const TypeaheadSelectControl = <
   labelIcon,
   placeholderText,
   onFilter,
+  onSelect,
   variant,
   isFullWidth = true,
   ...rest
@@ -86,22 +87,30 @@ export const TypeaheadSelectControl = <
     option: string | string[],
     field: ControllerRenderProps<FieldValues, string>,
   ) => {
-    if (field.value.includes(option)) {
-      field.onChange(field.value.filter((item: string) => item !== option));
-      if (isSelectBasedOptions(options)) {
-        setSelectedOptions(
-          selectedOptionsState.filter((item) => item.key !== option),
-        );
-      }
-    } else {
-      field.onChange([...field.value, option]);
-      if (isSelectBasedOptions(combinedOptions)) {
-        setSelectedOptions([
-          ...selectedOptionsState,
-          combinedOptions.find((o) => o.key === option)!,
-        ]);
-      }
-    }
+    console.log("Here in updateValue. Field.value: " + field.value + ", option: " + option);
+    onSelect?.(option, (value) => {
+      console.log("Callback onChange triggered in TypeaheadSelectControl with the value: " + value + " of type " + typeof value + ", option: " + option + " of type " + typeof option);
+      
+      // This is to be able to override the option with the "value" from the callback
+      //option = value;
+
+      if (field.value.includes(option)) {
+        field.onChange(field.value.filter((item: string) => item !== option));
+        if (isSelectBasedOptions(options)) {
+          setSelectedOptions(
+            selectedOptionsState.filter((item) => item.key !== option),
+          );
+        }
+      } else {
+        field.onChange([...field.value, option]);
+        if (isSelectBasedOptions(combinedOptions)) {
+          setSelectedOptions([
+            ...selectedOptionsState,
+            combinedOptions.find((o) => o.key === option)!,
+          ]);
+        }
+      }      
+    });
   };
 
   const onInputKeyDown = (
@@ -285,12 +294,15 @@ export const TypeaheadSelectControl = <
               </MenuToggle>
             )}
             onSelect={(event, v) => {
+              console.log("I am here in TypeaheadSelectControl");
               event?.stopPropagation();
               const option = v?.toString();
               if (isTypeaheadMulti && Array.isArray(field.value)) {
+                console.log("I am here in TypeaheadSelectControl 1");
                 setFilterValue("");
                 updateValue(option || "", field);
               } else {
+                console.log("I am here in TypeaheadSelectControl 2");
                 field.onChange(Array.isArray(field.value) ? [option] : option);
                 setOpen(false);
               }

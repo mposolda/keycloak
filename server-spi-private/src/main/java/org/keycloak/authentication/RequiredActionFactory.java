@@ -17,6 +17,8 @@
 
 package org.keycloak.authentication;
 
+import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import org.keycloak.models.Constants;
@@ -28,6 +30,7 @@ import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.provider.ProviderConfigurationBuilder;
 import org.keycloak.provider.ProviderFactory;
 import org.keycloak.userprofile.ValidationException;
+import org.keycloak.util.JsonSerialization;
 import org.keycloak.validate.ValidationError;
 
 /**
@@ -108,6 +111,31 @@ public interface RequiredActionFactory extends ProviderFactory<RequiredActionPro
             throw new ValidationException(new ValidationError(getId(), Constants.MAX_AUTH_AGE_KEY, "error-number-out-of-range-too-small", 0));
         }
     }
+
+
+    /**
+     * Indicates whether this required action can be configured via the admin ui per user. This means when the required-action is added to the user,
+     * admin is required to configure it per the user
+     * @return
+     */
+    default boolean isConfigurablePerUser(RealmModel realm) {
+        List<ProviderConfigProperty> configMetadata = getConfigMetadataPerUser(realm);
+        return configMetadata != null && !configMetadata.isEmpty();
+    }
+
+    default List<ProviderConfigProperty> getConfigMetadataPerUser(RealmModel realm) {
+        return Collections.emptyList();
+    }
+
+    default Class<? extends RequiredActionUserConfig> getRequiredActionUserConfigClass(RealmModel realm) {
+        if (!isConfigurablePerUser(realm)) {
+            return null;
+        } else {
+            throw new IllegalStateException("Required to provide requiredActionUserConfig subclass for required actions configurable per user");
+        }
+    }
+
+    // TODO:mposolda validateConfigPerUser method?
 
     static int parseMaxAuthAge(RequiredActionConfigModel model) throws NumberFormatException {
         return Integer.parseInt(model.getConfigValue(Constants.MAX_AUTH_AGE_KEY));

@@ -53,6 +53,7 @@ import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.authentication.RequiredActionContextResult;
 import org.keycloak.authentication.RequiredActionFactory;
 import org.keycloak.authentication.RequiredActionProvider;
+import org.keycloak.authentication.RequiredActionUserConfig;
 import org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator;
 import org.keycloak.broker.provider.IdentityBrokerException;
 import org.keycloak.broker.provider.UserAuthenticationIdentityProvider;
@@ -1316,12 +1317,12 @@ public class AuthenticationManager {
     private static Response executeAction(KeycloakSession session, AuthenticationSessionModel authSession, RequiredActionProviderModel model,
                                           HttpRequest request, EventBuilder event, RealmModel realm, UserModel user, boolean kcActionExecution,
                                           Set<String> ignoredActions) {
-        RequiredActionFactory factory = (RequiredActionFactory) session.getKeycloakSessionFactory()
-                .getProviderFactory(RequiredActionProvider.class, model.getProviderId());
+        Map.Entry<RequiredActionFactory, RequiredActionUserConfig> userConfigCtx = KeycloakModelUtils.getRequiredActionUserConfigCtx(session, model.getAlias());
+        RequiredActionFactory factory = userConfigCtx.getKey();
         if (factory == null) {
             throw new RuntimeException("Unable to find factory for Required Action: " + model.getProviderId() + " did you forget to declare it in a META-INF/services file?");
         }
-        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, user, factory);
+        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, user, model.getAlias(), userConfigCtx.getValue(), factory);
         RequiredActionProvider actionProvider = null;
         try {
             actionProvider = createRequiredAction(context);
@@ -1361,7 +1362,7 @@ public class AuthenticationManager {
             return response;
         }
         else if (context.getStatus() == RequiredActionContext.Status.CHALLENGE) {
-            authSession.setAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION, model.getProviderId());
+            authSession.setAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION, model.getAlias());
             return context.getChallenge();
         }
         else if (context.getStatus() == RequiredActionContext.Status.IGNORE) {
@@ -1440,7 +1441,8 @@ public class AuthenticationManager {
         return applicableActionsSorted;
     }
 
-    private static RequiredActionProviderModel getApplicableRequiredAction(final RealmModel realm, final String alias) {
+    private static RequiredActionProviderModel getApplicableRequiredAction(final RealmModel realm, final String action) {
+        String alias = KeycloakModelUtils.getRequiredActionFactoryFromAlias(action);
         final var model = realm.getRequiredActionProviderByAlias(alias);
         if (model == null) {
             logger.warnv(
@@ -1452,6 +1454,9 @@ public class AuthenticationManager {
         if (!model.isEnabled()) {
             return null;
         }
+
+        // TODO:mposolda maybe workaround? Can be done better way?
+        model.setAlias(action);
 
         return model;
     }
@@ -1468,17 +1473,21 @@ public class AuthenticationManager {
         // see if any required actions need triggering, i.e. an expired password
         realm.getRequiredActionProvidersStream()
                 .filter(RequiredActionProviderModel::isEnabled)
-                .filter(model -> !ignoredActions.contains(model.getProviderId()))
-                .map(model -> toRequiredActionFactory(session, model, realm))
+                .filter(model -> !ignoredActions.contains(model.getProviderId())) // TODO:mposolda should check this for the correctness if "ignoredActions" work when I use model instead of "factory"
+                .map(model -> {
+                    RequiredActionFactory factory = toRequiredActionFactory(session, model, realm);
+                    return factory == null ? null : Map.entry(model, factory);
+                })
                 .filter(Objects::nonNull)
-                .forEachOrdered(f -> evaluateRequiredAction(session, authSession, request, event, realm, user, f));
+                .forEachOrdered(f -> evaluateRequiredAction(session, authSession, request, event, realm, user,
+                        f.getKey(), f.getValue()));
     }
 
     private static void evaluateRequiredAction(final KeycloakSession session, final AuthenticationSessionModel authSession,
                                         final HttpRequest request, final EventBuilder event, final RealmModel realm,
-                                        final UserModel user, RequiredActionFactory factory) {
+                                        final UserModel user, RequiredActionProviderModel requiredActionModel, RequiredActionFactory factory) {
         RequiredActionProvider provider = factory.create(session);
-        RequiredActionContextResult result = new RequiredActionContextResult(authSession, realm, event, session, request, user, factory) {
+        RequiredActionContextResult result = new RequiredActionContextResult(authSession, realm, event, session, request, user, factory.getId(), null, factory) {
             @Override
             public void challenge(Response response) {
                 throw new RuntimeException("Not allowed to call challenge() within evaluateTriggers()");
@@ -1508,7 +1517,7 @@ public class AuthenticationManager {
         provider.evaluateTriggers(result);
     }
 
-    private static RequiredActionFactory toRequiredActionFactory(KeycloakSession session, RequiredActionProviderModel model, RealmModel realm) {
+    public static RequiredActionFactory toRequiredActionFactory(KeycloakSession session, RequiredActionProviderModel model, RealmModel realm) {
         RequiredActionFactory factory = (RequiredActionFactory) session.getKeycloakSessionFactory()
                 .getProviderFactory(RequiredActionProvider.class, model.getProviderId());
         if (factory == null) {

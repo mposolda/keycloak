@@ -17,10 +17,7 @@
 
 package org.keycloak.protocol.oid4vc.issuance;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -108,6 +105,7 @@ import org.keycloak.protocol.oid4vc.model.Proofs;
 import org.keycloak.protocol.oid4vc.model.SupportedCredentialConfiguration;
 import org.keycloak.protocol.oid4vc.model.VerifiableCredential;
 import org.keycloak.protocol.oid4vc.utils.ClaimsPathPointer;
+import org.keycloak.protocol.oid4vc.utils.OID4VCUtil;
 import org.keycloak.protocol.oidc.grants.PreAuthorizedCodeGrantType;
 import org.keycloak.protocol.oidc.grants.PreAuthorizedCodeGrantTypeFactory;
 import org.keycloak.protocol.oidc.rar.AuthorizationDetailsProcessor;
@@ -125,11 +123,7 @@ import org.keycloak.util.JsonSerialization;
 import org.keycloak.utils.MediaType;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
-import com.google.zxing.client.j2se.MatrixToImageWriter;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpOptions;
@@ -174,8 +168,8 @@ public class OID4VCIssuerEndpoint {
      */
     private AuthenticationManager.AuthResult cachedAuthResult;
 
-    private static final String CODE_LIFESPAN_REALM_ATTRIBUTE_KEY = "preAuthorizedCodeLifespanS";
-    private static final int DEFAULT_CODE_LIFESPAN_S = 30;
+    public static final String CODE_LIFESPAN_REALM_ATTRIBUTE_KEY = "preAuthorizedCodeLifespanS";
+    public static final int DEFAULT_CODE_LIFESPAN_S = 30;
 
     public static final String DEFLATE_COMPRESSION = "DEF";
     public static final String NONCE_PATH = "nonce";
@@ -493,7 +487,7 @@ public class OID4VCIssuerEndpoint {
                 .setCredentialConfigurationIds(List.of(credConfigId));
 
         int expiration = timeProvider.currentTimeSeconds() + preAuthorizedCodeLifeSpan;
-        CredentialOfferState offerState = new CredentialOfferState(credOffer, appClientId, userId, expiration);
+        CredentialOfferState offerState = new CredentialOfferState(credOffer, appClientId, userId, expiration, false);
 
         if (preAuthorized) {
             String code = "urn:oid4vci:code:" + SecretGenerator.getInstance().randomString(64);
@@ -542,13 +536,10 @@ public class OID4VCIssuerEndpoint {
     }
 
     private Response getOfferUriAsQr(String nonce, int width, int height) {
-        QRCodeWriter qrCodeWriter = new QRCodeWriter();
-        String encodedOfferUri = URLEncoder.encode(OID4VCIssuerWellKnownProvider.getIssuer(session.getContext()) + "/protocol/" + OID4VCLoginProtocolFactory.PROTOCOL_ID + "/" + CREDENTIAL_OFFER_PATH + nonce, StandardCharsets.UTF_8);
+        String offerUri = OID4VCUtil.getOfferAsUri(session, nonce);
         try {
-            BitMatrix bitMatrix = qrCodeWriter.encode("openid-credential-offer://?credential_offer_uri=" + encodedOfferUri, BarcodeFormat.QR_CODE, width, height);
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            MatrixToImageWriter.writeToStream(bitMatrix, "png", bos);
-            return cors.add(Response.ok().type(RESPONSE_TYPE_IMG_PNG).entity(bos.toByteArray()));
+            byte[] qrBytes = OID4VCUtil.getOfferUriAsQr(offerUri, width, height);
+            return cors.add(Response.ok().type(RESPONSE_TYPE_IMG_PNG).entity(qrBytes));
         } catch (WriterException | IOException e) {
             LOGGER.warnf("Was not able to create a qr code of dimension %s:%s.", width, height, e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Was not able to generate qr.").build();

@@ -17,22 +17,27 @@
 
 package org.keycloak.models.utils;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.Key;
 import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
+import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -47,8 +52,12 @@ import jakarta.transaction.Transaction;
 
 import org.keycloak.Config;
 import org.keycloak.Config.Scope;
+import org.keycloak.authentication.RequiredActionFactory;
+import org.keycloak.authentication.RequiredActionProvider;
+import org.keycloak.authentication.RequiredActionUserConfig;
 import org.keycloak.broker.social.SocialIdentityProvider;
 import org.keycloak.broker.social.SocialIdentityProviderFactory;
+import org.keycloak.common.util.Base64Url;
 import org.keycloak.common.util.CertificateUtils;
 import org.keycloak.common.util.KeyUtils;
 import org.keycloak.common.util.PemUtils;
@@ -87,6 +96,7 @@ import org.keycloak.sessions.AuthenticationSessionModel;
 import org.keycloak.sessions.RootAuthenticationSessionModel;
 import org.keycloak.transaction.JtaTransactionManagerLookup;
 import org.keycloak.transaction.RequestContextHelper;
+import org.keycloak.util.JsonSerialization;
 import org.keycloak.utils.KeycloakSessionUtil;
 
 import org.jboss.logging.Logger;
@@ -1246,5 +1256,50 @@ public final class KeycloakModelUtils {
             acceptedClientProtocols = List.of(client.getProtocol());
         }
         return acceptedClientProtocols;
+    }
+
+    // TODO:mposolda javadoc
+    public static Map.Entry<RequiredActionFactory, RequiredActionUserConfig> getRequiredActionUserConfigCtx(KeycloakSession session, String action) {
+        if (action.contains(":")) {
+            int indexOf = action.indexOf(':');
+            String actionName = action.substring(0, indexOf);
+            String cfg = action.substring(indexOf + 1);
+            RequiredActionFactory reqActionFactory = (RequiredActionFactory) session.getKeycloakSessionFactory().getProviderFactory(RequiredActionProvider.class, actionName);
+            Class<? extends RequiredActionUserConfig> cfgClass = reqActionFactory.getRequiredActionUserConfigClass(session.getContext().getRealm());
+            if (cfgClass == null) {
+                throw new IllegalStateException("Configurable required action '" + actionName + "' does not provide requiredActionUserConfigClass");
+            }
+            try {
+                byte[] cfgBytes = Base64Url.decode(cfg);
+                RequiredActionUserConfig cfgParsed = JsonSerialization.readValue(cfgBytes, cfgClass);
+                return new AbstractMap.SimpleImmutableEntry<>(reqActionFactory, cfgParsed);
+            } catch (IOException ioe) {
+                throw new IllegalArgumentException("Failed to parse the config of required action: " + cfg + " for the provider " + actionName);
+            }
+        } else {
+            RequiredActionFactory reqActionFactory = (RequiredActionFactory) session.getKeycloakSessionFactory().getProviderFactory(RequiredActionProvider.class, action);
+            return new AbstractMap.SimpleImmutableEntry<>(reqActionFactory, null);
+        }
+    }
+
+    // TODO:mposolda proper javadoc
+    /**
+     * @param actions Could be action including parameter (EG. something like "verifiable-credential-offer:{"my-additional-config-option": "value"}")
+     * @return
+     */
+    public static Map<String, Set<String>> getFactoriesToActions(List<String> actions) {
+        if (actions == null) return null;
+        Map<String, Set<String>> result = new HashMap<>();
+        for (String action : actions) {
+            String actionName = getRequiredActionFactoryFromAlias(action);
+            Set<String> existing = result.computeIfAbsent(actionName, k -> new TreeSet<>());
+            existing.add(action);
+        }
+        return result;
+    }
+
+    // TODO:mposolda javadoc
+    public static String getRequiredActionFactoryFromAlias(String action) {
+        return (action.contains(":")) ? action.substring(0, action.indexOf(":")) : action;
     }
 }

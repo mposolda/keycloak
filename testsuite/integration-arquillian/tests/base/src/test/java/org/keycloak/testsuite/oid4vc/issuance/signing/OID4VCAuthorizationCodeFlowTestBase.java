@@ -43,6 +43,7 @@ import org.keycloak.representations.idm.ProtocolMapperRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.testsuite.AssertEvents;
 import org.keycloak.testsuite.admin.ApiUtil;
+import org.keycloak.testsuite.util.WaitUtils;
 import org.keycloak.testsuite.util.oauth.AccessTokenResponse;
 import org.keycloak.testsuite.util.oauth.OpenIDProviderConfigurationResponse;
 import org.keycloak.testsuite.util.oauth.oid4vc.CredentialIssuerMetadataResponse;
@@ -232,6 +233,9 @@ public abstract class OID4VCAuthorizationCodeFlowTestBase extends OID4VCIssuerEn
             credentialRequest.setCredentialIdentifier(credentialIdentifier);
             return credentialRequest;
         };
+
+        // TODO:mposolda
+        WaitUtils.pause(100000000);
 
         testCompleteFlowWithClaimsValidationAuthorizationCode(credRequestSupplier);
     }

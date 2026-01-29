@@ -18,6 +18,7 @@ package org.keycloak.services.resources;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Objects;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -43,6 +44,7 @@ import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.authentication.RequiredActionContextResult;
 import org.keycloak.authentication.RequiredActionFactory;
 import org.keycloak.authentication.RequiredActionProvider;
+import org.keycloak.authentication.RequiredActionUserConfig;
 import org.keycloak.authentication.actiontoken.ActionTokenContext;
 import org.keycloak.authentication.actiontoken.ActionTokenHandler;
 import org.keycloak.authentication.actiontoken.ExplainedTokenVerificationException;
@@ -79,6 +81,7 @@ import org.keycloak.models.DefaultActionTokenKey;
 import org.keycloak.models.KeycloakContext;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.SingleUseObjectKeyModel;
 import org.keycloak.models.UserConsentModel;
 import org.keycloak.models.UserModel;
@@ -1163,13 +1166,30 @@ public class LoginActionsService {
         event.event(EventType.CUSTOM_REQUIRED_ACTION);
         event.detail(Details.CUSTOM_REQUIRED_ACTION, action);
 
-        RequiredActionFactory factory = (RequiredActionFactory)session.getKeycloakSessionFactory().getProviderFactory(RequiredActionProvider.class, getDefaultRequiredActionCaseInsensitively(action));
+        String caseInsensitiveAction = getDefaultRequiredActionCaseInsensitively(action);
+        Map.Entry<RequiredActionFactory, RequiredActionUserConfig> userConfigCtx = KeycloakModelUtils.getRequiredActionUserConfigCtx(session, caseInsensitiveAction);
+        RequiredActionFactory factory = userConfigCtx.getKey();
+        RequiredActionUserConfig userConfig = userConfigCtx.getValue();
         if (factory == null) {
-            ServicesLogger.LOGGER.actionProviderNull();
-            event.error(Errors.INVALID_CODE);
-            throw new WebApplicationException(ErrorPage.error(session, authSession, Response.Status.BAD_REQUEST, Messages.INVALID_CODE));
+            // Fallback to lookup by model alias
+            Map.Entry<RequiredActionProviderModel, RequiredActionFactory> entry = realm.getRequiredActionProvidersStream()
+                    .filter(reqActionModel -> reqActionModel.getAlias().equals(action))
+                    .filter(RequiredActionProviderModel::isEnabled)
+                    .map(model -> {
+                        RequiredActionFactory fct = AuthenticationManager.toRequiredActionFactory(session, model, realm);
+                        return fct == null ? null : Map.entry(model, fct);
+                    })
+                    .filter(Objects::nonNull)
+                    .findFirst().orElse(null);
+            if (entry == null) {
+                ServicesLogger.LOGGER.actionProviderNull();
+                event.error(Errors.INVALID_CODE);
+                throw new WebApplicationException(ErrorPage.error(session, authSession, Response.Status.BAD_REQUEST, Messages.INVALID_CODE));
+            }
+            factory = entry.getValue();
         }
-        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, authSession.getAuthenticatedUser(), factory) {
+
+        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, authSession.getAuthenticatedUser(), action, userConfig, factory) {
             @Override
             public void ignore() {
                 throw new RuntimeException("Cannot call ignore within processAction()");
@@ -1211,10 +1231,10 @@ public class LoginActionsService {
             event.clone().success();
             initLoginEvent(authSession);
             event.event(EventType.LOGIN);
-            authSession.removeRequiredAction(factory.getId());
-            authSession.getAuthenticatedUser().removeRequiredAction(factory.getId());
+            authSession.removeRequiredAction(action);
+            authSession.getAuthenticatedUser().removeRequiredAction(action);
             authSession.removeAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION);
-            AuthenticationManager.setKcActionStatus(factory.getId(), RequiredActionContext.KcActionStatus.SUCCESS, authSession);
+            AuthenticationManager.setKcActionStatus(action, RequiredActionContext.KcActionStatus.SUCCESS, authSession);
 
             response = AuthenticationManager.nextActionAfterAuthentication(session, authSession, clientConnection, request, session.getContext().getUri(), event);
         } else if (context.getStatus() == RequiredActionContext.Status.CHALLENGE) {

@@ -80,6 +80,7 @@ import org.keycloak.models.ModelDuplicateException;
 import org.keycloak.models.ModelException;
 import org.keycloak.models.ModelIllegalStateException;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.UserConsentModel;
 import org.keycloak.models.UserCredentialModel;
 import org.keycloak.models.UserLoginFailureModel;
@@ -87,6 +88,7 @@ import org.keycloak.models.UserManager;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.light.LightweightUserAdapter;
+import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.models.utils.RepresentationToModel;
 import org.keycloak.models.utils.RoleUtils;
@@ -194,6 +196,8 @@ public class UserResource {
         @APIResponse(responseCode = "500", description = "Internal Server Error", content = @Content(schema = @Schema(implementation = ErrorRepresentation.class)))
     })
     public Response updateUser(final UserRepresentation rep) {
+        // TODO:mposolda remove
+        logger.infof("Updating user: %s", rep.getUsername());
 
         auth.users().requireManage(user);
         try {
@@ -303,19 +307,32 @@ public class UserResource {
 
         if (rep.getFederationLink() != null) user.setFederationLink(rep.getFederationLink());
 
-        List<String> reqActions = rep.getRequiredActions();
+        Map<String, Set<String>> reqActions = KeycloakModelUtils.getFactoriesToActions(rep.getRequiredActions());
+        // TODO:mposolda remove
+        logger.infof("Required actions during user update: %s", reqActions);
 
         if (reqActions != null) {
-            session.getKeycloakSessionFactory()
+            Stream<String> factoryIds = session.getKeycloakSessionFactory()
                     .getProviderFactoriesStream(RequiredActionProvider.class)
-                    .map(ProviderFactory::getId)
+                    .map(ProviderFactory::getId);
+//            Stream<String> reqActionModels = session.getContext().getRealm().getRequiredActionProvidersStream()
+//                    .filter(RequiredActionProviderModel::isEnabled)
+//                    .map(RequiredActionProviderModel::getAlias); // TODO:mposolda doublecheck all cases (is realm always available? etc) Also figure if possible to filter some factories?
+
+//            Stream.concat(factoryIds, reqActionModels)
+            factoryIds
                     .distinct()
                     .sorted()
                     .forEach(action -> {
-                        if (reqActions.contains(action)) {
-                            user.addRequiredAction(action);
+                        if (reqActions.containsKey(action)) {
+                            for (String actualAction : reqActions.get(action)) {
+                                // TODO:mposolda probably remove logging
+                                logger.infof("Adding required action '%s' to user '%s'", actualAction, user.getUsername());
+                                user.addRequiredAction(actualAction);
+                            }
                         } else if (removeMissingRequiredActions) {
-                            user.removeRequiredAction(action);
+                            user.removeRequiredAction(action); // TODO:mposolda Check if this is correct even for parameterized actions...
+                            logger.infof("Removing required action '%s' from user '%s'", action, user.getUsername());
                         }
                     });
         }
