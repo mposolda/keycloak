@@ -1,22 +1,58 @@
 package org.keycloak.protocol.oid4vc.issuance.requiredactions;
 
+import com.google.zxing.WriterException;
+
+import jakarta.ws.rs.core.Response;
+
 import org.jboss.logging.Logger;
 
 import org.keycloak.Config;
+import org.keycloak.WebAuthnConstants;
 import org.keycloak.authentication.InitiatedActionSupport;
 import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.authentication.RequiredActionFactory;
 import org.keycloak.authentication.RequiredActionProvider;
+import org.keycloak.common.util.SecretGenerator;
+import org.keycloak.constants.OID4VCIConstants;
+import org.keycloak.events.Details;
+import org.keycloak.events.EventBuilder;
+import org.keycloak.models.ClientScopeModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
+import org.keycloak.models.RealmModel;
+import org.keycloak.models.RequiredActionProviderModel;
+import org.keycloak.models.UserModel;
+import org.keycloak.models.oid4vci.CredentialScopeModel;
+import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.protocol.oid4vc.OID4VCEnvironmentProviderFactory;
+import org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerWellKnownProvider;
+import org.keycloak.protocol.oid4vc.issuance.OffsetTimeProvider;
+import org.keycloak.protocol.oid4vc.issuance.TimeProvider;
+import org.keycloak.protocol.oid4vc.issuance.credentialoffer.CredentialOfferStorage;
+import org.keycloak.protocol.oid4vc.model.CredentialsOffer;
+import org.keycloak.protocol.oid4vc.model.PreAuthorizedCode;
+import org.keycloak.protocol.oid4vc.model.PreAuthorizedGrant;
 import org.keycloak.sessions.AuthenticationSessionModel;
+import org.keycloak.util.JsonSerialization;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
 
 import static org.keycloak.constants.OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID;
+import static org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerEndpoint.CODE_LIFESPAN_REALM_ATTRIBUTE_KEY;
+import static org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerEndpoint.CREDENTIAL_CONFIGURATION_IDS_NOTE;
+import static org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerEndpoint.DEFAULT_CODE_LIFESPAN_S;
 
 public class VerifiableCredentialOfferAction implements RequiredActionProvider, RequiredActionFactory, OID4VCEnvironmentProviderFactory {
 
     private static final Logger logger = Logger.getLogger(VerifiableCredentialOfferAction.class);
+
+    private final TimeProvider timeProvider;
+
+    public VerifiableCredentialOfferAction() {
+        this.timeProvider = new OffsetTimeProvider();
+    }
 
     @Override
     public String getDisplayText() {
@@ -49,14 +85,110 @@ public class VerifiableCredentialOfferAction implements RequiredActionProvider, 
 
     @Override
     public void requiredActionChallenge(RequiredActionContext context) {
-        logger.infof("Required action challenge invoked for: " + context.getAction(), context.getRequiredActionModel().getName());
-        // TODO:mposolda
+        // TODO:mposolda debug or trace or remove
+        logger.infof("Required action challenge invoked for action '%s' of provider '%s'", context.getRequiredActionModel().getName(), context.getAction());
+
+        // TODO:mposolda should support obtaining existing offer from authenticationSession instead of always creating it
+        CredentialOfferStorage.CredentialOfferState credOfferState = createCredentialsOffer(context);
+
+        CredentialOfferBean offerBean = null;
+        try {
+            offerBean = new CredentialOfferBean(context.getSession(), credOfferState.getNonce());
+        } catch (WriterException | IOException ex) {
+            String message = "Error when generating credential-offer QR code " + ex.getMessage();
+            throwError(message, ex);
+        }
+
+        // TODO:mposolda should throw the "success" event now or would it be thrown by framework?
+
+
+        Response form = context.form()
+                .setAttribute("credentialOffer", offerBean)
+                .createForm("oid4vc-credential-offer.ftl");
+        context.challenge(form);
+    }
+
+
+    // TODO:mposolda should handle "get" or "create"
+    private CredentialOfferStorage.CredentialOfferState createCredentialsOffer(RequiredActionContext context) {
+        boolean preAuthorized = true; // TODO:mposolda Always true for now. Should be different in some cases?
+
+        KeycloakSession session = context.getSession();
+        RealmModel realm = context.getRealm();
+        EventBuilder eventBuilder = context.getEvent();
+
+        RequiredActionProviderModel reqAction = context.getRequiredActionModel();
+        String clientScopeName = reqAction.getAlias(); // Assumption that alias is the same as name of clientScope
+
+        ClientScopeModel clientScope = KeycloakModelUtils.getClientScopeByName(realm, clientScopeName);
+        if (clientScope == null) {
+            throwError(String.format("Client scope '%s' not found in the realm '%s'.", clientScopeName, realm.getName()), null);
+        }
+
+        if (!OID4VCIConstants.OID4VC_PROTOCOL.equals(clientScope.getProtocol())) {
+            throwError(String.format("Client scope '%s' in the realm '%s' has incorrect protocol '%s'.", clientScopeName, realm.getName(), clientScope.getProtocol()), null);
+        }
+
+        String credentialConfigurationId = clientScope.getAttribute(CredentialScopeModel.CONFIGURATION_ID);
+        if (credentialConfigurationId == null) {
+            throwError(String.format("Credential configuration ID attribute not found on client scope '%s' in the realm '%s'.", clientScopeName, realm.getName()), null);
+        }
+
+        // TODO:mposolda should if code below for creating credential-offer should be externalized to some utility to re-use the similar code from OID4VCIssuerEndpoint.getCredentialOfferURI
+        CredentialsOffer credOffer = new CredentialsOffer()
+                .setCredentialIssuer(OID4VCIssuerWellKnownProvider.getIssuer(session.getContext()))
+                .setCredentialConfigurationIds(List.of(credentialConfigurationId));
+
+        int preAuthorizedCodeLifeSpan = Optional.ofNullable(realm.getAttribute(CODE_LIFESPAN_REALM_ATTRIBUTE_KEY))
+                .map(Integer::valueOf)
+                .orElse(DEFAULT_CODE_LIFESPAN_S);
+        int expiration = timeProvider.currentTimeSeconds() + preAuthorizedCodeLifeSpan;
+        CredentialOfferStorage.CredentialOfferState offerState = new CredentialOfferStorage.CredentialOfferState(credOffer, null, context.getUser().getId(), expiration);
+
+        if (preAuthorized) {
+            String code = "urn:oid4vci:code:" + SecretGenerator.getInstance().randomString(64);
+            credOffer.setGrants(new PreAuthorizedGrant().setPreAuthorizedCode(
+                    new PreAuthorizedCode().setPreAuthorizedCode(code)));
+        }
+
+        CredentialOfferStorage offerStorage = session.getProvider(CredentialOfferStorage.class);
+        offerStorage.putOfferState(session, offerState);
+
+        // TODO:mposolda should be eventually debug
+        logger.infof("Stored credential offer state: [ids=%s, cid=%s, uid=%s, nonce=%s]",
+                credOffer.getCredentialConfigurationIds(), offerState.getClientId(), offerState.getUserId(), offerState.getNonce());
+
+        // TODO:mposolda this is probably not needed? In the REST API, it points to the clientSession of the "admin" user (which indeed is different than the one used during pre-authz flow)
+        // Store the credential configuration IDs in a predictable location for token processing
+        // This allows the authorization details processor to easily retrieve the configuration IDs
+        // without having to search through all session notes or parse the full credential offer
+//        String credentialConfigIdsJson = JsonSerialization.valueAsString(credOffer.getCredentialConfigurationIds());
+//        clientSession.setNote(CREDENTIAL_CONFIGURATION_IDS_NOTE, credentialConfigIdsJson);
+//        logger.debugf("Stored credential configuration IDs for token processing: %s", credentialConfigIdsJson);
+
+        // Add event details
+        eventBuilder.detail(Details.VERIFIABLE_CREDENTIAL_PRE_AUTHORIZED, String.valueOf(preAuthorized));
+        if (offerState.getUserId() != null) {
+            eventBuilder.detail(Details.VERIFIABLE_CREDENTIAL_TARGET_USER_ID, offerState.getUserId());
+        }
+
+        return offerState;
+    }
+
+    // TODO:mposolda probably proper error response?
+    private void throwError(String message, Exception cause) {
+        if (cause == null) {
+            logger.warn(message);
+        } else {
+            logger.warn(message, cause);
+        }
+        throw new IllegalStateException(message);
     }
 
     @Override
     public void processAction(RequiredActionContext context) {
         logger.infof("Process invoked for: " + context.getAction());
-        // TODO:mposolda not sure if "processAction" makes sense for this impl...
+        context.success(); //
     }
 
     @Override
