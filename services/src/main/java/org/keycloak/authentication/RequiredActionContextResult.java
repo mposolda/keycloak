@@ -182,7 +182,7 @@ public class RequiredActionContextResult implements RequiredActionContext {
     }
 
     private String getExecution() {
-        return factory.getId();
+        return requiredActionModel.getAlias();
     }
 
     @Override

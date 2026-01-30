@@ -18,6 +18,7 @@ package org.keycloak.services.resources;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Objects;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -79,6 +80,7 @@ import org.keycloak.models.DefaultActionTokenKey;
 import org.keycloak.models.KeycloakContext;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.SingleUseObjectKeyModel;
 import org.keycloak.models.UserConsentModel;
 import org.keycloak.models.UserModel;
@@ -1164,13 +1166,30 @@ public class LoginActionsService {
         event.detail(Details.CUSTOM_REQUIRED_ACTION, action);
 
         RequiredActionFactory factory = (RequiredActionFactory)session.getKeycloakSessionFactory().getProviderFactory(RequiredActionProvider.class, getDefaultRequiredActionCaseInsensitively(action));
+        RequiredActionProviderModel requiredActionModel;
         if (factory == null) {
-            ServicesLogger.LOGGER.actionProviderNull();
-            event.error(Errors.INVALID_CODE);
-            throw new WebApplicationException(ErrorPage.error(session, authSession, Response.Status.BAD_REQUEST, Messages.INVALID_CODE));
+            // Fallback to lookup by model alias
+            Map.Entry<RequiredActionProviderModel, RequiredActionFactory> entry = realm.getRequiredActionProvidersStream()
+                    .filter(reqActionModel -> reqActionModel.getAlias().equals(action))
+                    .filter(RequiredActionProviderModel::isEnabled)
+                    .map(model -> {
+                        RequiredActionFactory fct = AuthenticationManager.toRequiredActionFactory(session, model, realm);
+                        return fct == null ? null : Map.entry(model, fct);
+                    })
+                    .filter(Objects::nonNull)
+                    .findFirst().orElse(null);
+            if (entry == null) {
+                ServicesLogger.LOGGER.actionProviderNull();
+                event.error(Errors.INVALID_CODE);
+                throw new WebApplicationException(ErrorPage.error(session, authSession, Response.Status.BAD_REQUEST, Messages.INVALID_CODE));
+            }
+            factory = entry.getValue();
+            requiredActionModel = entry.getKey();
+        } else {
+            requiredActionModel = realm.getRequiredActionProviderByAlias(factory.getId()); // TODO:mposolda doublecheck if it is correct...
         }
-        // TODO:mposolda ... not null argument...
-        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, authSession.getAuthenticatedUser(), null, factory) {
+
+        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, authSession.getAuthenticatedUser(), requiredActionModel, factory) {
             @Override
             public void ignore() {
                 throw new RuntimeException("Cannot call ignore within processAction()");
@@ -1212,10 +1231,10 @@ public class LoginActionsService {
             event.clone().success();
             initLoginEvent(authSession);
             event.event(EventType.LOGIN);
-            authSession.removeRequiredAction(factory.getId());
-            authSession.getAuthenticatedUser().removeRequiredAction(factory.getId());
+            authSession.removeRequiredAction(action);
+            authSession.getAuthenticatedUser().removeRequiredAction(action);
             authSession.removeAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION);
-            AuthenticationManager.setKcActionStatus(factory.getId(), RequiredActionContext.KcActionStatus.SUCCESS, authSession);
+            AuthenticationManager.setKcActionStatus(action, RequiredActionContext.KcActionStatus.SUCCESS, authSession);
 
             response = AuthenticationManager.nextActionAfterAuthentication(session, authSession, clientConnection, request, session.getContext().getUri(), event);
         } else if (context.getStatus() == RequiredActionContext.Status.CHALLENGE) {

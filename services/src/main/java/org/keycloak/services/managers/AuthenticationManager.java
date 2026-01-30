@@ -1361,7 +1361,7 @@ public class AuthenticationManager {
             return response;
         }
         else if (context.getStatus() == RequiredActionContext.Status.CHALLENGE) {
-            authSession.setAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION, model.getProviderId());
+            authSession.setAuthNote(AuthenticationProcessor.CURRENT_AUTHENTICATION_EXECUTION, model.getAlias());
             return context.getChallenge();
         }
         else if (context.getStatus() == RequiredActionContext.Status.IGNORE) {
@@ -1512,7 +1512,7 @@ public class AuthenticationManager {
         provider.evaluateTriggers(result);
     }
 
-    private static RequiredActionFactory toRequiredActionFactory(KeycloakSession session, RequiredActionProviderModel model, RealmModel realm) {
+    public static RequiredActionFactory toRequiredActionFactory(KeycloakSession session, RequiredActionProviderModel model, RealmModel realm) {
         RequiredActionFactory factory = (RequiredActionFactory) session.getKeycloakSessionFactory()
                 .getProviderFactory(RequiredActionProvider.class, model.getProviderId());
         if (factory == null) {

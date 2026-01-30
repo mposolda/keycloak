@@ -7,7 +7,6 @@ import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 
 import org.keycloak.Config;
-import org.keycloak.WebAuthnConstants;
 import org.keycloak.authentication.InitiatedActionSupport;
 import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.authentication.RequiredActionFactory;
@@ -21,7 +20,6 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RequiredActionProviderModel;
-import org.keycloak.models.UserModel;
 import org.keycloak.models.oid4vci.CredentialScopeModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.protocol.oid4vc.OID4VCEnvironmentProviderFactory;
@@ -33,7 +31,6 @@ import org.keycloak.protocol.oid4vc.model.CredentialsOffer;
 import org.keycloak.protocol.oid4vc.model.PreAuthorizedCode;
 import org.keycloak.protocol.oid4vc.model.PreAuthorizedGrant;
 import org.keycloak.sessions.AuthenticationSessionModel;
-import org.keycloak.util.JsonSerialization;
 
 import java.io.IOException;
 import java.util.List;
@@ -41,7 +38,6 @@ import java.util.Optional;
 
 import static org.keycloak.constants.OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID;
 import static org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerEndpoint.CODE_LIFESPAN_REALM_ATTRIBUTE_KEY;
-import static org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerEndpoint.CREDENTIAL_CONFIGURATION_IDS_NOTE;
 import static org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerEndpoint.DEFAULT_CODE_LIFESPAN_S;
 
 public class VerifiableCredentialOfferAction implements RequiredActionProvider, RequiredActionFactory, OID4VCEnvironmentProviderFactory {
