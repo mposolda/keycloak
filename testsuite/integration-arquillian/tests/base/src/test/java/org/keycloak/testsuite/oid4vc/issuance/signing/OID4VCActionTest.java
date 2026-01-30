@@ -144,8 +144,6 @@ public class OID4VCActionTest extends OID4VCIssuerEndpointTest {
 
     @Test
     public void testRequiredActionFlow() throws Exception {
-        //OID4VCAuthorizationDetailsFlowTestBase.Oid4vcTestContext ctx = prepareOid4vcTestContext(token);
-
         // Add required action to user
         UserResource user = ApiUtil.findUserByUsernameId(testRealm(), "john");
         UserRepresentation userRep = user.toRepresentation();
@@ -159,13 +157,16 @@ public class OID4VCActionTest extends OID4VCIssuerEndpointTest {
         credentialOfferPage.assertCurrent();
         String credentialOfferUri = credentialOfferPage.getCredentialOfferUri();
 
-        // TODO:mposolda test event that credential-offer created now
+        // TODO:mposolda test event that credential-offer created now instead of events.clear();
+        events.clear();
 
         // Refresh screen. Should be still same action as before and test that there are not new events
-        // TODO:mposolda
+        driver.navigate().refresh();
+        credentialOfferPage.assertCurrent();
+        Assert.assertEquals(credentialOfferUri, credentialOfferPage.getCredentialOfferUri());
+        events.assertEmpty();
 
         // Pre-authorized code flow with credential exchange
-        events.clear(); // TODO:mposolda maybe not needed to clear events here as previous events should be possibly tested too
         CredentialOfferResponse credentialOfferResponse = oauth.oid4vc().credentialOfferRequest()
                 .endpoint(credentialOfferUri)
                 .send();
@@ -229,33 +230,4 @@ public class OID4VCActionTest extends OID4VCIssuerEndpointTest {
         Assert.assertTrue("User not expected to have any required actions, but he has: " + userRep.getRequiredActions(), userRep.getRequiredActions().isEmpty());
     }
 
-    // Successful authorization_code flow
-    private AccessTokenResponse authzCodeFlow(OID4VCAuthorizationCodeFlowTestBase.Oid4vcTestContext ctx, List<ClaimsDescription> claimsForAuthorizationDetailsParameter, boolean expectUserAlreadyAuthenticated) throws Exception {
-        // Perform authorization code flow to get authorization code
-        oauth.client(client.getClientId(), "password");
-        oauth.scope(getCredentialClientScope().getName()); // Add the credential scope
-        if (expectUserAlreadyAuthenticated) {
-            oauth.openLoginForm();
-        } else {
-            oauth.loginForm().doLogin("john", "password");
-        }
-
-        String code = oauth.parseLoginResponse().getCode();
-        assertNotNull("Authorization code should not be null", code);
-
-        OID4VCAuthorizationDetail authDetail = new OID4VCAuthorizationDetail();
-        authDetail.setType(OPENID_CREDENTIAL);
-        authDetail.setCredentialConfigurationId(getCredentialClientScope().getAttributes().get(CredentialScopeModel.CONFIGURATION_ID));
-        authDetail.setClaims(claimsForAuthorizationDetailsParameter);
-        authDetail.setLocations(Collections.singletonList(ctx.credentialIssuer.getCredentialIssuer()));
-
-        List<OID4VCAuthorizationDetail> authDetails = List.of(authDetail);
-
-        // Exchange authorization code for tokens with authorization_details
-        return oauth.accessTokenRequest(code)
-                .endpoint(ctx.openidConfig.getTokenEndpoint())
-                .client(client.getClientId(), "password")
-                .authorizationDetails(authDetails)
-                .send();
-    }
 }
