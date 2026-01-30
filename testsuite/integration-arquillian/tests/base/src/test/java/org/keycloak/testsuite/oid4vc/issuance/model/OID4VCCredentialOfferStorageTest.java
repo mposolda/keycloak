@@ -35,7 +35,7 @@ public class OID4VCCredentialOfferStorageTest extends OID4VCTest {
                             .setCredentialConfigurationIds(List.of(jwtTypeCredentialConfigurationIdName));
 
                     CredentialOfferStorage offerStorage = session.getProvider(CredentialOfferStorage.class);
-                    CredentialOfferStorage.CredentialOfferState offerState = new CredentialOfferStorage.CredentialOfferState(credOffer, null, "john", Time.currentTime() + 600);
+                    CredentialOfferStorage.CredentialOfferState offerState = new CredentialOfferStorage.CredentialOfferState(credOffer, null, "john", Time.currentTime() + 600, true);
 
                     OID4VCAuthorizationDetailResponse authDetailsResponse = new OID4VCAuthorizationDetailResponse();
                     authDetailsResponse.setCredentialIdentifiers(List.of("123"));
@@ -83,7 +83,7 @@ public class OID4VCCredentialOfferStorageTest extends OID4VCTest {
                             .setCredentialConfigurationIds(List.of(jwtTypeCredentialConfigurationIdName));
 
                     CredentialOfferStorage offerStorage = session.getProvider(CredentialOfferStorage.class);
-                    CredentialOfferStorage.CredentialOfferState offerState = new CredentialOfferStorage.CredentialOfferState(credOffer, null, "john", Time.currentTime() + 600);
+                    CredentialOfferStorage.CredentialOfferState offerState = new CredentialOfferStorage.CredentialOfferState(credOffer, null, "john", Time.currentTime() + 600, true);
 
                     OID4VCAuthorizationDetailResponse authDetailsResponse = new OID4VCAuthorizationDetailResponse();
                     authDetailsResponse.setCredentialIdentifiers(List.of("123"));

@@ -11,7 +11,7 @@
             <li>
                 <p>${msg("credentialOfferStep1")}</p>
                 <img id="kc-credential-offer-qr-code" src="data:image/png;base64, ${credentialOffer.qrCode}" alt="Figure: Barcode"><br/>
-                <p><span id="kc-credential-offer-uri"><a href="${credentialOffer.uri}" id="mode-barcode">${msg("credentialOfferUri")}</a></span></p>
+                <p><span id="kc-credential-offer-uri"><a href="${credentialOffer.uri}" id="credential-offer-uri-link">${msg("credentialOfferUri")}</a></span></p>
             </li>
             <li>
                 <p>${msg("credentialOfferStep2")}</p>

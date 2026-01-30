@@ -42,13 +42,15 @@ public interface CredentialOfferStorage extends Provider {
         private String nonce;
         private int expiration;
         private OID4VCAuthorizationDetailResponse authorizationDetails;
+        private boolean action; // True if the offer was created by required-action or AIA
 
-        public CredentialOfferState(CredentialsOffer credOffer, String clientId, String userId, int expiration) {
+        public CredentialOfferState(CredentialsOffer credOffer, String clientId, String userId, int expiration, boolean action) {
             this.credentialsOffer = credOffer;
             this.clientId = clientId;
             this.userId = userId;
             this.expiration = expiration;
             this.nonce = Base64Url.encode(RandomSecret.createRandomSecret(64));
+            this.action = action;
         }
 
         // For json serialization
@@ -92,6 +94,10 @@ public interface CredentialOfferStorage extends Provider {
             return authorizationDetails;
         }
 
+        public boolean isAction() {
+            return action;
+        }
+
         public void setAuthorizationDetails(OID4VCAuthorizationDetailResponse authorizationDetails) {
             this.authorizationDetails = authorizationDetails;
         }
@@ -114,6 +120,10 @@ public interface CredentialOfferStorage extends Provider {
 
         void setExpiration(int expiration) {
             this.expiration = expiration;
+        }
+
+        void setAction(boolean action) {
+            this.action = action;
         }
     }
 

@@ -487,7 +487,7 @@ public class OID4VCIssuerEndpoint {
                 .setCredentialConfigurationIds(List.of(credConfigId));
 
         int expiration = timeProvider.currentTimeSeconds() + preAuthorizedCodeLifeSpan;
-        CredentialOfferState offerState = new CredentialOfferState(credOffer, appClientId, userId, expiration);
+        CredentialOfferState offerState = new CredentialOfferState(credOffer, appClientId, userId, expiration, false);
 
         if (preAuthorized) {
             String code = "urn:oid4vci:code:" + SecretGenerator.getInstance().randomString(64);

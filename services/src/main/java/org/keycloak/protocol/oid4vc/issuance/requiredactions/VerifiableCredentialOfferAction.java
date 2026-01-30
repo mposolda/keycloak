@@ -139,7 +139,7 @@ public class VerifiableCredentialOfferAction implements RequiredActionProvider, 
                 .map(Integer::valueOf)
                 .orElse(DEFAULT_CODE_LIFESPAN_S);
         int expiration = timeProvider.currentTimeSeconds() + preAuthorizedCodeLifeSpan;
-        CredentialOfferStorage.CredentialOfferState offerState = new CredentialOfferStorage.CredentialOfferState(credOffer, null, context.getUser().getId(), expiration);
+        CredentialOfferStorage.CredentialOfferState offerState = new CredentialOfferStorage.CredentialOfferState(credOffer, null, context.getUser().getId(), expiration, true);
 
         if (preAuthorized) {
             String code = "urn:oid4vci:code:" + SecretGenerator.getInstance().randomString(64);
