@@ -15,6 +15,7 @@ import org.keycloak.common.util.SecretGenerator;
 import org.keycloak.constants.OID4VCIConstants;
 import org.keycloak.events.Details;
 import org.keycloak.events.EventBuilder;
+import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.models.ClientScopeModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
@@ -36,6 +37,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static org.keycloak.constants.OID4VCIConstants.CREDENTIAL_OFFER_NONCE;
 import static org.keycloak.constants.OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID;
 import static org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerEndpoint.CODE_LIFESPAN_REALM_ATTRIBUTE_KEY;
 import static org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerEndpoint.DEFAULT_CODE_LIFESPAN_S;
@@ -84,12 +86,28 @@ public class VerifiableCredentialOfferAction implements RequiredActionProvider, 
         // TODO:mposolda debug or trace or remove
         logger.infof("Required action challenge invoked for action '%s' of provider '%s'", context.getRequiredActionModel().getName(), context.getAction());
 
-        // TODO:mposolda should support obtaining existing offer from authenticationSession instead of always creating it
-        CredentialOfferStorage.CredentialOfferState credOfferState = createCredentialsOffer(context);
+        AuthenticationSessionModel authSession = context.getAuthenticationSession();
+        String actionName = context.getRequiredActionModel().getAlias(); //context.getAction();
 
-        CredentialOfferBean offerBean = null;
+        // This is to make sure that credentialOffer can be obtained only once per user required-action and there cannot be multiple credential offers created for single
+        // required-action assignment. User should not be able to create multiple credential offers by retrieving same required-action in multiple different browsers
+        boolean isRequiredActionOnUser = context.getUser().getRequiredActionsStream()
+                .anyMatch(actionName::equals);
+        if (isRequiredActionOnUser){
+            context.getUser().removeRequiredAction(actionName);
+            authSession.addRequiredAction(actionName);
+        }
+
+        String nonce = context.getAuthenticationSession().getAuthNote(CREDENTIAL_OFFER_NONCE);
+        if (nonce == null) {
+            CredentialOfferStorage.CredentialOfferState credOfferState = createCredentialsOffer(context);
+            nonce = credOfferState.getNonce();
+            context.getAuthenticationSession().setAuthNote(CREDENTIAL_OFFER_NONCE, credOfferState.getNonce());
+        }
+
+        LoginFormsProvider form = context.form();
         try {
-            offerBean = new CredentialOfferBean(context.getSession(), credOfferState.getNonce());
+            form.setAttribute("credentialOffer", new CredentialOfferBean(context.getSession(), nonce));
         } catch (WriterException | IOException ex) {
             String message = "Error when generating credential-offer QR code " + ex.getMessage();
             throwError(message, ex);
@@ -98,10 +116,8 @@ public class VerifiableCredentialOfferAction implements RequiredActionProvider, 
         // TODO:mposolda should throw the "success" event now or would it be thrown by framework?
 
 
-        Response form = context.form()
-                .setAttribute("credentialOffer", offerBean)
-                .createForm("oid4vc-credential-offer.ftl");
-        context.challenge(form);
+        Response response = form.createForm("oid4vc-credential-offer.ftl");
+        context.challenge(response);
     }
 
 
