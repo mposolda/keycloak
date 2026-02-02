@@ -53,6 +53,7 @@ import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.authentication.RequiredActionContextResult;
 import org.keycloak.authentication.RequiredActionFactory;
 import org.keycloak.authentication.RequiredActionProvider;
+import org.keycloak.authentication.RequiredActionUserConfig;
 import org.keycloak.authentication.authenticators.browser.AbstractUsernameFormAuthenticator;
 import org.keycloak.broker.provider.IdentityBrokerException;
 import org.keycloak.broker.provider.UserAuthenticationIdentityProvider;
@@ -1316,12 +1317,12 @@ public class AuthenticationManager {
     private static Response executeAction(KeycloakSession session, AuthenticationSessionModel authSession, RequiredActionProviderModel model,
                                           HttpRequest request, EventBuilder event, RealmModel realm, UserModel user, boolean kcActionExecution,
                                           Set<String> ignoredActions) {
-        RequiredActionFactory factory = (RequiredActionFactory) session.getKeycloakSessionFactory()
-                .getProviderFactory(RequiredActionProvider.class, model.getProviderId());
+        Map.Entry<RequiredActionFactory, RequiredActionUserConfig> userConfigCtx = KeycloakModelUtils.getRequiredActionUserConfigCtx(session, model.getAlias());
+        RequiredActionFactory factory = userConfigCtx.getKey();
         if (factory == null) {
             throw new RuntimeException("Unable to find factory for Required Action: " + model.getProviderId() + " did you forget to declare it in a META-INF/services file?");
         }
-        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, user, model, factory);
+        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, user, model.getAlias(), userConfigCtx.getValue(), factory);
         RequiredActionProvider actionProvider = null;
         try {
             actionProvider = createRequiredAction(context);
@@ -1440,7 +1441,8 @@ public class AuthenticationManager {
         return applicableActionsSorted;
     }
 
-    private static RequiredActionProviderModel getApplicableRequiredAction(final RealmModel realm, final String alias) {
+    private static RequiredActionProviderModel getApplicableRequiredAction(final RealmModel realm, final String action) {
+        String alias = KeycloakModelUtils.getRequiredActionFactoryFromAlias(action);
         final var model = realm.getRequiredActionProviderByAlias(alias);
         if (model == null) {
             logger.warnv(
@@ -1452,6 +1454,9 @@ public class AuthenticationManager {
         if (!model.isEnabled()) {
             return null;
         }
+
+        // TODO:mposolda maybe workaround? Can be done better way?
+        model.setAlias(action);
 
         return model;
     }
@@ -1482,7 +1487,7 @@ public class AuthenticationManager {
                                         final HttpRequest request, final EventBuilder event, final RealmModel realm,
                                         final UserModel user, RequiredActionProviderModel requiredActionModel, RequiredActionFactory factory) {
         RequiredActionProvider provider = factory.create(session);
-        RequiredActionContextResult result = new RequiredActionContextResult(authSession, realm, event, session, request, user, requiredActionModel, factory) {
+        RequiredActionContextResult result = new RequiredActionContextResult(authSession, realm, event, session, request, user, factory.getId(), null, factory) {
             @Override
             public void challenge(Response response) {
                 throw new RuntimeException("Not allowed to call challenge() within evaluateTriggers()");

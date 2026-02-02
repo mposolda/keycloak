@@ -1,5 +1,6 @@
 package org.keycloak.protocol.oid4vc.issuance.requiredactions;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.zxing.WriterException;
 
 import jakarta.ws.rs.core.Response;
@@ -11,6 +12,7 @@ import org.keycloak.authentication.InitiatedActionSupport;
 import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.authentication.RequiredActionFactory;
 import org.keycloak.authentication.RequiredActionProvider;
+import org.keycloak.authentication.RequiredActionUserConfig;
 import org.keycloak.common.util.SecretGenerator;
 import org.keycloak.constants.OID4VCIConstants;
 import org.keycloak.events.Details;
@@ -20,7 +22,6 @@ import org.keycloak.models.ClientScopeModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.RealmModel;
-import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.oid4vci.CredentialScopeModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.protocol.oid4vc.OID4VCEnvironmentProviderFactory;
@@ -31,12 +32,15 @@ import org.keycloak.protocol.oid4vc.issuance.credentialoffer.CredentialOfferStor
 import org.keycloak.protocol.oid4vc.model.CredentialsOffer;
 import org.keycloak.protocol.oid4vc.model.PreAuthorizedCode;
 import org.keycloak.protocol.oid4vc.model.PreAuthorizedGrant;
+import org.keycloak.provider.ProviderConfigProperty;
+import org.keycloak.provider.ProviderConfigurationBuilder;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static org.keycloak.constants.OID4VCIConstants.CLIENT_SCOPE_NAME;
 import static org.keycloak.constants.OID4VCIConstants.CREDENTIAL_OFFER_NONCE;
 import static org.keycloak.constants.OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID;
 import static org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerEndpoint.CODE_LIFESPAN_REALM_ATTRIBUTE_KEY;
@@ -77,17 +81,23 @@ public class VerifiableCredentialOfferAction implements RequiredActionProvider, 
 
     @Override
     public void evaluateTriggers(RequiredActionContext context) {
-        logger.infof("Evaluate triggers invoked for '%s' and model '%s'" + context.getAction(), context.getRequiredActionModel().getName());
+        logger.infof("Evaluate triggers invoked for '%s'" + context.getAction());
         // TODO:mposolda
     }
 
     @Override
     public void requiredActionChallenge(RequiredActionContext context) {
+        CredentialOfferUserConfig userConfig = getUserConfig(context);
+        if (userConfig == null) {
+            throwError(String.format("No config available on required action '%s' for the user '%s' in the realm '%s'", context.getAction(), context.getUser().getUsername(), context.getRealm().getName()), null);
+        }
+        String userConfigString = userConfig.asConfigString();
         // TODO:mposolda debug or trace or remove
-        logger.infof("Required action challenge invoked for action '%s' of provider '%s'", context.getRequiredActionModel().getName(), context.getAction());
+        logger.infof("Required action challenge invoked for provider '%s' and config '%s'", context.getAction(), userConfig.asConfigString());
+
 
         AuthenticationSessionModel authSession = context.getAuthenticationSession();
-        String actionName = context.getRequiredActionModel().getAlias(); //context.getAction();
+        String actionName = context.getAction();
 
         // This is to make sure that credentialOffer can be obtained only once per user required-action and there cannot be multiple credential offers created for single
         // required-action assignment. User should not be able to create multiple credential offers by retrieving same required-action in multiple different browsers
@@ -129,8 +139,12 @@ public class VerifiableCredentialOfferAction implements RequiredActionProvider, 
         RealmModel realm = context.getRealm();
         EventBuilder eventBuilder = context.getEvent();
 
-        RequiredActionProviderModel reqAction = context.getRequiredActionModel();
-        String clientScopeName = reqAction.getAlias(); // Assumption that alias is the same as name of clientScope
+        CredentialOfferUserConfig userConfig = getUserConfig(context);
+        String clientScopeName = userConfig != null ? userConfig.getClientScopeName() : null;
+
+        if (clientScopeName == null) {
+            throwError(String.format("Client scope not configured in the realm '%s' and action of user '%s'.", realm.getName(), context.getUser().getUsername()), null);
+        }
 
         ClientScopeModel clientScope = KeycloakModelUtils.getClientScopeByName(realm, clientScopeName);
         if (clientScope == null) {
@@ -217,5 +231,49 @@ public class VerifiableCredentialOfferAction implements RequiredActionProvider, 
     public void initiatedActionCanceled(KeycloakSession session, AuthenticationSessionModel authSession) {
         // TODO:mposolda
         RequiredActionProvider.super.initiatedActionCanceled(session, authSession);
+    }
+
+    @Override
+    public List<ProviderConfigProperty> getConfigMetadataPerUser(RealmModel realm) {
+        List<String> oid4vciClientScopes = realm.getClientScopesStream()
+                .filter(clientScope -> OID4VCIConstants.OID4VC_PROTOCOL.equals(clientScope.getName()))
+                .map(ClientScopeModel::getName)
+                .toList();
+        return ProviderConfigurationBuilder.create()
+                .property()
+                .name(CLIENT_SCOPE_NAME)
+                .label("Client scope")
+                .helpText("OID4VCI client scope. The credential offer would be created for the corresponding OID4VCI credential linked with this client scope.")
+                .type(ProviderConfigProperty.STRING_TYPE)
+                .options(oid4vciClientScopes.toArray(new String[0]))
+                .add()
+                .build();
+    }
+
+    @Override
+    public Class<? extends RequiredActionUserConfig> getRequiredActionUserConfigClass(RealmModel realm) {
+        return CredentialOfferUserConfig.class;
+    }
+
+    public static class CredentialOfferUserConfig extends RequiredActionUserConfig {
+
+        @JsonProperty(CLIENT_SCOPE_NAME)
+        private String clientScopeName;
+
+        public String getClientScopeName() {
+            return clientScopeName;
+        }
+
+        public void setClientScopeName(String clientScopeName) {
+            this.clientScopeName = clientScopeName;
+        }
+    }
+
+    private static CredentialOfferUserConfig getUserConfig(RequiredActionContext ctx) {
+        if (ctx.getUserConfig() == null) {
+            return null;
+        } else {
+            return (CredentialOfferUserConfig) ctx.getUserConfig();
+        }
     }
 }

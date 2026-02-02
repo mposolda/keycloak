@@ -44,6 +44,7 @@ import org.keycloak.authentication.RequiredActionContext;
 import org.keycloak.authentication.RequiredActionContextResult;
 import org.keycloak.authentication.RequiredActionFactory;
 import org.keycloak.authentication.RequiredActionProvider;
+import org.keycloak.authentication.RequiredActionUserConfig;
 import org.keycloak.authentication.actiontoken.ActionTokenContext;
 import org.keycloak.authentication.actiontoken.ActionTokenHandler;
 import org.keycloak.authentication.actiontoken.ExplainedTokenVerificationException;
@@ -1165,8 +1166,10 @@ public class LoginActionsService {
         event.event(EventType.CUSTOM_REQUIRED_ACTION);
         event.detail(Details.CUSTOM_REQUIRED_ACTION, action);
 
-        RequiredActionFactory factory = (RequiredActionFactory)session.getKeycloakSessionFactory().getProviderFactory(RequiredActionProvider.class, getDefaultRequiredActionCaseInsensitively(action));
-        RequiredActionProviderModel requiredActionModel;
+        String caseInsensitiveAction = getDefaultRequiredActionCaseInsensitively(action);
+        Map.Entry<RequiredActionFactory, RequiredActionUserConfig> userConfigCtx = KeycloakModelUtils.getRequiredActionUserConfigCtx(session, caseInsensitiveAction);
+        RequiredActionFactory factory = userConfigCtx.getKey();
+        RequiredActionUserConfig userConfig = userConfigCtx.getValue();
         if (factory == null) {
             // Fallback to lookup by model alias
             Map.Entry<RequiredActionProviderModel, RequiredActionFactory> entry = realm.getRequiredActionProvidersStream()
@@ -1184,12 +1187,9 @@ public class LoginActionsService {
                 throw new WebApplicationException(ErrorPage.error(session, authSession, Response.Status.BAD_REQUEST, Messages.INVALID_CODE));
             }
             factory = entry.getValue();
-            requiredActionModel = entry.getKey();
-        } else {
-            requiredActionModel = realm.getRequiredActionProviderByAlias(factory.getId()); // TODO:mposolda doublecheck if it is correct...
         }
 
-        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, authSession.getAuthenticatedUser(), requiredActionModel, factory) {
+        RequiredActionContextResult context = new RequiredActionContextResult(authSession, realm, event, session, request, authSession.getAuthenticatedUser(), action, userConfig, factory) {
             @Override
             public void ignore() {
                 throw new RuntimeException("Cannot call ignore within processAction()");

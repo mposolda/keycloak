@@ -29,7 +29,6 @@ import org.keycloak.http.HttpRequest;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RequiredActionConfigModel;
-import org.keycloak.models.RequiredActionProviderModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
@@ -108,11 +107,11 @@ public interface RequiredActionContext {
     HttpRequest getHttpRequest();
 
     /**
-     * The model of the current required action.
+     * The user config of the current required action.
      *
-     * @return
+     * @return user configuration for the case when required-action is configurable per user. Null otherwise
      */
-    RequiredActionProviderModel getRequiredActionModel();
+    RequiredActionUserConfig getUserConfig();
 
     /**
      * The configuration of the current required action. Returns {@literal null} if the current required action is not configurable.

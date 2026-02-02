@@ -88,6 +88,7 @@ import org.keycloak.models.UserManager;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.light.LightweightUserAdapter;
+import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.models.utils.RepresentationToModel;
 import org.keycloak.models.utils.RoleUtils;
@@ -304,7 +305,7 @@ public class UserResource {
 
         if (rep.getFederationLink() != null) user.setFederationLink(rep.getFederationLink());
 
-        List<String> reqActions = rep.getRequiredActions();
+        Map<String, Set<String>> reqActions = KeycloakModelUtils.getFactoriesToActions(rep.getRequiredActions());
 
         if (reqActions != null) {
             Stream<String> factoryIds = session.getKeycloakSessionFactory()
@@ -318,10 +319,12 @@ public class UserResource {
                     .distinct()
                     .sorted()
                     .forEach(action -> {
-                        if (reqActions.contains(action)) {
-                            user.addRequiredAction(action);
+                        if (reqActions.containsKey(action)) {
+                            for (String actualAction : reqActions.get(action)) {
+                                user.addRequiredAction(actualAction);
+                            }
                         } else if (removeMissingRequiredActions) {
-                            user.removeRequiredAction(action);
+                            user.removeRequiredAction(action); // TODO:mposolda Check if this is correct even for parameterized actions...
                         }
                     });
         }

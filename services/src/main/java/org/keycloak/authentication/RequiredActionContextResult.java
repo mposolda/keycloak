@@ -53,13 +53,14 @@ public class RequiredActionContextResult implements RequiredActionContext {
     protected HttpRequest httpRequest;
     protected UserModel user;
     protected RequiredActionFactory factory;
-    protected RequiredActionProviderModel requiredActionModel;
+    protected String action;
+    protected RequiredActionUserConfig userConfig;
     protected RequiredActionConfigModel config;
 
     public RequiredActionContextResult(AuthenticationSessionModel authSession,
                                        RealmModel realm, EventBuilder eventBuilder, KeycloakSession session,
                                        HttpRequest httpRequest,
-                                       UserModel user, RequiredActionProviderModel requiredActionModel, RequiredActionFactory factory) {
+                                       UserModel user, String action, RequiredActionUserConfig reqActionUserConfig, RequiredActionFactory factory) {
         this.authenticationSession = authSession;
         this.realm = realm;
         this.eventBuilder = eventBuilder;
@@ -67,13 +68,14 @@ public class RequiredActionContextResult implements RequiredActionContext {
         this.httpRequest = httpRequest;
         this.user = user;
         this.factory = factory;
-        this.requiredActionModel = requiredActionModel;
+        this.action = action;
+        this.userConfig = reqActionUserConfig;
         this.config = realm.getRequiredActionConfigByAlias(factory.getId()); // TODO:mposolda may not work in cases when model points to different than factory...
     }
 
     @Override
-    public RequiredActionProviderModel getRequiredActionModel() {
-        return requiredActionModel;
+    public RequiredActionUserConfig getUserConfig() {
+        return userConfig;
     }
 
     @Override
@@ -166,7 +168,7 @@ public class RequiredActionContextResult implements RequiredActionContext {
 
     @Override
     public String getAction() {
-        return getFactory().getId();
+        return action;
     }
 
     @Override
@@ -182,7 +184,7 @@ public class RequiredActionContextResult implements RequiredActionContext {
     }
 
     private String getExecution() {
-        return requiredActionModel.getAlias();
+        return getAction();
     }
 
     @Override

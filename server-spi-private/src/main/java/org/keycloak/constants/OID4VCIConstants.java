@@ -47,6 +47,7 @@ public final class OID4VCIConstants {
 
     // Required-action provider ID
     public static final String VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID = "verifiable_credential_offer";
+    public static final String CLIENT_SCOPE_NAME = "client_scope_name";
 
     // authenticationSession note with the stored handle for the credential-offer
     public static final String CREDENTIAL_OFFER_NONCE = "credential_offer_nonce";

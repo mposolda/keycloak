@@ -13,12 +13,11 @@ import org.keycloak.events.Details;
 import org.keycloak.events.EventType;
 import org.keycloak.models.oid4vci.CredentialScopeModel;
 import org.keycloak.protocol.oid4vc.issuance.OID4VCAuthorizationDetailResponse;
-import org.keycloak.protocol.oid4vc.model.ClaimsDescription;
+import org.keycloak.protocol.oid4vc.issuance.requiredactions.VerifiableCredentialOfferAction;
 import org.keycloak.protocol.oid4vc.model.CredentialIssuer;
 import org.keycloak.protocol.oid4vc.model.CredentialOfferURI;
 import org.keycloak.protocol.oid4vc.model.CredentialResponse;
 import org.keycloak.protocol.oid4vc.model.CredentialsOffer;
-import org.keycloak.protocol.oid4vc.model.OID4VCAuthorizationDetail;
 import org.keycloak.protocol.oid4vc.model.PreAuthorizedCode;
 import org.keycloak.protocol.oidc.representations.OIDCConfigurationRepresentation;
 import org.keycloak.representations.idm.ClientScopeRepresentation;
@@ -33,13 +32,12 @@ import org.keycloak.testsuite.util.oauth.oid4vc.CredentialOfferResponse;
 import org.keycloak.testsuite.util.oauth.oid4vc.CredentialOfferUriResponse;
 import org.keycloak.testsuite.util.oauth.oid4vc.Oid4vcCredentialResponse;
 
-import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import static org.keycloak.OAuth2Constants.OPENID_CREDENTIAL;
+import static org.keycloak.constants.OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID;
 
 // TODO:mposolda maybe test for more credential formats?
 public class OID4VCActionTest extends OID4VCIssuerEndpointTest {
@@ -142,12 +140,18 @@ public class OID4VCActionTest extends OID4VCIssuerEndpointTest {
         return ctx;
     }
 
+    private VerifiableCredentialOfferAction.CredentialOfferUserConfig requiredActionConfig() {
+        VerifiableCredentialOfferAction.CredentialOfferUserConfig cfg = new VerifiableCredentialOfferAction.CredentialOfferUserConfig();
+        cfg.setClientScopeName("sd-jwt-credential");
+        return cfg;
+    }
+
     @Test
     public void testRequiredActionFlow() throws Exception {
         // Add required action to user
         UserResource user = ApiUtil.findUserByUsernameId(testRealm(), "john");
         UserRepresentation userRep = user.toRepresentation();
-        userRep.setRequiredActions(List.of("sd-jwt-credential"));
+        userRep.setRequiredActions(List.of(VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID + ":" + requiredActionConfig().asConfigString()));
         user.update(userRep);
 
         // Login as user. Check required-action displayed
