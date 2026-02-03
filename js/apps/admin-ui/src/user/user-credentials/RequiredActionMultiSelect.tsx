@@ -10,8 +10,10 @@ import useToggle from "../../utils/useToggle";
 import { useTranslation } from "react-i18next";
 import { useAdminClient } from "../../admin-client";
 
+import { RequiredActionUserConfigDialog } from "./RequiredActionUserConfigDialog";
 import { GenerateKeyDialog, getFileExtension } from "../../clients/keys/GenerateKeyDialog";
-import type KeyStoreConfig from "@keycloak/keycloak-admin-client/lib/defs/keystoreConfig";
+import type { RequiredActionUserConfig } from "./RequiredActionUserConfigDialog";
+//import type KeyStoreConfig from "@keycloak/keycloak-admin-client/lib/defs/keystoreConfig";
 
 export type RequiredActionMultiSelectProps<
   T extends FieldValues,
@@ -40,8 +42,8 @@ export const RequiredActionMultiSelect = <
     const [openConfigureRequiredAction, toggleConfigureRequiredAction, setConfigureRequiredAction] =
       useToggle();
 
-  const onRequiredActionConfigured = async (config: KeyStoreConfig) => {
-    console.log("On required action configured!!!");
+  const onRequiredActionConfigured = async (config: RequiredActionUserConfig) => {
+    console.log("On required action configured!!! Config is: " + config.clientScopeName);
   };
 
     const displayUserActionsDialog = (value: string) => {
@@ -97,8 +99,7 @@ export const RequiredActionMultiSelect = <
       }))}
     />
       {openConfigureRequiredAction && (
-        <GenerateKeyDialog
-          clientId='account-console'
+        <RequiredActionUserConfigDialog        
           toggleDialog={toggleConfigureRequiredAction}
           save={onRequiredActionConfigured}
         />
