@@ -196,6 +196,8 @@ public class UserResource {
         @APIResponse(responseCode = "500", description = "Internal Server Error", content = @Content(schema = @Schema(implementation = ErrorRepresentation.class)))
     })
     public Response updateUser(final UserRepresentation rep) {
+        // TODO:mposolda remove
+        logger.infof("Updating user: %s", rep.getUsername());
 
         auth.users().requireManage(user);
         try {
@@ -306,25 +308,31 @@ public class UserResource {
         if (rep.getFederationLink() != null) user.setFederationLink(rep.getFederationLink());
 
         Map<String, Set<String>> reqActions = KeycloakModelUtils.getFactoriesToActions(rep.getRequiredActions());
+        // TODO:mposolda remove
+        logger.infof("Required actions during user update: %s", reqActions);
 
         if (reqActions != null) {
             Stream<String> factoryIds = session.getKeycloakSessionFactory()
                     .getProviderFactoriesStream(RequiredActionProvider.class)
                     .map(ProviderFactory::getId);
-            Stream<String> reqActionModels = session.getContext().getRealm().getRequiredActionProvidersStream()
-                    .filter(RequiredActionProviderModel::isEnabled)
-                    .map(RequiredActionProviderModel::getAlias); // TODO:mposolda doublecheck all cases (is realm always available? etc) Also figure if possible to filter some factories?
+//            Stream<String> reqActionModels = session.getContext().getRealm().getRequiredActionProvidersStream()
+//                    .filter(RequiredActionProviderModel::isEnabled)
+//                    .map(RequiredActionProviderModel::getAlias); // TODO:mposolda doublecheck all cases (is realm always available? etc) Also figure if possible to filter some factories?
 
-            Stream.concat(factoryIds, reqActionModels)
+//            Stream.concat(factoryIds, reqActionModels)
+            factoryIds
                     .distinct()
                     .sorted()
                     .forEach(action -> {
                         if (reqActions.containsKey(action)) {
                             for (String actualAction : reqActions.get(action)) {
+                                // TODO:mposolda probably remove logging
+                                logger.infof("Adding required action '%s' to user '%s'", actualAction, user.getUsername());
                                 user.addRequiredAction(actualAction);
                             }
                         } else if (removeMissingRequiredActions) {
                             user.removeRequiredAction(action); // TODO:mposolda Check if this is correct even for parameterized actions...
+                            logger.infof("Removing required action '%s' from user '%s'", action, user.getUsername());
                         }
                     });
         }

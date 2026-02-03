@@ -49,6 +49,7 @@ export const TypeaheadSelectControl = <
   labelIcon,
   placeholderText,
   onFilter,
+  onSelect,
   variant,
   isFullWidth = true,
   ...rest
@@ -86,6 +87,8 @@ export const TypeaheadSelectControl = <
     option: string | string[],
     field: ControllerRenderProps<FieldValues, string>,
   ) => {
+    console.log("Here in updateValue. Field.value: " + field.value + ", option: " + option);
+    onSelect?.(option, (mm) => {});
     if (field.value.includes(option)) {
       field.onChange(field.value.filter((item: string) => item !== option));
       if (isSelectBasedOptions(options)) {
@@ -285,12 +288,15 @@ export const TypeaheadSelectControl = <
               </MenuToggle>
             )}
             onSelect={(event, v) => {
+              console.log("I am here in TypeaheadSelectControl");
               event?.stopPropagation();
               const option = v?.toString();
               if (isTypeaheadMulti && Array.isArray(field.value)) {
+                console.log("I am here in TypeaheadSelectControl 1");
                 setFilterValue("");
                 updateValue(option || "", field);
               } else {
+                console.log("I am here in TypeaheadSelectControl 2");
                 field.onChange(Array.isArray(field.value) ? [option] : option);
                 setOpen(false);
               }

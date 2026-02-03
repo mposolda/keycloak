@@ -97,6 +97,7 @@ export const SingleSelectControl = <
             onSelect={(_event, v) => {
               const option = v?.toString()!;
               const convertedValue = Array.isArray(value) ? [option] : option;
+              console.log("Hello, I am here in SingleSelectControol");
               if (onSelect) {
                 onSelect(convertedValue, onChange);
               } else {

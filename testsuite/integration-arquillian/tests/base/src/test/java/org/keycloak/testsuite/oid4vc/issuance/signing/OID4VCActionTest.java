@@ -25,6 +25,7 @@ import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.testsuite.AssertEvents;
 import org.keycloak.testsuite.admin.ApiUtil;
 import org.keycloak.testsuite.pages.OID4VCCredentialOfferPage;
+import org.keycloak.testsuite.util.WaitUtils;
 import org.keycloak.testsuite.util.oauth.AccessTokenResponse;
 import org.keycloak.testsuite.util.oauth.OpenIDProviderConfigurationResponse;
 import org.keycloak.testsuite.util.oauth.oid4vc.CredentialIssuerMetadataResponse;
@@ -232,6 +233,15 @@ public class OID4VCActionTest extends OID4VCIssuerEndpointTest {
         // Check user does not have required action anymore
         userRep = user.toRepresentation();
         Assert.assertTrue("User not expected to have any required actions, but he has: " + userRep.getRequiredActions(), userRep.getRequiredActions().isEmpty());
+
+        // TODO:mposolda probably remove this part...
+        userRep.setRequiredActions(List.of(VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID + ":" + requiredActionConfig().asConfigString()));
+        user.update(userRep);
+        userRep = user.toRepresentation();
+        Assert.assertFalse("User expected to have required action, but he has: " + userRep.getRequiredActions(), userRep.getRequiredActions().isEmpty());
+
+        oauth.loginForm().open();
+        credentialOfferPage.assertCurrent();
     }
 
 }

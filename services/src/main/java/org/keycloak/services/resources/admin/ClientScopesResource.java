@@ -136,10 +136,10 @@ public class ClientScopesResource {
             adminEvent.operation(OperationType.CREATE).resourcePath(session.getContext().getUri(), clientScope.getId()).representation(rep).success();
 
             // TODO:mposolda should be pluggable somehow (Workflows? Custom event listener? Or dedicated method on protocol?
-            if (OID4VCIConstants.OID4VC_PROTOCOL.equals(rep.getProtocol())) {
-                logger.infof("Creating required action '%s' in the realm '%s'", clientScope.getName(), realm.getName());
-                DefaultRequiredActions.addVerifiableCredentialOfferAction(realm, clientScope); // TODO:mposolda update client scope...
-            }
+//            if (OID4VCIConstants.OID4VC_PROTOCOL.equals(rep.getProtocol())) {
+//                logger.infof("Creating required action '%s' in the realm '%s'", clientScope.getName(), realm.getName());
+//                DefaultRequiredActions.addVerifiableCredentialOfferAction(realm, clientScope); // TODO:mposolda update client scope...
+//            }
 
             return Response.created(session.getContext().getUri().getAbsolutePathBuilder().path(clientScope.getId()).build()).build();
         } catch (ModelDuplicateException e) {

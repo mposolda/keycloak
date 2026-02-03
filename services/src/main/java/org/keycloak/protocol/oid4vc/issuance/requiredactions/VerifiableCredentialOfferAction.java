@@ -81,7 +81,7 @@ public class VerifiableCredentialOfferAction implements RequiredActionProvider, 
 
     @Override
     public void evaluateTriggers(RequiredActionContext context) {
-        logger.infof("Evaluate triggers invoked for '%s'" + context.getAction());
+        logger.infof("Evaluate triggers invoked for '%s'", context.getAction());
         // TODO:mposolda
     }
 
