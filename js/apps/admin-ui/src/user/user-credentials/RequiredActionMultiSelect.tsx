@@ -39,11 +39,16 @@ export const RequiredActionMultiSelect = <
     RequiredActionProviderRepresentation[]
   >([]);
 
+  const [onConfiguredHandler, setOnConfiguredHandler] = useState<
+    any
+  >();
+
     const [openConfigureRequiredAction, toggleConfigureRequiredAction, setConfigureRequiredAction] =
       useToggle();
 
   const onRequiredActionConfigured = async (config: RequiredActionUserConfig) => {
     console.log("On required action configured!!! Config is: " + config.clientScopeName);
+    onConfiguredHandler("foo:" + config.clientScopeName);
   };
 
     const displayUserActionsDialog = (value: string) => {
@@ -84,7 +89,10 @@ export const RequiredActionMultiSelect = <
         // TODO:mposolda
         if (value === 'verifiable_credential_offer') {
           console.log("Dialog should be displayed here");
+          setOnConfiguredHandler(() => onChange);
           displayUserActionsDialog(value);
+        } else {
+          onChange(value);
         }
 
 //              if (ref.current !== value) {

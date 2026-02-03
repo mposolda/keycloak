@@ -88,23 +88,29 @@ export const TypeaheadSelectControl = <
     field: ControllerRenderProps<FieldValues, string>,
   ) => {
     console.log("Here in updateValue. Field.value: " + field.value + ", option: " + option);
-    onSelect?.(option, (mm) => {});
-    if (field.value.includes(option)) {
-      field.onChange(field.value.filter((item: string) => item !== option));
-      if (isSelectBasedOptions(options)) {
-        setSelectedOptions(
-          selectedOptionsState.filter((item) => item.key !== option),
-        );
-      }
-    } else {
-      field.onChange([...field.value, option]);
-      if (isSelectBasedOptions(combinedOptions)) {
-        setSelectedOptions([
-          ...selectedOptionsState,
-          combinedOptions.find((o) => o.key === option)!,
-        ]);
-      }
-    }
+    onSelect?.(option, (value) => {
+      console.log("Callback onChange triggered in TypeaheadSelectControl with the value: " + value + " of type " + typeof value + ", option: " + option + " of type " + typeof option);
+      
+      // This is to be able to override the option with the "value" from the callback
+      //option = value;
+
+      if (field.value.includes(option)) {
+        field.onChange(field.value.filter((item: string) => item !== option));
+        if (isSelectBasedOptions(options)) {
+          setSelectedOptions(
+            selectedOptionsState.filter((item) => item.key !== option),
+          );
+        }
+      } else {
+        field.onChange([...field.value, option]);
+        if (isSelectBasedOptions(combinedOptions)) {
+          setSelectedOptions([
+            ...selectedOptionsState,
+            combinedOptions.find((o) => o.key === option)!,
+          ]);
+        }
+      }      
+    });
   };
 
   const onInputKeyDown = (
