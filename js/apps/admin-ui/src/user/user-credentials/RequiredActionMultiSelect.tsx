@@ -4,7 +4,7 @@ import {
   SelectVariant,
   useFetch,
 } from "@keycloak/keycloak-ui-shared";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FieldPathByValue, FieldValues } from "react-hook-form";
 import useToggle from "../../utils/useToggle";
 import { useTranslation } from "react-i18next";
@@ -13,6 +13,8 @@ import { useAdminClient } from "../../admin-client";
 import { RequiredActionUserConfigDialog } from "./RequiredActionUserConfigDialog";
 import { GenerateKeyDialog, getFileExtension } from "../../clients/keys/GenerateKeyDialog";
 import type { RequiredActionUserConfig } from "./RequiredActionUserConfigDialog";
+
+import type UserRepresentation from "@keycloak/keycloak-admin-client/lib/defs/userRepresentation";
 //import type KeyStoreConfig from "@keycloak/keycloak-admin-client/lib/defs/keystoreConfig";
 
 export type RequiredActionMultiSelectProps<
@@ -22,6 +24,8 @@ export type RequiredActionMultiSelectProps<
   name: P;
   label: string;
   help: string;
+  user?: UserRepresentation;
+  refresh?: () => void;
 };
 
 export const RequiredActionMultiSelect = <
@@ -31,8 +35,15 @@ export const RequiredActionMultiSelect = <
   name,
   label,
   help,
+  user,
+  refresh,
 }: RequiredActionMultiSelectProps<T, P>) => {
   const { adminClient } = useAdminClient();
+
+
+//  useEffect(() => {
+//    setValue("requiredActions", user?.requiredActions || []);
+//  }, [user, setValue]);  
 
   const { t } = useTranslation();
   const [requiredActions, setRequiredActions] = useState<
@@ -48,7 +59,29 @@ export const RequiredActionMultiSelect = <
 
   const onRequiredActionConfigured = async (config: RequiredActionUserConfig) => {
     console.log("On required action configured!!! Config is: " + config.clientScopeName);
-    onConfiguredHandler("foo:" + config.clientScopeName);
+
+    const offer = {
+      "client_scope_name": config.clientScopeName
+    }
+    const offer2 = btoa(JSON.stringify(offer));
+
+    user?.requiredActions?.push("verifiable_credential_offer:" + offer2);
+    console.log("User requiredActions: " + user?.requiredActions);
+
+    try {
+      await adminClient.users.update({ id: user!.id! }, { requiredActions: user?.requiredActions });
+//      addAlert(t("unlockSuccess"), AlertVariant.success);
+      if (refresh) {
+        refresh();
+      }
+    } catch (error) {
+      console.log("ERROR DURING USER UPDATE: "  + error);
+      //addError("unlockError", error);
+    }    
+    
+    
+    
+    // onConfiguredHandler("verifiable_credential_offer:" + config.clientScopeName);
   };
 
     const displayUserActionsDialog = (value: string) => {
