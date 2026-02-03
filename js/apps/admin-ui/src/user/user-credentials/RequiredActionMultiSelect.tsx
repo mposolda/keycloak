@@ -6,8 +6,12 @@ import {
 } from "@keycloak/keycloak-ui-shared";
 import { useState } from "react";
 import { FieldPathByValue, FieldValues } from "react-hook-form";
+import useToggle from "../../utils/useToggle";
 import { useTranslation } from "react-i18next";
 import { useAdminClient } from "../../admin-client";
+
+import { GenerateKeyDialog, getFileExtension } from "../../clients/keys/GenerateKeyDialog";
+import type KeyStoreConfig from "@keycloak/keycloak-admin-client/lib/defs/keystoreConfig";
 
 export type RequiredActionMultiSelectProps<
   T extends FieldValues,
@@ -33,9 +37,16 @@ export const RequiredActionMultiSelect = <
     RequiredActionProviderRepresentation[]
   >([]);
 
-  
-    const displayUserActionsDialog = async (value: string) => {
-      console.log("displaying user actions dialog for: " + value);
+    const [openConfigureRequiredAction, toggleConfigureRequiredAction, setConfigureRequiredAction] =
+      useToggle();
+
+  const onRequiredActionConfigured = async (config: KeyStoreConfig) => {
+    console.log("On required action configured!!!");
+  };
+
+    const displayUserActionsDialog = (value: string) => {
+      console.log("displayying user actions dialog for: " + value);
+      setConfigureRequiredAction(true)
     };
 
   useFetch(
@@ -51,6 +62,7 @@ export const RequiredActionMultiSelect = <
   );
 
   return (
+   <>
     <SelectControl
       name={name}
       label={t(label)}
@@ -84,5 +96,13 @@ export const RequiredActionMultiSelect = <
         value: name || alias!,
       }))}
     />
+      {openConfigureRequiredAction && (
+        <GenerateKeyDialog
+          clientId='account-console'
+          toggleDialog={toggleConfigureRequiredAction}
+          save={onRequiredActionConfigured}
+        />
+      )}    
+   </>
   );
 };
