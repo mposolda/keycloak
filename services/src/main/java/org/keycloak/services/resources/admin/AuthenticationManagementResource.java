@@ -1214,6 +1214,10 @@ public class AuthenticationManagementResource {
     }
 
     public static RequiredActionProviderRepresentation toRepresentation(RequiredActionProviderModel model) {
+        // TODO:mposolda very hacky...
+        if (model.getAlias().startsWith("verifiable_credential_offer:")) {
+            model.setAlias("verifiable_credential_offer");
+        }
         RequiredActionProviderRepresentation rep = new RequiredActionProviderRepresentation();
         rep.setAlias(model.getAlias());
         rep.setProviderId(model.getProviderId());

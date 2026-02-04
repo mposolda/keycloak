@@ -34,7 +34,7 @@ export const RequiredActionUserConfigForm = ({
 
   // TODO:mposolda should not be hardcoded
   const supportedCredentialTypes = [
-    'education_certificate',
+    'education-certificate',
     'oid4vc_natural_person',
   ];  
 

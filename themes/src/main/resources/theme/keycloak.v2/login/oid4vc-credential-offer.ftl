@@ -5,16 +5,16 @@
 <!-- template: oid4vc-credential-offer.ftl -->
 
     <#if section = "header">
-        ${msg("credentialOfferTitle")}
+        ${msg("credentialOfferTitle", credentialDisplayName)}
     <#elseif section = "form">
         <ol id="kc-cred-offer-settings" class="pf-v5-c-list pf-v5-u-mb-md">
             <li>
-                <p>${msg("credentialOfferStep1")}</p>
+                <p>${msg("credentialOfferStep1", credentialDisplayName)}</p>
                 <img id="kc-credential-offer-qr-code" src="data:image/png;base64, ${credentialOffer.qrCode}" alt="Figure: Barcode"><br/>
                 <p><span id="kc-credential-offer-uri"><a href="${credentialOffer.uri}" id="credential-offer-uri-link">${msg("credentialOfferUri")}</a></span></p>
             </li>
             <li>
-                <p>${msg("credentialOfferStep2")}</p>
+                <p>${msg("credentialOfferStep2", credentialDisplayName)}</p>
             </li>
         </ol>
 
