@@ -28,7 +28,7 @@ public abstract class AbstractWebDriverSupplier implements Supplier<ManagedWebDr
 
     @Override
     public void close(InstanceContext<ManagedWebDriver, InjectWebDriver> instanceContext) {
-        instanceContext.getValue().driver().quit();
+        instanceContext.getValue().close();
     }
 
     public abstract WebDriver getWebDriver();

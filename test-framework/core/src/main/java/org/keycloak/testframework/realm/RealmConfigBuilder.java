@@ -229,6 +229,16 @@ public class RealmConfigBuilder {
         return this;
     }
 
+    public RealmConfigBuilder revokeRefreshToken(boolean enabled) {
+        rep.setRevokeRefreshToken(enabled);
+        return this;
+    }
+
+    public RealmConfigBuilder refreshTokenMaxReuse(Integer refreshTokenMaxReuse) {
+        rep.setRefreshTokenMaxReuse(refreshTokenMaxReuse);
+        return this;
+    }
+
     public RealmConfigBuilder bruteForceProtected(boolean enabled) {
         rep.setBruteForceProtected(enabled);
         return this;

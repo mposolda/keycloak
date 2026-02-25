@@ -18,9 +18,11 @@ public class ManagedWebDriver {
     private PageUtils pageUtils = new PageUtils(this);
     private NavigateUtils  navigateUtils = new NavigateUtils(this);
     private WaitUtils waitUtils = new WaitUtils(this);
+    private BrowserTabUtils tabUtils = new BrowserTabUtils(this);
 
     public ManagedWebDriver(WebDriver driver) {
         this.driver = driver;
+        this.tabUtils.init();
     }
 
     public WebDriver driver() {
@@ -70,8 +72,17 @@ public class ManagedWebDriver {
         return navigateUtils;
     }
 
+    public BrowserTabUtils tabs() {
+        return tabUtils;
+    }
+
     public WaitUtils waiting() {
         return waitUtils;
+    }
+
+    public void close() {
+        tabUtils.closeTabs();
+        driver().quit();
     }
 
 }
