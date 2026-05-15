@@ -1213,6 +1213,10 @@ public class TokenManager {
             return idToken;
         }
 
+        public ClientSessionContext getClientSessionCtx() {
+            return clientSessionCtx;
+        }
+
         public AccessTokenResponseBuilder code(OAuth2Code code) {
             this.code = code;
             return this;
