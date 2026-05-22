@@ -47,12 +47,12 @@ public final class OID4VCIConstants {
 
     // Required-action provider ID
     public static final String VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID = "verifiable_credential_offer";
-    public static final String CREDENTIAL_CONFIGURATION_ID = "credential_configuration_id";
-    public static final String CLIENT_ID = "client_id";
-    public static final String PRE_AUTHORIZED = "pre_authorized";
 
     // authenticationSession note with the stored handle for the credential-offer
     public static final String CREDENTIAL_OFFER_NONCE = "credential_offer_nonce";
+
+    // Attribute used in the credential-offer email, which is sent by the admin to the user
+    public static final String EMAIL_TEMPLATE_ATTR_CREDENTIAL_SCOPE_DISPLAY_NAME = "credentialScopeDisplayName";
 
     private OID4VCIConstants() {
     }

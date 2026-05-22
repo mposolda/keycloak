@@ -165,6 +165,15 @@ public class FreeMarkerEmailTemplateProvider implements EmailTemplateProvider {
     }
 
     @Override
+    public void sendVerifiableCredentialOffer(String link, long expirationInMinutes) throws EmailException {
+        Map<String, Object> attributes = new HashMap<>(this.attributes);
+        addLinkInfoIntoAttributes(link, expirationInMinutes, attributes);
+
+        // TODO:mposolda key to the messages_en.properties. Create template
+        send("verifiableCredentialOfferSubject", "verifiable-credential-offer.ftl", attributes);
+    }
+
+    @Override
     public void sendVerifyEmail(String link, long expirationInMinutes) throws EmailException {
         Map<String, Object> attributes = new HashMap<>(this.attributes);
         addLinkInfoIntoAttributes(link, expirationInMinutes, attributes);

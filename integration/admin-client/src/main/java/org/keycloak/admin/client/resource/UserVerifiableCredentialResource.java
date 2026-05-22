@@ -10,9 +10,11 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
 import org.keycloak.representations.idm.oid4vc.IssuedVerifiableCredentialRepresentation;
+import org.keycloak.representations.idm.oid4vc.CredentialOfferActionConfig;
 import org.keycloak.representations.idm.oid4vc.UserVerifiableCredentialRepresentation;
 
 /**
@@ -45,4 +47,13 @@ public interface UserVerifiableCredentialResource {
     @Path("issued-credentials")
     @Produces(MediaType.APPLICATION_JSON)
     List<IssuedVerifiableCredentialRepresentation> getIssuedCredentials();
+
+    // TODO:mposolda javadoc?
+    @PUT
+    @Path("credentials/send-credential-offer")
+    @Consumes(MediaType.APPLICATION_JSON)
+    void sendCredentialOffer(@QueryParam("client_id") String clientId,
+                             @QueryParam("redirect_uri") String redirectUri,
+                             @QueryParam("lifespan") Integer lifespan,
+                             CredentialOfferActionConfig credentialOfferConfig);
 }

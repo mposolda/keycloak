@@ -9,6 +9,7 @@ import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.protocol.oid4vc.issuance.requiredactions.VerifiableCredentialOfferAction;
 import org.keycloak.protocol.oid4vc.model.CredentialResponse;
 import org.keycloak.protocol.oid4vc.model.CredentialsOffer;
+import org.keycloak.representations.idm.oid4vc.CredentialOfferActionConfig;
 import org.keycloak.sdjwt.IssuerSignedJWT;
 import org.keycloak.sdjwt.vp.SdJwtVP;
 import org.keycloak.testframework.annotations.InjectUser;
@@ -67,7 +68,7 @@ public class OID4VCActionTest extends OID4VCIssuerTestBase {
 
     public static String getKcActionParameter(String clientId, String credentialConfigId, boolean preAuthorized) {
         try {
-            VerifiableCredentialOfferAction.CredentialOfferActionConfig cfg = new VerifiableCredentialOfferAction.CredentialOfferActionConfig();
+            CredentialOfferActionConfig cfg = new CredentialOfferActionConfig();
             cfg.setCredentialConfigurationId(credentialConfigId);
             cfg.setPreAuthorized(preAuthorized);
             cfg.setClientId(clientId);
