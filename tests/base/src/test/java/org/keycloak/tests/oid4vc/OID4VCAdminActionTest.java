@@ -25,7 +25,10 @@ import org.keycloak.testframework.mail.annotations.InjectMailServer;
 import org.keycloak.testframework.realm.ManagedUser;
 import org.keycloak.testframework.realm.UserBuilder;
 import org.keycloak.testframework.ui.annotations.InjectPage;
+import org.keycloak.testframework.ui.page.ErrorPage;
+import org.keycloak.testframework.ui.page.InfoPage;
 import org.keycloak.testframework.ui.page.OID4VCCredentialOfferPage;
+import org.keycloak.testframework.ui.page.ProceedPage;
 import org.keycloak.tests.utils.Assert;
 import org.keycloak.tests.utils.MailUtils;
 import org.keycloak.tests.utils.admin.AdminEventPaths;
@@ -36,6 +39,7 @@ import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static org.keycloak.constants.OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID;
@@ -46,6 +50,15 @@ public class OID4VCAdminActionTest extends OID4VCIssuerTestBase {
 
     @InjectPage
     OID4VCCredentialOfferPage credentialOfferPage;
+
+    @InjectPage
+    InfoPage infoPage;
+
+    @InjectPage
+    ProceedPage proceedPage;
+
+    @InjectPage
+    ErrorPage errorPage;
 
     @InjectUser(config = OID4VCActionTest.OID4VCTestUserConfig.class)
     ManagedUser user;
@@ -86,22 +99,24 @@ public class OID4VCAdminActionTest extends OID4VCIssuerTestBase {
         String link = MailUtils.getPasswordResetEmailLink(body);
 
         driver.open(link);
-//
-//        proceedPage.assertCurrent();
-//        assertThat(proceedPage.getInfo(), Matchers.containsString("Update Password"));
-//        proceedPage.clickProceedLink();
-//        passwordUpdatePage.assertCurrent();
-//
-//        passwordUpdatePage.changePassword("new-pass", "new-pass");
-//
-//        assertThat(driver.getCurrentUrl(), Matchers.containsString("client_id=" + Constants.ACCOUNT_MANAGEMENT_CLIENT_ID));
-//
-//        assertEquals("Your account has been updated.", infoPage.getInfo());
-//
-//        driver.open(link);
-//
-//        errorPage.assertCurrent();
-//        assertEquals("Action expired. Please continue with login now.", errorPage.getError());
+
+        proceedPage.assertCurrent();
+        assertThat(proceedPage.getInfo(), Matchers.containsString("Claim your credential"));
+        assertThat(proceedPage.getInfo(), Matchers.containsString("vc-with-minimal-config-id"));
+        proceedPage.clickProceedLink();
+
+        credentialOfferPage.assertCurrent();
+        String credentialOfferUri = credentialOfferPage.getCredentialOfferUri();
+        assertNotNull(credentialOfferUri);
+
+        // TODO:mposolda
+        // loginSuccessForAuthorizationCodeCredentialOffer(credentialOfferUri);
+
+        assertEquals("Your account has been updated.", infoPage.getInfo());
+
+        driver.open(link);
+        errorPage.assertCurrent();
+        assertEquals("Action expired. Please continue with login now.", errorPage.getError());
     }
 
     private CredentialOfferActionConfig getActionConfig(String credentialConfigId, String clientId, boolean preAuthorized) {
