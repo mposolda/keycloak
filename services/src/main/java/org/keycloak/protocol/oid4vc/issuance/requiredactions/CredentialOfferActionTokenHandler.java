@@ -35,6 +35,7 @@ import org.keycloak.sessions.AuthenticationSessionModel;
 import java.io.IOException;
 import java.util.List;
 
+import static org.keycloak.constants.OID4VCIConstants.IS_ADMIN_INITIATED;
 import static org.keycloak.constants.OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID;
 
 public class CredentialOfferActionTokenHandler extends AbstractActionTokenHandler<CredentialOfferActionToken>  {
@@ -109,6 +110,7 @@ public class CredentialOfferActionTokenHandler extends AbstractActionTokenHandle
         try {
             authSession.setClientNote(Constants.KC_ACTION, VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID);
             authSession.setClientNote(Constants.KC_ACTION_PARAMETER, token.getActionConfig().asEncodedParameter());
+            authSession.setAuthNote(IS_ADMIN_INITIATED, "true");
         } catch (IOException ioe) {
             logger.error("Invalid credential configuration action", ioe);
             throw ErrorResponse.error("Invalid credential configuration action", Response.Status.BAD_REQUEST);

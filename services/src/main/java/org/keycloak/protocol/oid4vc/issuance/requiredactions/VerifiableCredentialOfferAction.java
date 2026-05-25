@@ -36,6 +36,7 @@ import com.google.zxing.WriterException;
 import org.jboss.logging.Logger;
 
 import static org.keycloak.constants.OID4VCIConstants.CREDENTIAL_OFFER_NONCE;
+import static org.keycloak.constants.OID4VCIConstants.IS_ADMIN_INITIATED;
 import static org.keycloak.constants.OID4VCIConstants.VERIFIABLE_CREDENTIAL_OFFER_PROVIDER_ID;
 import static org.keycloak.events.Details.REASON;
 import static org.keycloak.protocol.oid4vc.issuance.OID4VCIssuerEndpoint.CREDENTIAL_OFFER_LIFESPAN_REALM_ATTRIBUTE_KEY;
@@ -145,6 +146,9 @@ public class VerifiableCredentialOfferAction implements RequiredActionProvider, 
             String displayName = CredentialScopeUtils.getCredentialDisplayName(context.getSession(), context.getUser(), credScope);
             form.setAttribute("credentialOffer", new CredentialOfferBean(context.getSession(), nonce));
             form.setAttribute("credentialDisplayName", displayName);
+            if ("true".equals(context.getAuthenticationSession().getAuthNote(IS_ADMIN_INITIATED))) {
+                form.setAttribute("skipCancelButton", true);
+            }
         } catch (WriterException | IOException ex) {
             String message = "Error when generating credential-offer QR code: " + ex.getMessage();
             event.detail(REASON, message)

@@ -51,6 +51,9 @@ public final class OID4VCIConstants {
     // authenticationSession note with the stored handle for the credential-offer
     public static final String CREDENTIAL_OFFER_NONCE = "credential_offer_nonce";
 
+    // authenticationSession note with the info whether the credential-offer action was initiated by admin (true) or initiated by user through AIA (false or missing)
+    public static final String IS_ADMIN_INITIATED = "is_admin_initiated";
+
     // Attribute used in the credential-offer email, which is sent by the admin to the user
     public static final String EMAIL_TEMPLATE_ATTR_CREDENTIAL_SCOPE_DISPLAY_NAME = "credentialScopeDisplayName";
 

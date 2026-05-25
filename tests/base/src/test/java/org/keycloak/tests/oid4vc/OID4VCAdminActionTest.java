@@ -101,8 +101,7 @@ public class OID4VCAdminActionTest extends OID4VCIssuerTestBase {
         driver.open(link);
 
         proceedPage.assertCurrent();
-        assertThat(proceedPage.getInfo(), Matchers.containsString("Claim your credential"));
-        assertThat(proceedPage.getInfo(), Matchers.containsString("vc-with-minimal-config-id"));
+        assertThat(proceedPage.getInfo(), Matchers.containsString("Claim your vc-with-minimal-config-id"));
         proceedPage.clickProceedLink();
 
         credentialOfferPage.assertCurrent();
