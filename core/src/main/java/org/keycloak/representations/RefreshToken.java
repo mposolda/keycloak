@@ -47,8 +47,11 @@ public class RefreshToken extends AccessToken {
     /**
      * Deep copies issuer, subject, issuedFor, sessionState from AccessToken.
      *
+     * @param token
+     * @param confirmation optional confirmation parameter that might be processed during authentication but should not
+     *                     always be included in the response
      */
-    public RefreshToken(AccessToken token) {
+    public RefreshToken(AccessToken token, Confirmation confirmation) {
         this();
         this.issuer = token.issuer;
         this.subject = token.subject;
@@ -59,17 +62,6 @@ public class RefreshToken extends AccessToken {
         this.originalAudience = token.audience;
         this.scope = token.scope;
         this.authorizationDetails = token.authorizationDetails;
-    }
-
-    /**
-     * Deep copies issuer, subject, issuedFor, sessionState from AccessToken.
-     *
-     * @param token
-     * @param confirmation optional confirmation parameter that might be processed during authentication but should not
-     *                     always be included in the response
-     */
-    public RefreshToken(AccessToken token, Confirmation confirmation) {
-        this(token);
         this.confirmation = confirmation;
     }
 

@@ -5,19 +5,25 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.keycloak.OAuth2Constants;
 import org.keycloak.OAuthErrorException;
+import org.keycloak.common.util.SecretGenerator;
 import org.keycloak.events.Details;
 import org.keycloak.events.EventBuilder;
 import org.keycloak.models.AuthenticatedClientSessionModel;
 import org.keycloak.models.ClientModel;
+import org.keycloak.models.ClientSessionContext;
 import org.keycloak.models.Constants;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.UserSessionModel;
+import org.keycloak.models.utils.SessionExpirationUtils;
 import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper;
 import org.keycloak.protocol.oidc.TokenManager;
+import org.keycloak.representations.AccessToken;
 import org.keycloak.representations.AuthorizationDetailsJSONRepresentation;
 import org.keycloak.representations.RefreshToken;
 import org.keycloak.util.TokenUtil;
@@ -33,6 +39,45 @@ public class DefaultRefreshTokenProvider extends AbstractRefreshTokenProvider im
 
     public DefaultRefreshTokenProvider(KeycloakSession session) {
         this.session = session;
+    }
+
+    @Override
+    public boolean supports(InitialRefreshTokenContext initialRefreshTokenCtx) {
+        return true; // TODO:mposolda
+    }
+
+    @Override
+    public RefreshToken generateRefreshToken(InitialRefreshTokenContext initialRefreshTokenCtx) {
+        ClientSessionContext clientSessionCtx = initialRefreshTokenCtx.clientSessionCtx();
+        TokenManager.AccessTokenResponseBuilder responseBuilder = initialRefreshTokenCtx.responseBuilder();
+        AccessToken accessToken = responseBuilder.getAccessToken();
+        AuthenticatedClientSessionModel clientSession = clientSessionCtx.getClientSession();
+
+        // TODO:mposolda put those 3 lines back to accessTokenResponseBuilder? Or not?
+        RefreshToken refreshToken = new RefreshToken(accessToken, initialRefreshTokenCtx.confirmation());
+        refreshToken.id(SecretGenerator.getInstance().generateSecureID());
+        refreshToken.issuedNow();
+
+        clientSession.setTimestamp(refreshToken.getIat().intValue());
+        UserSessionModel userSession = clientSession.getUserSession();
+        userSession.setLastSessionRefresh(refreshToken.getIat().intValue());
+        if (initialRefreshTokenCtx.offlineTokenRequested()) {
+            refreshToken.type(TokenUtil.TOKEN_TYPE_OFFLINE);
+            if (userSession.getRealm().isOfflineSessionMaxLifespanEnabled()) {
+                refreshToken.exp(getExpiration(clientSessionCtx, userSession,true));
+            }
+            responseBuilder.createOrUpdateOfflineSession();
+        } else {
+            refreshToken.exp(getExpiration(clientSessionCtx, userSession, false));
+        }
+        final ClientModel[] resquestedAudienceClients = clientSessionCtx.getAttribute(Constants.REQUESTED_AUDIENCE_CLIENTS, ClientModel[].class);
+        if (resquestedAudienceClients != null) {
+            refreshToken.getOtherClaims().put(Constants.REQUESTED_AUDIENCE, Arrays.stream(resquestedAudienceClients)
+                    .map(ClientModel::getClientId)
+                    .collect(Collectors.toSet()));
+        }
+
+        return refreshToken;
     }
 
     @Override
@@ -136,6 +181,23 @@ public class DefaultRefreshTokenProvider extends AbstractRefreshTokenProvider im
         responseBuilder.requestRefreshToken(oldRefreshToken);
 
         return responseBuilder;
+    }
+
+    private Long getExpiration(ClientSessionContext clientSessionCtx, UserSessionModel userSession, boolean offline) {
+        ClientModel client = clientSessionCtx.getClientSession().getClient();
+        RealmModel realm = client.getRealm();
+        long expiration = SessionExpirationUtils.calculateClientSessionIdleTimestamp(
+                offline, userSession.isRememberMe(),
+                TimeUnit.SECONDS.toMillis(clientSessionCtx.getClientSession().getTimestamp()),
+                realm, client);
+        long lifespan = SessionExpirationUtils.calculateClientSessionMaxLifespanTimestamp(
+                offline, userSession.isRememberMe(),
+                TimeUnit.SECONDS.toMillis(clientSessionCtx.getClientSession().getStarted()),
+                TimeUnit.SECONDS.toMillis(userSession.getStarted()),
+                realm, client);
+        expiration = lifespan > 0? Math.min(expiration, lifespan) : expiration;
+
+        return TimeUnit.MILLISECONDS.toSeconds(expiration);
     }
 
 }

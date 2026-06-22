@@ -1,9 +1,12 @@
 package org.keycloak.tests.oid4vc;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.keycloak.admin.client.resource.UserVerifiableCredentialResource;
+import org.keycloak.common.util.Time;
 import org.keycloak.protocol.oid4vc.model.CredentialIssuer;
 import org.keycloak.protocol.oid4vc.model.CredentialResponse;
 import org.keycloak.protocol.oid4vc.model.OID4VCAuthorizationDetail;
@@ -19,6 +22,12 @@ import org.keycloak.util.JsonSerialization;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import static org.keycloak.OID4VCConstants.CLAIM_NAME_VCT;
 
@@ -134,6 +143,122 @@ public class OID4VCRefreshCredentialTest extends OID4VCIssuerTestBase {
         assertEquals(issuedCred1.getExpiresAt(), issuedCred2.getExpiresAt());
         assertEquals(issuedCred1.getRevision(), issuedCred2.getRevision());
     }
+
+
+    /**
+     * Obtain authorization-code flow and obtain VC with access token.
+     * Then make sure that refresh token is successful even after user session is expired (EG. after 14 days)
+     **/
+    @Test
+    public void testRefreshAfterSessionExpired() throws Exception {
+        // Login
+        CredentialIssuer issuer = wallet.getIssuerMetadata(ctx);
+        AccessTokenResponse tokenResponse = authzCodeFlow(issuer);
+        assertTrue(tokenResponse.isSuccess(), "Access token exchange should succeed");
+
+        // Obtain credential
+        String accessToken1 = tokenResponse.getAccessToken();
+        String credentialIdentifier = ctx.getAuthorizedCredentialIdentifier();
+
+        CredentialResponse credResponse = wallet.credentialRequest(ctx, accessToken1)
+                .credentialIdentifier(credentialIdentifier)
+                .send().getCredentialResponse();
+        assertSuccessfulCredentialResponse(credResponse);
+
+        // Move time a 14 days forward (user session is expired already at this point)
+        timeOffSet.set(1209600);
+
+        // Refresh token
+        AccessTokenResponse refreshResponse = wallet.refreshRequest(ctx).send();
+        assertTrue(refreshResponse.isSuccess(), "Refresh token exchange should succeed");
+        String accessToken2 = refreshResponse.getAccessToken();
+
+        // Obtain another VC
+        credResponse = wallet.credentialRequest(ctx, accessToken2)
+                .credentialIdentifier(credentialIdentifier)
+                .send().getCredentialResponse();
+        assertSuccessfulCredentialResponse(credResponse);
+    }
+
+    /**
+     * Obtain authorization-code flow and obtain VC with access token.
+     * Then remove issued verifiable credential and try to refresh token. Refresh should fail due the issued VC revoked
+     **/
+    @Test
+    public void testRefreshFailsWhenIssuedCredentialRemoved() throws Exception {
+        // Login
+        CredentialIssuer issuer = wallet.getIssuerMetadata(ctx);
+        AccessTokenResponse tokenResponse = authzCodeFlow(issuer);
+        assertTrue(tokenResponse.isSuccess(), "Access token exchange should succeed");
+
+        // Obtain credential
+        String accessToken1 = tokenResponse.getAccessToken();
+        String credentialIdentifier = ctx.getAuthorizedCredentialIdentifier();
+
+        CredentialResponse credResponse = wallet.credentialRequest(ctx, accessToken1)
+                .credentialIdentifier(credentialIdentifier)
+                .send().getCredentialResponse();
+        assertSuccessfulCredentialResponse(credResponse);
+
+        // Single issued-credential should be present
+        UserVerifiableCredentialResource credResource = testRealm.admin().users().get(user.getId()).verifiableCredentials();
+        List<IssuedVerifiableCredentialRepresentation> issuedCreds1 = credResource.getIssuedCredentials();
+        assertEquals(1, issuedCreds1.size(), "Single issued credential should be stored");
+        IssuedVerifiableCredentialRepresentation issuedCred1 = issuedCreds1.get(0);
+
+        // Remove issued credential
+        credResource.revokeIssuedCredential(issuedCred1.getId());
+
+        // Try to refresh
+        AccessTokenResponse refreshResponse = wallet.refreshRequest(ctx).send();
+        assertFalse(refreshResponse.isSuccess(), "Refresh token exchange should fail");
+        assertNull(refreshResponse.getAccessToken());
+        // TODO:mposolda proper error (and maybe also error_description) check
+        assertEquals("Expected error TODO", refreshResponse.getError());
+        assertEquals("Expected error description TODO", refreshResponse.getErrorDescription());
+    }
+
+    /**
+     * Obtain authorization-code flow and obtain VC with access token.
+     * Then make sure that issued verifiable credential is expired and try to refresh token. Refresh should fail due the issued VC expired
+     **/
+    @Test
+    public void testRefreshFailsWhenIssuedCredentialExpired() throws Exception {
+        // Login
+        CredentialIssuer issuer = wallet.getIssuerMetadata(ctx);
+        AccessTokenResponse tokenResponse = authzCodeFlow(issuer);
+        assertTrue(tokenResponse.isSuccess(), "Access token exchange should succeed");
+
+        // Obtain credential
+        String accessToken1 = tokenResponse.getAccessToken();
+        String credentialIdentifier = ctx.getAuthorizedCredentialIdentifier();
+
+        CredentialResponse credResponse = wallet.credentialRequest(ctx, accessToken1)
+                .credentialIdentifier(credentialIdentifier)
+                .send().getCredentialResponse();
+        assertSuccessfulCredentialResponse(credResponse);
+
+        // Single issued-credential should be present
+        UserVerifiableCredentialResource credResource = testRealm.admin().users().get(user.getId()).verifiableCredentials();
+        List<IssuedVerifiableCredentialRepresentation> issuedCreds1 = credResource.getIssuedCredentials();
+        assertEquals(1, issuedCreds1.size(), "Single issued credential should be stored");
+        IssuedVerifiableCredentialRepresentation issuedCred1 = issuedCreds1.get(0);
+        long expiresAt = issuedCred1.getExpiresAt();
+
+        // Move time forward to the point when issued-credential is expired TODO:mposolda not 100% sure this is currect - maybe expiresAt is in milliseconds?
+        long timeOffset = expiresAt - Time.currentTime() + 10;
+        timeOffSet.set(Duration.ofSeconds(timeOffset));
+
+        // Try to refresh
+        AccessTokenResponse refreshResponse = wallet.refreshRequest(ctx).send();
+        assertFalse(refreshResponse.isSuccess(), "Refresh token exchange should fail");
+        assertNull(refreshResponse.getAccessToken());
+        // TODO:mposolda proper error (and maybe also error_description) check
+        assertEquals("Expected error TODO", refreshResponse.getError());
+        assertEquals("Expected error description TODO", refreshResponse.getErrorDescription());
+    }
+
+    // TODO:mposolda test the audience in access token, or do this as a follow-up?
 
 
     protected AccessTokenResponse authzCodeFlow(CredentialIssuer issuer) throws Exception {

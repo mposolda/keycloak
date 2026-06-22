@@ -1,13 +1,21 @@
 package org.keycloak.protocol.oidc.refresh;
 
 import org.keycloak.OAuthErrorException;
+import org.keycloak.models.ClientSessionContext;
 import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.provider.Provider;
+import org.keycloak.representations.RefreshToken;
 
 /**
  * Provider responsible for verification of refresh tokens and issuing of new refresh tokens
  */
 public interface RefreshTokenProvider extends Provider {
+
+    // TODO:mposolda javadoc (Triggered during initial issuance of refresh token)
+    boolean supports(InitialRefreshTokenContext initialRefreshTokenCtx);
+
+    // TODO:mposolda javadoc (Triggered during initial issuance of refresh token)
+    RefreshToken generateRefreshToken(InitialRefreshTokenContext initialRefreshTokenCtx);
 
     /**
      * @param ctx Context, which contains old refresh token and some other data

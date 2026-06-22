@@ -100,6 +100,8 @@ import org.keycloak.protocol.oidc.mappers.OIDCAccessTokenResponseMapper;
 import org.keycloak.protocol.oidc.mappers.OIDCIDTokenMapper;
 import org.keycloak.protocol.oidc.mappers.TokenIntrospectionTokenMapper;
 import org.keycloak.protocol.oidc.mappers.UserInfoTokenMapper;
+import org.keycloak.protocol.oidc.refresh.InitialRefreshTokenContext;
+import org.keycloak.protocol.oidc.refresh.RefreshTokenProvider;
 import org.keycloak.protocol.oidc.token.TokenPostProcessor;
 import org.keycloak.protocol.oidc.token.TokenPostProcessorContext;
 import org.keycloak.protocol.oidc.utils.OAuth2Code;
@@ -114,6 +116,7 @@ import org.keycloak.representations.JsonWebToken;
 import org.keycloak.representations.LogoutToken;
 import org.keycloak.representations.RefreshToken;
 import org.keycloak.representations.dpop.DPoP;
+import org.keycloak.services.CorsErrorResponseException;
 import org.keycloak.services.ErrorResponseException;
 import org.keycloak.services.Urls;
 import org.keycloak.services.managers.AuthenticationManager;
@@ -1142,8 +1145,8 @@ public class TokenManager {
             return this;
         }
 
-        public AccessTokenResponseBuilder refreshToken(RefreshToken refreshToken) {
-            this.refreshToken = refreshToken;
+        public AccessTokenResponseBuilder removeRefreshToken() {
+            this.refreshToken = null;
             return this;
         }
 
@@ -1204,27 +1207,22 @@ public class TokenManager {
         private void generateRefreshToken(boolean offlineTokenRequested) {
             AuthenticatedClientSessionModel clientSession = clientSessionCtx.getClientSession();
             AccessToken.Confirmation confirmation = getConfirmation(clientSession, accessToken);
-            refreshToken = new RefreshToken(accessToken, confirmation);
-            refreshToken.id(SecretGenerator.getInstance().generateSecureID());
-            refreshToken.issuedNow();
-            clientSession.setTimestamp(refreshToken.getIat().intValue());
-            UserSessionModel userSession = clientSession.getUserSession();
-            userSession.setLastSessionRefresh(refreshToken.getIat().intValue());
-            if (offlineTokenRequested) {
-                refreshToken.type(TokenUtil.TOKEN_TYPE_OFFLINE);
-                if (realm.isOfflineSessionMaxLifespanEnabled()) {
-                    refreshToken.exp(getExpiration(true));
-                }
-                createOrUpdateOfflineSession();
-            } else {
-                refreshToken.exp(getExpiration(false));
-            }
-            final ClientModel[] resquestedAudienceClients = clientSessionCtx.getAttribute(Constants.REQUESTED_AUDIENCE_CLIENTS, ClientModel[].class);
-            if (resquestedAudienceClients != null) {
-                refreshToken.getOtherClaims().put(Constants.REQUESTED_AUDIENCE, Arrays.stream(resquestedAudienceClients)
-                        .map(ClientModel::getClientId)
-                        .collect(Collectors.toSet()));
-            }
+
+            // TODO:mposolda introduce refreshTokenManager?
+            InitialRefreshTokenContext initialRefreshTokenContext = new InitialRefreshTokenContext(clientSessionCtx, this, offlineTokenRequested, confirmation);
+            RefreshTokenProvider refreshTokenProvider = session.getKeycloakSessionFactory()
+                    .getProviderFactoriesStream(RefreshTokenProvider.class)
+                    .sorted((f1, f2) -> f2.order() - f1.order())
+                    .map(f -> session.getProvider(RefreshTokenProvider.class, f.getId()))
+                    .filter(p -> p.supports(initialRefreshTokenContext))
+                    .findFirst()
+                    .orElseThrow(() -> {
+                        event.error(Errors.INVALID_REQUEST);
+                        return new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, "No provider available to generate refresh token", Response.Status.BAD_REQUEST);
+                    });
+
+            refreshToken = refreshTokenProvider.generateRefreshToken(initialRefreshTokenContext);
+
             Boolean bindOnlyRefreshToken = session.getAttributeOrDefault(DPoPUtil.DPOP_BINDING_ONLY_REFRESH_TOKEN_SESSION_ATTRIBUTE, false);
             if (bindOnlyRefreshToken) {
                 DPoP dPoP = session.getAttribute(DPoPUtil.DPOP_SESSION_ATTRIBUTE, DPoP.class);
@@ -1257,21 +1255,6 @@ public class TokenManager {
                                                          AccessToken accessToken) {
             final boolean isPublicClient = clientSession.getClient().isPublicClient();
             return isPublicClient ? accessToken.getConfirmation() : null;
-        }
-
-        private Long getExpiration(boolean offline) {
-            long expiration = SessionExpirationUtils.calculateClientSessionIdleTimestamp(
-                    offline, userSession.isRememberMe(),
-                    TimeUnit.SECONDS.toMillis(clientSessionCtx.getClientSession().getTimestamp()),
-                    realm, client);
-            long lifespan = SessionExpirationUtils.calculateClientSessionMaxLifespanTimestamp(
-                    offline, userSession.isRememberMe(),
-                    TimeUnit.SECONDS.toMillis(clientSessionCtx.getClientSession().getStarted()),
-                    TimeUnit.SECONDS.toMillis(userSession.getStarted()),
-                    realm, client);
-            expiration = lifespan > 0? Math.min(expiration, lifespan) : expiration;
-
-            return TimeUnit.MILLISECONDS.toSeconds(expiration);
         }
 
         public AccessTokenResponseBuilder generateIDToken() {
