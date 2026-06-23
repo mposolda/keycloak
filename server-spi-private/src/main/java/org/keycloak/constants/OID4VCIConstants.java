@@ -57,6 +57,9 @@ public final class OID4VCIConstants {
     // Attribute used in the credential-offer email, which is sent by the admin to the user
     public static final String EMAIL_TEMPLATE_ATTR_CREDENTIAL_SCOPE_DISPLAY_NAME = "credentialScopeDisplayName";
 
+    // Used for refresh-token used in OID4VCI
+    public static final String TOKEN_TYPE_REFRESH_OID4VCI = "Refresh-oid4vci";
+
     private OID4VCIConstants() {
     }
 }

@@ -35,10 +35,16 @@ public class RefreshToken extends AccessToken {
 
     public static final String ORIGINAL_AUD = "aud_x";
 
+    public static final String PROVIDER = "prov";
+
     @JsonProperty(ORIGINAL_AUD)
     @JsonSerialize(using = StringOrArraySerializer.class)
     @JsonDeserialize(using = StringOrArrayDeserializer.class)
     protected String[] originalAudience;
+
+    // Reference to refresh-token provider
+    @JsonProperty(PROVIDER)
+    private String provider;
 
     private RefreshToken() {
         type(TokenUtil.TOKEN_TYPE_REFRESH);
@@ -51,7 +57,7 @@ public class RefreshToken extends AccessToken {
      * @param confirmation optional confirmation parameter that might be processed during authentication but should not
      *                     always be included in the response
      */
-    public RefreshToken(AccessToken token, Confirmation confirmation) {
+    public RefreshToken(AccessToken token, Confirmation confirmation, String provider) {
         this();
         this.issuer = token.issuer;
         this.subject = token.subject;
@@ -63,6 +69,7 @@ public class RefreshToken extends AccessToken {
         this.scope = token.scope;
         this.authorizationDetails = token.authorizationDetails;
         this.confirmation = confirmation;
+        this.provider = provider; // TODO:mposolda whether to introduce new field "provider" or rather use existing field "type"? Using "type" might have some more side-effects (EG. changing methods in TokenManager.verifyRefreshToken etc)...
     }
 
     @Override
@@ -79,5 +86,9 @@ public class RefreshToken extends AccessToken {
 
     public String[] getOriginalAudience() {
         return originalAudience;
+    }
+
+    public String getProvider() {
+        return provider;
     }
 }

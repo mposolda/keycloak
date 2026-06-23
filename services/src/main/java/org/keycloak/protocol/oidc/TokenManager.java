@@ -137,6 +137,7 @@ import org.keycloak.util.TokenUtil;
 import org.jboss.logging.Logger;
 
 import static org.keycloak.OAuth2Constants.ORGANIZATION;
+import static org.keycloak.events.Details.REASON;
 import static org.keycloak.models.Constants.AUTHORIZATION_DETAILS_RESPONSE;
 import static org.keycloak.models.light.LightweightUserAdapter.isLightweightUser;
 import static org.keycloak.representations.IDToken.NONCE;
@@ -1209,19 +1210,26 @@ public class TokenManager {
             AccessToken.Confirmation confirmation = getConfirmation(clientSession, accessToken);
 
             // TODO:mposolda introduce refreshTokenManager?
-            InitialRefreshTokenContext initialRefreshTokenContext = new InitialRefreshTokenContext(clientSessionCtx, this, offlineTokenRequested, confirmation);
-            RefreshTokenProvider refreshTokenProvider = session.getKeycloakSessionFactory()
-                    .getProviderFactoriesStream(RefreshTokenProvider.class)
-                    .sorted((f1, f2) -> f2.order() - f1.order())
-                    .map(f -> session.getProvider(RefreshTokenProvider.class, f.getId()))
-                    .filter(p -> p.supports(initialRefreshTokenContext))
-                    .findFirst()
-                    .orElseThrow(() -> {
-                        event.error(Errors.INVALID_REQUEST);
-                        return new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, "No provider available to generate refresh token", Response.Status.BAD_REQUEST);
-                    });
+            InitialRefreshTokenContext initialRefreshTokenContext = new InitialRefreshTokenContext(clientSessionCtx, this, event, offlineTokenRequested, confirmation);
 
-            refreshToken = refreshTokenProvider.generateRefreshToken(initialRefreshTokenContext);
+            try {
+                RefreshTokenProvider refreshTokenProvider = session.getKeycloakSessionFactory()
+                        .getProviderFactoriesStream(RefreshTokenProvider.class)
+                        .sorted((f1, f2) -> f2.order() - f1.order())
+                        .map(f -> session.getProvider(RefreshTokenProvider.class, f.getId()))
+                        .filter(p -> p.supports(initialRefreshTokenContext))
+                        .findFirst()
+                        .orElseThrow(() -> {
+                            event.error(Errors.INVALID_REQUEST);
+                            return new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, "No provider available to generate refresh token", Response.Status.BAD_REQUEST);
+                        });
+
+                refreshToken = refreshTokenProvider.generateRefreshToken(initialRefreshTokenContext);
+            } catch (IllegalStateException ise) { // TODO:mposolda do we need better exception?
+                event.detail(REASON, ise.getMessage());
+                event.error(Errors.INVALID_REQUEST);
+                throw new ErrorResponseException(OAuthErrorException.INVALID_REQUEST, ise.getMessage(), Response.Status.BAD_REQUEST);
+            }
 
             Boolean bindOnlyRefreshToken = session.getAttributeOrDefault(DPoPUtil.DPOP_BINDING_ONLY_REFRESH_TOKEN_SESSION_ATTRIBUTE, false);
             if (bindOnlyRefreshToken) {
@@ -1237,7 +1245,7 @@ public class TokenManager {
         public void createOrUpdateOfflineSession() {
             UserSessionManager sessionManager = new UserSessionManager(session);
             if (!sessionManager.isOfflineTokenAllowed(clientSessionCtx)) {
-                event.detail(Details.REASON, "Offline tokens not allowed for the user or client");
+                event.detail(REASON, "Offline tokens not allowed for the user or client");
                 event.error(Errors.NOT_ALLOWED);
                 throw new ErrorResponseException(Errors.NOT_ALLOWED, "Offline tokens not allowed for the user or client", Response.Status.BAD_REQUEST);
             }

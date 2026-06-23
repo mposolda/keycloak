@@ -54,7 +54,7 @@ public class DefaultRefreshTokenProvider extends AbstractRefreshTokenProvider im
         AuthenticatedClientSessionModel clientSession = clientSessionCtx.getClientSession();
 
         // TODO:mposolda put those 3 lines back to accessTokenResponseBuilder? Or not?
-        RefreshToken refreshToken = new RefreshToken(accessToken, initialRefreshTokenCtx.confirmation());
+        RefreshToken refreshToken = new RefreshToken(accessToken, initialRefreshTokenCtx.confirmation(), DefaultRefreshTokenProviderFactory.PROVIDER_ID);
         refreshToken.id(SecretGenerator.getInstance().generateSecureID());
         refreshToken.issuedNow();
 

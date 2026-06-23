@@ -54,8 +54,10 @@ public class OID4VCUtil {
      * @param expectedCredentialScope expected credential scope
      * @param expectedClient expected client
      * @throws IllegalStateException in case that issued-credential not present or does not match with user, client or clientScope
+     * @return issued verifiable credential model (as long as it is found)
+     * @throws IllegalStateException in case that issued verifiable credential is not found (TODO:mposolda or is expired?)
      */
-    public static void checkIssuedVerifiableCredential(KeycloakSession session, UserModel user, String issuedCredentialId, CredentialScopeModel expectedCredentialScope, ClientModel expectedClient) {
+    public static IssuedVerifiableCredentialModel checkIssuedVerifiableCredential(KeycloakSession session, UserModel user, String issuedCredentialId, CredentialScopeModel expectedCredentialScope, ClientModel expectedClient) {
         if (issuedCredentialId == null) {
             throw new IllegalStateException("Issued credential ID not present");
         }
@@ -80,6 +82,8 @@ public class OID4VCUtil {
         if (!expectedCredentialScope.getId().equals(verifiableCredential.getClientScopeId())) {
             throw new IllegalStateException("Different client scope than client scope from issued-credential");
         }
+
+        return issuedCred.get();
     }
 
     public static List<IssuedVerifiableCredentialModel> getIssuedVerifiableCredentialsByUserAndClient(KeycloakSession session, UserModel user, ClientModel client) {

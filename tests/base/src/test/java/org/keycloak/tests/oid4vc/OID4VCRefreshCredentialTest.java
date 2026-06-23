@@ -5,16 +5,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.keycloak.admin.client.resource.ComponentsResource;
+import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UserVerifiableCredentialResource;
 import org.keycloak.common.util.Time;
+import org.keycloak.models.oid4vci.CredentialScopeModel;
 import org.keycloak.protocol.oid4vc.model.CredentialIssuer;
 import org.keycloak.protocol.oid4vc.model.CredentialResponse;
+import org.keycloak.protocol.oid4vc.model.CredentialScopeRepresentation;
 import org.keycloak.protocol.oid4vc.model.OID4VCAuthorizationDetail;
+import org.keycloak.representations.idm.ClientScopeRepresentation;
 import org.keycloak.representations.idm.oid4vc.IssuedVerifiableCredentialRepresentation;
 import org.keycloak.sdjwt.IssuerSignedJWT;
 import org.keycloak.sdjwt.vp.SdJwtVP;
 import org.keycloak.testframework.annotations.InjectUser;
 import org.keycloak.testframework.annotations.KeycloakIntegrationTest;
+import org.keycloak.testframework.annotations.TestSetup;
 import org.keycloak.testframework.realm.ManagedUser;
 import org.keycloak.testsuite.util.oauth.AccessTokenResponse;
 import org.keycloak.testsuite.util.oauth.AuthorizationEndpointResponse;
@@ -54,6 +60,19 @@ public class OID4VCRefreshCredentialTest extends OID4VCIssuerTestBase {
             "type", "credential_configuration_id", "credential_identifiers", "claims",
             // RFC 9396 §2.2 common authorization-details fields — any type MAY include these
             "locations", "actions", "datatypes", "identifier", "privileges");
+
+    @TestSetup
+    public void configureTestRealm() {
+        super.configureTestRealm();
+        RealmResource realmResource = testRealm.admin();
+        CredentialScopeRepresentation vcClientScope = realmResource.clientScopes().findAll()
+                .stream()
+                .filter(clientScope -> minimalJwtTypeCredentialScopeName.equals(clientScope.getName()))
+                .map(CredentialScopeRepresentation::new)
+                .findFirst().get();
+        vcClientScope.setExpiryInSeconds(CredentialScopeModel.VC_EXPIRY_IN_SECONDS_DEFAULT);
+        testRealm.admin().clientScopes().get(vcClientScope.getId()).update(vcClientScope);
+    }
 
     @BeforeEach
     void beforeEach() {
@@ -150,7 +169,7 @@ public class OID4VCRefreshCredentialTest extends OID4VCIssuerTestBase {
      * Then make sure that refresh token is successful even after user session is expired (EG. after 14 days)
      **/
     @Test
-    public void testRefreshAfterSessionExpired() throws Exception {
+    public void testRefreshSuccessAfterSessionExpired() throws Exception {
         // Login
         CredentialIssuer issuer = wallet.getIssuerMetadata(ctx);
         AccessTokenResponse tokenResponse = authzCodeFlow(issuer);
