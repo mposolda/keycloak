@@ -190,10 +190,24 @@ public class OID4VCRefreshCredentialTest extends OID4VCIssuerTestBase {
         // Refresh token
         AccessTokenResponse refreshResponse = wallet.refreshRequest(ctx).send();
         assertTrue(refreshResponse.isSuccess(), "Refresh token exchange should succeed");
-        String accessToken2 = refreshResponse.getAccessToken();
+        String accessTokenRefreshed = refreshResponse.getAccessToken();
 
         // Obtain another VC
-        credResponse = wallet.credentialRequest(ctx, accessToken2)
+        credResponse = wallet.credentialRequest(ctx, accessTokenRefreshed)
+                .credentialIdentifier(credentialIdentifier)
+                .send().getCredentialResponse();
+        assertSuccessfulCredentialResponse(credResponse);
+
+        // Move time 28 days forward and try 3rd refresh
+        timeOffSet.set(2419200);
+
+        // Refresh token
+        refreshResponse = wallet.refreshRequest(ctx).send();
+        assertTrue(refreshResponse.isSuccess(), "Refresh token exchange should succeed");
+        accessTokenRefreshed = refreshResponse.getAccessToken();
+
+        // Obtain another VC
+        credResponse = wallet.credentialRequest(ctx, accessTokenRefreshed)
                 .credentialIdentifier(credentialIdentifier)
                 .send().getCredentialResponse();
         assertSuccessfulCredentialResponse(credResponse);
@@ -276,6 +290,8 @@ public class OID4VCRefreshCredentialTest extends OID4VCIssuerTestBase {
         assertEquals("Expected error TODO", refreshResponse.getError());
         assertEquals("Expected error description TODO", refreshResponse.getErrorDescription());
     }
+
+    // TODO:mposolda test for refresh-token request with the "scope" parameter. When the oid4vci scope would be included, request shoul be OK. When request would not contain oid4vci scope, the refresh would fail...
 
     // TODO:mposolda test the audience in access token, or do this as a follow-up?
 

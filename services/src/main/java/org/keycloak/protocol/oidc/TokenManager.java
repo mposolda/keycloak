@@ -1594,7 +1594,8 @@ public class TokenManager {
         return Optional.ofNullable(refreshToken.getOtherClaims().get(Constants.REUSE_ID)).map(String::valueOf).orElse("");
     }
 
-    private void validateSelectedOrganization(KeycloakSession session, JsonWebToken token, UserModel user) {
+    // TODO:mposolda are organizations really needed for oid4vci token?
+    public void validateSelectedOrganization(KeycloakSession session, JsonWebToken token, UserModel user) {
         if (token == null || !Organizations.isEnabled(session)) {
             return;
         }

@@ -103,10 +103,11 @@ public class RefreshTokenGrantType extends OAuth2GrantTypeBase {
             res = responseBuilder.build();
 
             if (!responseBuilder.isOfflineToken()) {
-                UserSessionModel userSession = session.sessions().getUserSession(realm, res.getSessionState());
-                AuthenticatedClientSessionModel clientSession = userSession.getAuthenticatedClientSessionByClient(client.getId());
-                updateClientSession(clientSession);
-                updateUserSessionFromClientAuth(userSession);
+                // TODO:mposolda this should be uncommented and handled properly...
+//                UserSessionModel userSession = session.sessions().getUserSession(realm, res.getSessionState());
+//                AuthenticatedClientSessionModel clientSession = userSession.getAuthenticatedClientSessionByClient(client.getId());
+//                updateClientSession(clientSession);
+//                updateUserSessionFromClientAuth(userSession);
             }
         } catch (OAuthErrorException e) {
             logger.trace(e.getMessage(), e);
