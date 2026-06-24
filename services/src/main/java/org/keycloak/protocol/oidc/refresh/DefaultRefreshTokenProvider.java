@@ -1,21 +1,14 @@
 package org.keycloak.protocol.oidc.refresh;
 
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.UriInfo;
 
-import org.keycloak.OAuth2Constants;
 import org.keycloak.OAuthErrorException;
 import org.keycloak.common.ClientConnection;
-import org.keycloak.common.util.SecretGenerator;
-import org.keycloak.events.Details;
 import org.keycloak.events.EventBuilder;
 import org.keycloak.models.AuthenticatedClientSessionModel;
 import org.keycloak.models.ClientModel;
@@ -25,14 +18,11 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.utils.SessionExpirationUtils;
-import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper;
 import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.representations.AccessToken;
-import org.keycloak.representations.AuthorizationDetailsJSONRepresentation;
 import org.keycloak.representations.RefreshToken;
 import org.keycloak.util.TokenUtil;
 
-import static org.keycloak.models.Constants.AUTHORIZATION_DETAILS_RESPONSE;
 
 /**
  * Default refresh token provider. Requires valid user session, which is referenced in the refresh token, to be present in Keycloak storage

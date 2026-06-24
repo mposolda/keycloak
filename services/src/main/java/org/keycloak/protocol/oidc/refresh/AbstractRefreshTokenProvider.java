@@ -35,17 +35,15 @@ import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.organization.protocol.mappers.oidc.OrganizationScope;
-import org.keycloak.protocol.oid4vc.refresh.OID4VCIRefreshTokenProviderFactory;
 import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.representations.AuthorizationDetailsJSONRepresentation;
 import org.keycloak.representations.RefreshToken;
+import org.keycloak.util.TokenUtil;
 
 import org.jboss.logging.Logger;
-
-import org.keycloak.util.TokenUtil;
 
 import static org.keycloak.models.Constants.AUTHORIZATION_DETAILS_RESPONSE;
 

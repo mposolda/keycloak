@@ -1,7 +1,6 @@
 package org.keycloak.protocol.oidc.refresh;
 
 import org.keycloak.OAuthErrorException;
-import org.keycloak.models.ClientSessionContext;
 import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.provider.Provider;
 import org.keycloak.representations.RefreshToken;
