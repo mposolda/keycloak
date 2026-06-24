@@ -20,6 +20,7 @@ import org.keycloak.common.ClientConnection;
 import org.keycloak.common.Profile;
 import org.keycloak.common.VerificationException;
 import org.keycloak.common.util.Retry;
+import org.keycloak.common.util.SecretGenerator;
 import org.keycloak.events.Details;
 import org.keycloak.events.EventBuilder;
 import org.keycloak.models.AbstractKeycloakTransaction;
@@ -34,6 +35,7 @@ import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.organization.protocol.mappers.oidc.OrganizationScope;
+import org.keycloak.protocol.oid4vc.refresh.OID4VCIRefreshTokenProviderFactory;
 import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.TokenManager;
@@ -121,9 +123,6 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
         // recreate token.
         AccessToken newToken = tokenManager.createClientAccessToken(session, realm, authorizedClient, user, userSession, clientSessionCtx, userSession.isOffline());
 
-        // TODO:mposolda is it needed to validate refresh token expiration? Or is it already validated now?
-
-
         session.getContext().setUserSession(validation.userSession);
         AuthenticatedClientSessionModel clientSession = validation.clientSessionCtx.getClientSession();
         OIDCAdvancedConfigWrapper clientConfig = OIDCAdvancedConfigWrapper.fromClientModel(authorizedClient);
@@ -184,12 +183,19 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
         return responseBuilder;
     }
 
-    // TODO:mposolda should "TokenValidation" be moved as dedicated class or inside AbstractRefreshTokenProvider?
     protected abstract TokenManager.TokenValidation validateToken(KeycloakSession session, UriInfo uriInfo, ClientConnection connection, RealmModel realm,
                                                                   RefreshToken oldToken, HttpHeaders headers, String scope, ClientModel client,
                                                                   TokenManager tokenManager, EventBuilder event) throws OAuthErrorException;
 
-    protected Function<String, String> transformScopes(KeycloakSession session, Set<String> requestedScopes) {
+
+    protected RefreshToken createRefreshToken(AccessToken accessToken, AccessToken.Confirmation confirmation, String provider) {
+        RefreshToken refreshToken = new RefreshToken(accessToken, confirmation, provider);
+        refreshToken.id(SecretGenerator.getInstance().generateSecureID());
+        refreshToken.issuedNow();
+        return refreshToken;
+    }
+
+    private Function<String, String> transformScopes(KeycloakSession session, Set<String> requestedScopes) {
         return scope -> {
             if (requestedScopes.contains(scope)) {
                 return scope;
@@ -204,7 +210,7 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
         };
     }
 
-    protected void createTemporaryExclusiveLockForTokenRefreshOperation(KeycloakSession session, RefreshToken refreshToken, TokenManager tokenManager) {
+    private void createTemporaryExclusiveLockForTokenRefreshOperation(KeycloakSession session, RefreshToken refreshToken, TokenManager tokenManager) {
         String lockId = "refreshLock:" + refreshToken.getSessionId() + ":" + tokenManager.getReuseIdKey(refreshToken);
         Retry.executeWithBackoff((int iteration) -> {
             // This assumes that 60 seconds is the maximum time this operation will take
@@ -233,14 +239,14 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
     /**
      * Store information to identify early token refreshes of clients which stress the IAM system.
      */
-    protected void storeRefreshTimingInformation(EventBuilder event, RefreshToken refreshToken, AccessToken newToken) {
+    private void storeRefreshTimingInformation(EventBuilder event, RefreshToken refreshToken, AccessToken newToken) {
         long expirationAccessToken = newToken.getExp() - newToken.getIat();
         long ageOfRefreshToken = newToken.getIat() - refreshToken.getIat();
         event.detail(Details.ACCESS_TOKEN_EXPIRATION_TIME, Long.toString(expirationAccessToken));
         event.detail(Details.AGE_OF_REFRESH_TOKEN, Long.toString(ageOfRefreshToken));
     }
 
-    protected void validateTokenReuseForRefresh(KeycloakSession session, RealmModel realm, RefreshToken refreshToken,
+    private void validateTokenReuseForRefresh(KeycloakSession session, RealmModel realm, RefreshToken refreshToken,
                                               TokenManager.TokenValidation validation, TokenManager tokenManager) throws OAuthErrorException {
         if (realm.isRevokeRefreshToken()) {
             AuthenticatedClientSessionModel clientSession = validation.clientSessionCtx.getClientSession();

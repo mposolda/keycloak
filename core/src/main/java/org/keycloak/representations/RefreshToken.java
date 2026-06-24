@@ -69,7 +69,7 @@ public class RefreshToken extends AccessToken {
         this.scope = token.scope;
         this.authorizationDetails = token.authorizationDetails;
         this.confirmation = confirmation;
-        this.provider = provider; // TODO:mposolda whether to introduce new field "provider" or rather use existing field "type"? Using "type" might have some more side-effects (EG. changing methods in TokenManager.verifyRefreshToken etc)...
+        this.provider = provider;
     }
 
     @Override

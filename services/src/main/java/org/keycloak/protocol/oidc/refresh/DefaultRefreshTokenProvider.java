@@ -45,7 +45,7 @@ public class DefaultRefreshTokenProvider extends AbstractRefreshTokenProvider im
 
     @Override
     public boolean supports(InitialRefreshTokenContext initialRefreshTokenCtx) {
-        return true; // TODO:mposolda
+        return true;
     }
 
     @Override
@@ -55,10 +55,7 @@ public class DefaultRefreshTokenProvider extends AbstractRefreshTokenProvider im
         AccessToken accessToken = responseBuilder.getAccessToken();
         AuthenticatedClientSessionModel clientSession = clientSessionCtx.getClientSession();
 
-        // TODO:mposolda put those 3 lines back to accessTokenResponseBuilder? Or not?
-        RefreshToken refreshToken = new RefreshToken(accessToken, initialRefreshTokenCtx.confirmation(), DefaultRefreshTokenProviderFactory.PROVIDER_ID);
-        refreshToken.id(SecretGenerator.getInstance().generateSecureID());
-        refreshToken.issuedNow();
+        RefreshToken refreshToken = createRefreshToken(accessToken, initialRefreshTokenCtx.confirmation(), DefaultRefreshTokenProviderFactory.PROVIDER_ID);
 
         clientSession.setTimestamp(refreshToken.getIat().intValue());
         UserSessionModel userSession = clientSession.getUserSession();
@@ -84,8 +81,8 @@ public class DefaultRefreshTokenProvider extends AbstractRefreshTokenProvider im
 
     @Override
     public boolean supports(RefreshTokenContext ctx) {
-        // TODO: This would be changed...
-        return true;
+        RefreshToken refreshToken = ctx.oldRefreshToken();
+        return (TokenUtil.TOKEN_TYPE_REFRESH.equals(refreshToken.getType()) || TokenUtil.TOKEN_TYPE_OFFLINE.equals(refreshToken.getType()));
     }
 
     @Override

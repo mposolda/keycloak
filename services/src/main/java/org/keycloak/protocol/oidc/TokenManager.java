@@ -229,17 +229,6 @@ public class TokenManager {
             throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Unmatching clients", "Unmatching clients");
         }
 
-        // TODO:mposolda remove?
-//        validateSelectedOrganization(session, oldToken, user);
-//
-//        try {
-//            TokenVerifier.createWithoutSignature(oldToken)
-//                    .withChecks(NotBeforeCheck.forModel(realm), NotBeforeCheck.forModel(client), NotBeforeCheck.forModel(session, realm, user))
-//                    .verify();
-//        } catch (VerificationException e) {
-//            throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Stale token");
-//        }
-//
         if (userSession.isOffline() && !UserSessionUtil.isOfflineAccessGranted(session, clientSession)) {
             throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Offline session invalid because offline access not granted anymore");
         }
@@ -252,20 +241,6 @@ public class TokenManager {
         }
 
         ClientSessionContext clientSessionCtx = DefaultClientSessionContext.fromClientSessionAndScopeParameter(clientSession, oldTokenScope, session);
-
-        // TODO:mposolda remove?
-//        // Check user didn't revoke granted consent
-//        if (!verifyConsentStillAvailable(session, user, client, clientSession, oldTokenScope)) {
-//            throw new OAuthErrorException(OAuthErrorException.INVALID_SCOPE, "Client no longer has requested consent from user");
-//        }
-//
-//        if (oldToken.getNonce() != null) {
-//            clientSessionCtx.setAttribute(OIDCLoginProtocol.NONCE_PARAM, oldToken.getNonce());
-//        }
-//        clientSessionCtx.setAttribute(Constants.GRANT_TYPE, OAuth2Constants.REFRESH_TOKEN);
-//
-//        // recreate token.
-//        AccessToken newToken = createClientAccessToken(session, realm, client, user, userSession, clientSessionCtx, userSession.isOffline());
 
         return new TokenValidation(user, userSession, clientSessionCtx);
     }
@@ -1209,7 +1184,6 @@ public class TokenManager {
             AuthenticatedClientSessionModel clientSession = clientSessionCtx.getClientSession();
             AccessToken.Confirmation confirmation = getConfirmation(clientSession, accessToken);
 
-            // TODO:mposolda introduce refreshTokenManager?
             InitialRefreshTokenContext initialRefreshTokenContext = new InitialRefreshTokenContext(clientSessionCtx, this, event, offlineTokenRequested, confirmation);
 
             try {
@@ -1594,7 +1568,6 @@ public class TokenManager {
         return Optional.ofNullable(refreshToken.getOtherClaims().get(Constants.REUSE_ID)).map(String::valueOf).orElse("");
     }
 
-    // TODO:mposolda are organizations really needed for oid4vci token?
     public void validateSelectedOrganization(KeycloakSession session, JsonWebToken token, UserModel user) {
         if (token == null || !Organizations.isEnabled(session)) {
             return;

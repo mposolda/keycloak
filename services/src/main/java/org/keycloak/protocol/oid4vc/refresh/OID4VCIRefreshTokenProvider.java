@@ -76,7 +76,7 @@ public class OID4VCIRefreshTokenProvider extends AbstractRefreshTokenProvider im
     public boolean supports(InitialRefreshTokenContext initialRefreshTokenCtx) {
         ClientSessionContext clientSessionCtx = initialRefreshTokenCtx.clientSessionCtx();
 
-        // Supported only for authorization_code grant type TODO:mposolda should be refresh-token grant as well?
+        // Supported only for authorization_code grant type and refresh-token grant
         String grantType = clientSessionCtx.getAttribute(Constants.GRANT_TYPE, String.class);
         if (!AUTHORIZATION_CODE.equals(grantType) && !REFRESH_TOKEN.equals(grantType)) {
             return false;
@@ -95,15 +95,10 @@ public class OID4VCIRefreshTokenProvider extends AbstractRefreshTokenProvider im
         AuthenticatedClientSessionModel clientSession = clientSessionCtx.getClientSession();
         UserModel user = clientSession.getUserSession().getUser();
 
-        // TODO:mposolda trace
-        logger.infov("Generating refresh token for oid4vci. Realm: {0}, user: {1}, client: {2}", session.getContext().getRealm().getName(),
+        logger.tracev("Generating refresh token for oid4vci. Realm: {0}, user: {1}, client: {2}", session.getContext().getRealm().getName(),
                 user.getUsername(), session.getContext().getClient().getClientId());
 
-
-        // TODO:mposolda put those 3 lines back to accessTokenResponseBuilder? Or not?
-        RefreshToken refreshToken = new RefreshToken(accessToken, initialRefreshTokenCtx.confirmation(), OID4VCIRefreshTokenProviderFactory.PROVIDER_ID);
-        refreshToken.id(SecretGenerator.getInstance().generateSecureID());
-        refreshToken.issuedNow();
+        RefreshToken refreshToken = createRefreshToken(accessToken, initialRefreshTokenCtx.confirmation(), OID4VCIRefreshTokenProviderFactory.PROVIDER_ID);
 
         if (initialRefreshTokenCtx.offlineTokenRequested()) {
             throw new IllegalStateException("Unsupported to request offline access together with oid4vci credential");
@@ -111,7 +106,7 @@ public class OID4VCIRefreshTokenProvider extends AbstractRefreshTokenProvider im
             refreshToken.exp(getExpiration(clientSessionCtx, user));
         }
 
-        // TODO:mposolda is this ok? Probably yes...
+        // Likely should not need to support this for OID4VCI refresh tokens
         final ClientModel[] requestedAudienceClients = clientSessionCtx.getAttribute(Constants.REQUESTED_AUDIENCE_CLIENTS, ClientModel[].class);
         if (requestedAudienceClients != null) {
             throw new IllegalStateException("Unsupported to request audience clients together with oid4vci");
