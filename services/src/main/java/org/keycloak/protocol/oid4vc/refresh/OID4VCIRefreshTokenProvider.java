@@ -136,8 +136,9 @@ public class OID4VCIRefreshTokenProvider extends AbstractRefreshTokenProvider im
 
 
     @Override
-    public TokenManager.TokenValidation validateToken(KeycloakSession session, UriInfo uriInfo, ClientConnection connection, RealmModel realm,
-                                                      RefreshToken oldToken, HttpHeaders headers, String scope, ClientModel client, TokenManager tokenManager) throws OAuthErrorException {
+    protected TokenManager.TokenValidation validateToken(KeycloakSession session, UriInfo uriInfo, ClientConnection connection, RealmModel realm,
+                                                         RefreshToken oldToken, HttpHeaders headers, String scope, ClientModel client,
+                                                         TokenManager tokenManager, EventBuilder event) throws OAuthErrorException {
         List<AuthorizationDetailsJSONRepresentation> authzDetails = oldToken.getAuthorizationDetails();
         if (authzDetails == null || authzDetails.isEmpty()) {
             throw new OAuthErrorException("Authorization details not found in the old refresh token");
@@ -145,8 +146,13 @@ public class OID4VCIRefreshTokenProvider extends AbstractRefreshTokenProvider im
         OID4VCAuthorizationDetail oid4vcAuthzDetail = getOid4vcAuthzDetail(authzDetails);
 
         // Find user
-        UserModel user = session.users().getUserById(realm, oldToken.getSubject());
-        // TODO:mposolda validate user exists and is enabled (See TokenManager.validateToken)
+        UserModel user = getUser(realm, oldToken);
+        if (user == null) {
+            throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Invalid refresh token", "Unknown user");
+        }
+        if (!user.isEnabled()) {
+            throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "User disabled", "User disabled");
+        }
 
         // Create transient sessions
         RootAuthenticationSessionModel rootAuthSession = new AuthenticationSessionManager(session).createAuthenticationSession(realm, false);
@@ -157,29 +163,30 @@ public class OID4VCIRefreshTokenProvider extends AbstractRefreshTokenProvider im
         authSession.setClientNote(OIDCLoginProtocol.ISSUER, Urls.realmIssuer(session.getContext().getUri().getBaseUri(), realm.getName()));
         authSession.setClientNote(OIDCLoginProtocol.SCOPE_PARAM, scope);
 
-        // TODO:mposolda it should not be "ServiceAccountConstants.CLIENT_AUTH"
         UserSessionModel userSession = new UserSessionManager(session).createUserSession(authSession.getParentSession().getId(), realm, user, user.getUsername(),
-                connection.getRemoteHost(), ServiceAccountConstants.CLIENT_AUTH, false, null, null, TRANSIENT);
-        // TODO:mposolda uncomment and put "event" as some argument to the method...
-        // event.session(userSession);
+                connection.getRemoteHost(), "oid4vci-refresh-token", false, null, null, TRANSIENT);
+
+        event.session(userSession);
 
         AuthenticationManager.setClientScopesInSession(session, authSession);
         ClientSessionContext clientSessionCtx = TokenManager.attachAuthenticationSession(session, userSession, authSession);
         clientSessionCtx.setAttribute(Constants.GRANT_TYPE, OAuth2Constants.REFRESH_TOKEN);
-
-        // TODO:mposolda add note "authorizationDetails" to the clientSessionCtx?
-
 
         CredentialScopeModel credentialScopeModel = CredentialScopeUtils.findCredentialScopeModelByConfigurationId(session.getContext().getRealm(), clientSessionCtx::getClientScopesStream, oid4vcAuthzDetail.getCredentialConfigurationId());
         if (credentialScopeModel == null) {
             throw new IllegalStateException("Not found credential scope model in current clientSessionCtx with credential configuration id: " + oid4vcAuthzDetail.getCredentialConfigurationId());
         }
 
-        IssuedVerifiableCredentialModel issuedVerifiableCredentialModel = OID4VCUtil.checkIssuedVerifiableCredential(session, user, oid4vcAuthzDetail.getIssuedCredentialId(), credentialScopeModel, clientSessionCtx.getClientSession().getClient());
+        OID4VCUtil.checkIssuedVerifiableCredential(session, user, oid4vcAuthzDetail.getIssuedCredentialId(), credentialScopeModel, clientSessionCtx.getClientSession().getClient());
 
         // TODO:mposolda is it needed to validate refresh token expiration? Or is it already validated now?
 
         return new TokenManager.TokenValidation(user, userSession, clientSessionCtx);
+    }
+
+    // Might be eventually overriden for the scenarios where user not available in Keycloak DB
+    protected UserModel getUser(RealmModel realm, RefreshToken oldToken) {
+        return session.users().getUserById(realm, oldToken.getSubject());
     }
 
 

@@ -92,14 +92,14 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
                     .collect(Collectors.joining(" "));
         }
 
-        TokenManager.TokenValidation validation = validateToken(session, session.getContext().getUri(), ctx.connection(), realm, oldRefreshToken, ctx.headers(), oldTokenScope, authorizedClient, tokenManager);
+        TokenManager.TokenValidation validation = validateToken(session, session.getContext().getUri(), ctx.connection(), realm, oldRefreshToken, ctx.headers(),
+                                                                oldTokenScope, authorizedClient, tokenManager, event);
         UserModel user = validation.user;
         ClientSessionContext clientSessionCtx = validation.clientSessionCtx;
         UserSessionModel userSession = validation.userSession;
 
         tokenManager.validateSelectedOrganization(session, oldRefreshToken, user);
 
-        // TODO:mposolda this is same as snippet in TokenManager. Probably should be dedicated method on TokenManager?
         try {
             TokenVerifier.createWithoutSignature(oldRefreshToken)
                     .withChecks(TokenManager.NotBeforeCheck.forModel(realm), TokenManager.NotBeforeCheck.forModel(authorizedClient), TokenManager.NotBeforeCheck.forModel(session, realm, user))
@@ -185,8 +185,9 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
     }
 
     // TODO:mposolda should "TokenValidation" be moved as dedicated class or inside AbstractRefreshTokenProvider?
-    public abstract TokenManager.TokenValidation validateToken(KeycloakSession session, UriInfo uriInfo, ClientConnection connection, RealmModel realm,
-                                                      RefreshToken oldToken, HttpHeaders headers, String scope, ClientModel client, TokenManager tokenManager) throws OAuthErrorException;
+    protected abstract TokenManager.TokenValidation validateToken(KeycloakSession session, UriInfo uriInfo, ClientConnection connection, RealmModel realm,
+                                                                  RefreshToken oldToken, HttpHeaders headers, String scope, ClientModel client,
+                                                                  TokenManager tokenManager, EventBuilder event) throws OAuthErrorException;
 
     protected Function<String, String> transformScopes(KeycloakSession session, Set<String> requestedScopes) {
         return scope -> {

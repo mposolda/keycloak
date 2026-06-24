@@ -89,7 +89,9 @@ public class DefaultRefreshTokenProvider extends AbstractRefreshTokenProvider im
     }
 
     @Override
-    public TokenManager.TokenValidation validateToken(KeycloakSession session, UriInfo uriInfo, ClientConnection connection, RealmModel realm, RefreshToken oldToken, HttpHeaders headers, String scope, ClientModel client, TokenManager tokenManager) throws OAuthErrorException {
+    protected TokenManager.TokenValidation validateToken(KeycloakSession session, UriInfo uriInfo, ClientConnection connection, RealmModel realm,
+                                                      RefreshToken oldToken, HttpHeaders headers, String scope, ClientModel client,
+                                                      TokenManager tokenManager, EventBuilder event) throws OAuthErrorException {
         return tokenManager.validateToken(session, session.getContext().getUri(), connection, realm, oldToken, headers, scope);
     }
 
