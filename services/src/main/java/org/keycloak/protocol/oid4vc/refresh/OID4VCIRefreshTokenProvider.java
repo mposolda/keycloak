@@ -117,15 +117,28 @@ public class OID4VCIRefreshTokenProvider extends AbstractRefreshTokenProvider im
             throw new IllegalStateException("Unsupported to request audience clients together with oid4vci");
         }
 
-        // TODO:mposolda could this be just hardcoded to "transient"? Should set also sessionId of refreshToken to null?
-        TokenContextEncoderProvider encoder = session.getProvider(TokenContextEncoderProvider.class);
-        if (encoder.getTokenContextFromTokenId(responseBuilder.getAccessToken().getId()).getSessionType() == AccessTokenContext.SessionType.TRANSIENT) {
-            // transient sessions do not add the session ID to the token
-            responseBuilder.getAccessToken().setSessionId(null);
+        // Not reference to the sessionId should be within refresh-token or access-token. As userSession might be transient user session at this point
+        if (shouldUseTransientSession(responseBuilder.getAccessToken())) {
+            refreshToken.setSessionId(null);
             initialRefreshTokenCtx.event().session((String) null);
         }
 
+        decorateAccessToken(responseBuilder.getAccessToken());
+
         return refreshToken;
+    }
+
+    private void decorateAccessToken(AccessToken accessToken) {
+        if (shouldUseTransientSession(accessToken)) {
+            accessToken.setSessionId(null);
+        }
+        // TODO: Should possibly update "aud" of the access token to Keycloak issuer URL. Other updates?
+    }
+
+    // This might be possibly updated to always return true. As sessionId is not needed on refresh-token nor access-token even on the initial issuance (during authorization_code grant)
+    private boolean shouldUseTransientSession(AccessToken accessToken) {
+        TokenContextEncoderProvider encoder = session.getProvider(TokenContextEncoderProvider.class);
+        return (encoder.getTokenContextFromTokenId(accessToken.getId()).getSessionType() == AccessTokenContext.SessionType.TRANSIENT);
     }
 
     @Override
@@ -178,8 +191,6 @@ public class OID4VCIRefreshTokenProvider extends AbstractRefreshTokenProvider im
         }
 
         OID4VCUtil.checkIssuedVerifiableCredential(session, user, oid4vcAuthzDetail.getIssuedCredentialId(), credentialScopeModel, clientSessionCtx.getClientSession().getClient());
-
-        // TODO:mposolda is it needed to validate refresh token expiration? Or is it already validated now?
 
         return new TokenManager.TokenValidation(user, userSession, clientSessionCtx);
     }
