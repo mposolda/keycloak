@@ -155,13 +155,11 @@ public class TokenManager {
         public final UserModel user;
         public final UserSessionModel userSession;
         public final ClientSessionContext clientSessionCtx;
-        public final AccessToken newToken;
 
-        public TokenValidation(UserModel user, UserSessionModel userSession, ClientSessionContext clientSessionCtx, AccessToken newToken) {
+        public TokenValidation(UserModel user, UserSessionModel userSession, ClientSessionContext clientSessionCtx) {
             this.user = user;
             this.userSession = userSession;
             this.clientSessionCtx = clientSessionCtx;
-            this.newToken = newToken;
         }
     }
 
@@ -231,16 +229,17 @@ public class TokenManager {
             throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Unmatching clients", "Unmatching clients");
         }
 
-        validateSelectedOrganization(session, oldToken, user);
-
-        try {
-            TokenVerifier.createWithoutSignature(oldToken)
-                    .withChecks(NotBeforeCheck.forModel(realm), NotBeforeCheck.forModel(client), NotBeforeCheck.forModel(session, realm, user))
-                    .verify();
-        } catch (VerificationException e) {
-            throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Stale token");
-        }
-
+        // TODO:mposolda remove?
+//        validateSelectedOrganization(session, oldToken, user);
+//
+//        try {
+//            TokenVerifier.createWithoutSignature(oldToken)
+//                    .withChecks(NotBeforeCheck.forModel(realm), NotBeforeCheck.forModel(client), NotBeforeCheck.forModel(session, realm, user))
+//                    .verify();
+//        } catch (VerificationException e) {
+//            throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Stale token");
+//        }
+//
         if (userSession.isOffline() && !UserSessionUtil.isOfflineAccessGranted(session, clientSession)) {
             throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Offline session invalid because offline access not granted anymore");
         }
@@ -254,20 +253,21 @@ public class TokenManager {
 
         ClientSessionContext clientSessionCtx = DefaultClientSessionContext.fromClientSessionAndScopeParameter(clientSession, oldTokenScope, session);
 
-        // Check user didn't revoke granted consent
-        if (!verifyConsentStillAvailable(session, user, client, clientSession, oldTokenScope)) {
-            throw new OAuthErrorException(OAuthErrorException.INVALID_SCOPE, "Client no longer has requested consent from user");
-        }
+        // TODO:mposolda remove?
+//        // Check user didn't revoke granted consent
+//        if (!verifyConsentStillAvailable(session, user, client, clientSession, oldTokenScope)) {
+//            throw new OAuthErrorException(OAuthErrorException.INVALID_SCOPE, "Client no longer has requested consent from user");
+//        }
+//
+//        if (oldToken.getNonce() != null) {
+//            clientSessionCtx.setAttribute(OIDCLoginProtocol.NONCE_PARAM, oldToken.getNonce());
+//        }
+//        clientSessionCtx.setAttribute(Constants.GRANT_TYPE, OAuth2Constants.REFRESH_TOKEN);
+//
+//        // recreate token.
+//        AccessToken newToken = createClientAccessToken(session, realm, client, user, userSession, clientSessionCtx, userSession.isOffline());
 
-        if (oldToken.getNonce() != null) {
-            clientSessionCtx.setAttribute(OIDCLoginProtocol.NONCE_PARAM, oldToken.getNonce());
-        }
-        clientSessionCtx.setAttribute(Constants.GRANT_TYPE, OAuth2Constants.REFRESH_TOKEN);
-
-        // recreate token.
-        AccessToken newToken = createClientAccessToken(session, realm, client, user, userSession, clientSessionCtx, userSession.isOffline());
-
-        return new TokenValidation(user, userSession, clientSessionCtx, newToken);
+        return new TokenValidation(user, userSession, clientSessionCtx);
     }
 
     public static boolean isUserValid(KeycloakSession session, RealmModel realm, AccessToken token, UserModel user) {

@@ -15,21 +15,27 @@ import jakarta.ws.rs.core.UriInfo;
 
 import org.keycloak.OAuth2Constants;
 import org.keycloak.OAuthErrorException;
+import org.keycloak.TokenVerifier;
 import org.keycloak.common.ClientConnection;
 import org.keycloak.common.Profile;
+import org.keycloak.common.VerificationException;
 import org.keycloak.common.util.Retry;
 import org.keycloak.events.Details;
 import org.keycloak.events.EventBuilder;
 import org.keycloak.models.AbstractKeycloakTransaction;
 import org.keycloak.models.AuthenticatedClientSessionModel;
 import org.keycloak.models.ClientModel;
+import org.keycloak.models.ClientSessionContext;
 import org.keycloak.models.Constants;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.UserModel;
+import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.organization.protocol.mappers.oidc.OrganizationScope;
 import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper;
+import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.representations.AccessToken;
 import org.keycloak.representations.AuthorizationDetailsJSONRepresentation;
@@ -87,6 +93,36 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
         }
 
         TokenManager.TokenValidation validation = validateToken(session, session.getContext().getUri(), ctx.connection(), realm, oldRefreshToken, ctx.headers(), oldTokenScope, authorizedClient, tokenManager);
+        UserModel user = validation.user;
+        ClientSessionContext clientSessionCtx = validation.clientSessionCtx;
+        UserSessionModel userSession = validation.userSession;
+
+        tokenManager.validateSelectedOrganization(session, oldRefreshToken, user);
+
+        // TODO:mposolda this is same as snippet in TokenManager. Probably should be dedicated method on TokenManager?
+        try {
+            TokenVerifier.createWithoutSignature(oldRefreshToken)
+                    .withChecks(TokenManager.NotBeforeCheck.forModel(realm), TokenManager.NotBeforeCheck.forModel(authorizedClient), TokenManager.NotBeforeCheck.forModel(session, realm, user))
+                    .verify();
+        } catch (VerificationException e) {
+            throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Stale token");
+        }
+
+        // Check user didn't revoke granted consent
+        if (!TokenManager.verifyConsentStillAvailable(session, user, authorizedClient, clientSessionCtx.getClientSession(), oldTokenScope)) {
+            throw new OAuthErrorException(OAuthErrorException.INVALID_SCOPE, "Client no longer has requested consent from user");
+        }
+
+        if (oldRefreshToken.getNonce() != null) {
+            clientSessionCtx.setAttribute(OIDCLoginProtocol.NONCE_PARAM, oldRefreshToken.getNonce());
+        }
+        clientSessionCtx.setAttribute(Constants.GRANT_TYPE, OAuth2Constants.REFRESH_TOKEN);
+
+        // recreate token.
+        AccessToken newToken = tokenManager.createClientAccessToken(session, realm, authorizedClient, user, userSession, clientSessionCtx, userSession.isOffline());
+
+        // TODO:mposolda is it needed to validate refresh token expiration? Or is it already validated now?
+
 
         session.getContext().setUserSession(validation.userSession);
         AuthenticatedClientSessionModel clientSession = validation.clientSessionCtx.getClientSession();
@@ -102,7 +138,7 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
         event.user(validation.userSession.getUser());
 
         if (oldRefreshToken.getAuthorization() != null) {
-            validation.newToken.setAuthorization(oldRefreshToken.getAuthorization());
+            newToken.setAuthorization(oldRefreshToken.getAuthorization());
         }
 
         final Collection<String> requestedAud = (Collection<String>) oldRefreshToken.getOtherClaims().get(Constants.REQUESTED_AUDIENCE);
@@ -117,12 +153,12 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
         validation.clientSessionCtx.setAttribute(OAuth2Constants.RESOURCE, ctx.resourceParameter());
 
         TokenManager.AccessTokenResponseBuilder responseBuilder = tokenManager.responseBuilder(realm, authorizedClient, event, session,
-                validation.userSession, validation.clientSessionCtx).offlineToken( TokenUtil.TOKEN_TYPE_OFFLINE.equals(oldRefreshToken.getType())).accessToken(validation.newToken);
+                validation.userSession, validation.clientSessionCtx).offlineToken( TokenUtil.TOKEN_TYPE_OFFLINE.equals(oldRefreshToken.getType())).accessToken(newToken);
 
         // Copy authorization_details from refresh token to new access token and to accessTokenResponse (if present)
         List<AuthorizationDetailsJSONRepresentation> authorizationDetails = oldRefreshToken.getAuthorizationDetails();
         if (authorizationDetails != null) {
-            validation.newToken.setAuthorizationDetails(authorizationDetails);
+            newToken.setAuthorizationDetails(authorizationDetails);
             validation.clientSessionCtx.setAttribute(AUTHORIZATION_DETAILS_RESPONSE, authorizationDetails);
         }
 
@@ -131,9 +167,9 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
             responseBuilder.generateRefreshToken(oldRefreshToken, clientSession);
         }
 
-        if (validation.newToken.getAuthorization() != null
+        if (newToken.getAuthorization() != null
                 && clientConfig.isUseRefreshToken()) {
-            responseBuilder.getRefreshToken().setAuthorization(validation.newToken.getAuthorization());
+            responseBuilder.getRefreshToken().setAuthorization(newToken.getAuthorization());
         }
 
         String scopeParam = clientSession.getNote(OAuth2Constants.SCOPE);
@@ -141,7 +177,7 @@ public abstract class AbstractRefreshTokenProvider implements RefreshTokenProvid
             responseBuilder.generateIDToken().generateAccessTokenHash();
         }
 
-        storeRefreshTimingInformation(event, oldRefreshToken, validation.newToken);
+        storeRefreshTimingInformation(event, oldRefreshToken, newToken);
 
         responseBuilder.requestRefreshToken(oldRefreshToken);
 

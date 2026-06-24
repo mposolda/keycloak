@@ -177,33 +177,9 @@ public class OID4VCIRefreshTokenProvider extends AbstractRefreshTokenProvider im
 
         IssuedVerifiableCredentialModel issuedVerifiableCredentialModel = OID4VCUtil.checkIssuedVerifiableCredential(session, user, oid4vcAuthzDetail.getIssuedCredentialId(), credentialScopeModel, clientSessionCtx.getClientSession().getClient());
 
-        tokenManager.validateSelectedOrganization(session, oldToken, user);
-
-        // TODO:mposolda this is same as snippet in TokenManager. Probably should be dedicated method on TokenManager?
-        try {
-            TokenVerifier.createWithoutSignature(oldToken)
-                    .withChecks(TokenManager.NotBeforeCheck.forModel(realm), TokenManager.NotBeforeCheck.forModel(client), TokenManager.NotBeforeCheck.forModel(session, realm, user))
-                    .verify();
-        } catch (VerificationException e) {
-            throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Stale token");
-        }
-
-        // Check user didn't revoke granted consent
-        if (!TokenManager.verifyConsentStillAvailable(session, user, client, clientSessionCtx.getClientSession(), scope)) {
-            throw new OAuthErrorException(OAuthErrorException.INVALID_SCOPE, "Client no longer has requested consent from user");
-        }
-
-        if (oldToken.getNonce() != null) {
-            clientSessionCtx.setAttribute(OIDCLoginProtocol.NONCE_PARAM, oldToken.getNonce());
-        }
-        clientSessionCtx.setAttribute(Constants.GRANT_TYPE, OAuth2Constants.REFRESH_TOKEN);
-
-        // recreate token.
-        AccessToken newToken = tokenManager.createClientAccessToken(session, realm, client, user, userSession, clientSessionCtx, userSession.isOffline());
-
         // TODO:mposolda is it needed to validate refresh token expiration? Or is it already validated now?
 
-        return new TokenManager.TokenValidation(user, userSession, clientSessionCtx, newToken);
+        return new TokenManager.TokenValidation(user, userSession, clientSessionCtx);
     }
 
 
