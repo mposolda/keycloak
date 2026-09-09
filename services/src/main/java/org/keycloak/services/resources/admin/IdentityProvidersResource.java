@@ -37,6 +37,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 
+import org.jboss.logging.Logger;
+
 import org.keycloak.broker.provider.IdentityProvider;
 import org.keycloak.broker.provider.IdentityProviderFactory;
 import org.keycloak.broker.social.SocialIdentityProvider;
@@ -85,6 +87,8 @@ import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
  */
 @Extension(name = KeycloakOpenAPI.Profiles.ADMIN, value = "")
 public class IdentityProvidersResource {
+
+    protected static final Logger logger = Logger.getLogger(IdentityProvidersResource.class);
 
     private final RealmModel realm;
     private final KeycloakSession session;
@@ -291,6 +295,10 @@ public class IdentityProvidersResource {
 
             if (message == null) {
                 message = "Invalid request";
+            }
+
+            if (logger.isDebugEnabled()) {
+                logger.error(message, e);
             }
 
             throw ErrorResponse.error(message, BAD_REQUEST);
